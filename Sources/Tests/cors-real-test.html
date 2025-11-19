@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Teste CORS Dext</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        button { padding: 10px; margin: 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        #results { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Teste CORS Dext Framework</h1>
+    <p><strong>Origem:</strong> <span id="origin"></span></p>
+    <p><strong>Destino:</strong> http://localhost:8080</p>
+    
+    <button onclick="testarCors()">Testar CORS</button>
+    <button onclick="testarPreflight()">Testar Preflight</button>
+    
+    <div id="results"></div>
+
+    <script>
+        document.getElementById('origin').textContent = window.location.origin;
+        
+        function log(mensagem, erro = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = erro ? 'error' : 'success';
+            div.textContent = `${new Date().toLocaleTimeString()} - ${mensagem}`;
+            results.appendChild(div);
+        }
+
+        async function testarCors() {
+            try {
+                log('Enviando request cross-origin...');
+                const response = await fetch('http://localhost:8080/cors-test');
+                const corsHeader = response.headers.get('access-control-allow-origin');
+                const data = await response.json();
+                log(`SUCESSO! Header CORS: ${corsHeader}`);
+            } catch (error) {
+                log(`ERRO: ${error.message}`, true);
+            }
+        }
+
+        async function testarPreflight() {
+            try {
+                log('Enviando preflight OPTIONS...');
+                const response = await fetch('http://localhost:8080/cors-test', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+                const allowOrigin = response.headers.get('access-control-allow-origin');
+                const allowMethods = response.headers.get('access-control-allow-methods');
+                log(`PREFLIGHT! Status: ${response.status} | Allow-Origin: ${allowOrigin} | Methods: ${allowMethods}`);
+            } catch (error) {
+                log(`ERRO PREFLIGHT: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>

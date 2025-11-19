@@ -1,0 +1,68 @@
+package Dext.Core;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS ON}
+{$RANGECHECKS ON}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  IndySystem,
+  IndyProtocols,
+  IndyCore,
+  TextEditor.Delphi.Runtime;
+
+contains
+  Dext.DI.Interfaces in 'Dext.DI.Interfaces.pas',
+  Dext.DI.Core in 'Dext.DI.Core.pas',
+  Dext.Http.Interfaces in 'Dext.Http.Interfaces.pas',
+  Dext.Http.Indy.Server in 'Dext.Http.Indy.Server.pas',
+  Dext.DI.Extensions in 'Dext.DI.Extensions.pas',
+  Dext.DI.Comparers in 'Dext.DI.Comparers.pas',
+  Dext.Http.Core in 'Dext.Http.Core.pas',
+  Dext.Http.Middleware in 'Dext.Http.Middleware.pas',
+  Dext.Http.Indy in 'Dext.Http.Indy.pas',
+  Dext.WebHost in 'Dext.WebHost.pas',
+  Dext.Http.Pipeline in 'Dext.Http.Pipeline.pas',
+  Dext.Http.Injection in 'Dext.Http.Injection.pas',
+  Dext.Http.Routing in 'Dext.Http.Routing.pas',
+  Dext.Http.Cors in 'Dext.Http.Cors.pas',
+  Dext.Http.RoutingMiddleware in 'Dext.Http.RoutingMiddleware.pas',
+  Dext.Utils in 'Dext.Utils.pas',
+  Dext.Json in 'Dext.Json.pas',
+  JsonDataObjects in 'Drivers\JsonDataObjects.pas',
+  Dext.Core.ModelBinding in 'Dext.Core.ModelBinding.pas',
+  Dext.Core.ModelBinding.Extensions in 'Dext.Core.ModelBinding.Extensions.pas',
+  Dext.Core.Routing in 'Dext.Core.Routing.pas',
+  Dext.Core.WebApplication in 'Dext.Core.WebApplication.pas',
+  Dext.Core.ControllerScanner in 'Dext.Core.ControllerScanner.pas',
+  Dext.Core.Controllers in 'Dext.Core.Controllers.pas',
+  Dext.Core.HandlerInvoker in 'Dext.Core.HandlerInvoker.pas',
+  Dext.Json.Driver.JsonDataObjects in 'Drivers\Dext.Json.Driver.JsonDataObjects.pas',
+  Dext.Json.Driver.SystemJson in 'Drivers\Dext.Json.Driver.SystemJson.pas',
+  Dext.Json.Types in 'Dext.Json.Types.pas';
+
+end.
+

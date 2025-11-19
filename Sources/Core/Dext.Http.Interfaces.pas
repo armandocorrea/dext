@@ -1,0 +1,119 @@
+﻿unit Dext.Http.Interfaces;
+
+interface
+
+uses
+  System.Classes,
+  System.Rtti,
+  System.SysUtils,
+  System.Generics.Collections,
+  Dext.DI.Interfaces;
+
+type
+  IHttpContext = interface;
+  IHttpRequest = interface;
+  IHttpResponse = interface;
+  IApplicationBuilder = interface;
+  IWebHost = interface;
+  IWebHostBuilder = interface;
+
+  TRequestDelegate = reference to procedure(AContext: IHttpContext);
+
+  IHttpRequest = interface
+    ['{C3E8F1A2-4B7D-4A9C-9E2B-8F6D5A1C3E7F}']
+    function GetMethod: string;
+    function GetPath: string;
+    function GetQuery: TStrings;
+    function GetBody: TStream;
+    function GetRouteParams: TDictionary<string, string>;
+    function GetHeaders: TDictionary<string, string>;
+    property Method: string read GetMethod;
+    property Path: string read GetPath;
+    property Query: TStrings read GetQuery;
+    property Body: TStream read GetBody;
+    property RouteParams: TDictionary<string, string> read GetRouteParams;
+    property Headers: TDictionary<string, string> read GetHeaders;
+  end;
+
+  IHttpResponse = interface
+    ['{D4F9E2A1-5B8C-4D3A-8E7B-6F5A2D1C9E8F}']
+    procedure SetStatusCode(AValue: Integer);
+    procedure SetContentType(const AValue: string);
+    procedure Write(const AContent: string);
+    procedure Json(const AJson: string);
+    procedure AddHeader(const AName, AValue: string);
+    property StatusCode: Integer write SetStatusCode;
+  end;
+
+  IHttpContext = interface
+    ['{E5F8D2C1-9A4E-4B7D-8C3B-6F5A1D2E8C9F}']
+    function GetRequest: IHttpRequest;
+    function GetResponse: IHttpResponse;
+    function GetServices: IServiceProvider;
+    property Request: IHttpRequest read GetRequest;
+    property Response: IHttpResponse read GetResponse;
+    property Services: IServiceProvider read GetServices;
+  end;
+
+  IMiddleware = interface
+    ['{F1E8D2C3-9A4E-4B7D-8C5B-6F5A1D2E8C9F}']
+    procedure Invoke(AContext: IHttpContext; ANext: TRequestDelegate);
+  end;
+
+  IApplicationBuilder = interface
+    ['{A2F8C5D1-8B4E-4A7D-9C3B-6E8F4A2D1C7A}']
+    function GetServiceProvider: IServiceProvider;
+    function UseMiddleware(AMiddleware: TClass): IApplicationBuilder; overload;
+
+    function UseMiddleware(AMiddleware: TClass; const AParam: TValue): IApplicationBuilder; overload;
+    function UseMiddleware(AMiddleware: TClass; const AParams: array of TValue): IApplicationBuilder; overload;
+    function UseModelBinding: IApplicationBuilder;
+
+    function Map(const APath: string; ADelegate: TRequestDelegate): IApplicationBuilder;
+    function MapPost(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder;
+    function MapGet(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder;
+    function Build: TRequestDelegate;
+  end;
+
+  IWebHost = interface
+    ['{B3E7D4F1-9C6E-4B8A-8D2C-7F5A1B3E8D9F}']
+    procedure Run;
+    procedure Stop;
+  end;
+
+  IWebHostBuilder = interface
+    ['{C4F8E5D2-8D4E-4A7D-9C3B-6E8F4A2D1C7B}']
+    function ConfigureServices(AConfigurator: TProc<IServiceCollection>): IWebHostBuilder;
+    function Configure(AConfigurator: TProc<IApplicationBuilder>): IWebHostBuilder;
+    function Build: IWebHost;
+  end;
+
+  IWebApplication = interface
+    ['{B6C96B49-0292-42A6-A767-C7EAF52F71FC}']
+    function GetServices: IServiceCollection;
+    function UseMiddleware(Middleware: TClass): IWebApplication;
+    function MapControllers: IWebApplication;
+    function GetApplicationBuilder: IApplicationBuilder; // ✅ NOVO
+    procedure Run(Port: Integer = 8080);
+
+    // Fluent interface para DI
+    function Services: IServiceCollection;
+  end;
+
+  TDextWebHost = class
+    class function CreateDefaultBuilder: IWebHostBuilder;
+  end;
+
+implementation
+
+uses
+  Dext.WebHost;
+
+{ TDextWebHost }
+
+class function TDextWebHost.CreateDefaultBuilder: IWebHostBuilder;
+begin
+  Result := TWebHostBuilder.Create;
+end;
+
+end.

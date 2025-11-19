@@ -1,0 +1,257 @@
+﻿unit Dext.Http.Indy;
+
+interface
+
+uses
+  System.Classes, System.Generics.Collections, System.SysUtils,
+  IdCustomHTTPServer, IdContext, IdGlobal, IdURI, IdHeaderList,
+  Dext.Http.Interfaces, Dext.DI.Interfaces;
+
+type
+  TIndyHttpRequest = class(TInterfacedObject, IHttpRequest)
+  private
+    FRequestInfo: TIdHTTPRequestInfo;
+    FQuery: TStrings;
+    FBodyStream: TStream;
+    FRouteParams: TDictionary<string, string>;
+    FHeaders: TDictionary<string, string>; // ✅ NOVO
+    function ParseQueryString(const AQuery: string): TStrings;
+    function ParseHeaders(AHeaderList: TIdHeaderList): TDictionary<string, string>; // ✅ NOVO
+  public
+    constructor Create(ARequestInfo: TIdHTTPRequestInfo);
+    destructor Destroy; override;
+
+    function GetMethod: string;
+    function GetPath: string;
+    function GetQuery: TStrings;
+    function GetBody: TStream;
+    function GetRouteParams: TDictionary<string, string>;
+    function GetHeaders: TDictionary<string, string>; // ✅ NOVO: Implementação da interface
+  end;
+
+  TIndyHttpResponse = class(TInterfacedObject, IHttpResponse)
+  private
+    FResponseInfo: TIdHTTPResponseInfo;
+  public
+    constructor Create(AResponseInfo: TIdHTTPResponseInfo);
+    procedure SetStatusCode(AValue: Integer);
+    procedure SetContentType(const AValue: string);
+    procedure Write(const AContent: string);
+    procedure Json(const AJson: string);
+    procedure AddHeader(const AName, AValue: string); // ✅ NOVO: Implementação da interface
+  end;
+
+  TIndyHttpContext = class(TInterfacedObject, IHttpContext)
+  private
+    FRequest: IHttpRequest;
+    FResponse: IHttpResponse;
+    FServices: IServiceProvider;
+  public
+    constructor Create(ARequestInfo: TIdHTTPRequestInfo;
+      AResponseInfo: TIdHTTPResponseInfo; const AServices: IServiceProvider);
+    procedure SetRouteParams(const AParams: TDictionary<string, string>);
+    function GetRequest: IHttpRequest;
+    function GetResponse: IHttpResponse;
+    function GetServices: IServiceProvider;
+  end;
+
+implementation
+
+{ TIndyHttpRequest }
+
+constructor TIndyHttpRequest.Create(ARequestInfo: TIdHTTPRequestInfo);
+begin
+  inherited Create;
+  FRequestInfo := ARequestInfo;
+  FQuery := ParseQueryString(FRequestInfo.QueryParams);
+  FRouteParams := TDictionary<string, string>.Create;
+  FHeaders := ParseHeaders(FRequestInfo.RawHeaders); // ✅ NOVO: Parsear headers
+  // Criar cópia do body stream para não depender do lifecycle do Indy
+  if Assigned(FRequestInfo.PostStream) then
+  begin
+    FBodyStream := TMemoryStream.Create;
+    FBodyStream.CopyFrom(FRequestInfo.PostStream, 0);
+    FBodyStream.Position := 0;
+  end;
+end;
+
+destructor TIndyHttpRequest.Destroy;
+begin
+  FQuery.Free;
+  FBodyStream.Free;
+  FRouteParams.Free;
+  FHeaders.Free; // ✅ NOVO: Liberar headers
+  inherited Destroy;
+end;
+
+// ✅ NOVO: Parsear headers do Indy para dicionário
+function TIndyHttpRequest.ParseHeaders(AHeaderList: TIdHeaderList): TDictionary<string, string>;
+var
+  I: Integer;
+  Name, Value: string;
+begin
+  Result := TDictionary<string, string>.Create;
+
+  for I := 0 to AHeaderList.Count - 1 do
+  begin
+    Name := AHeaderList.Names[I];
+    Value := AHeaderList.Values[Name];
+
+    if not Name.IsEmpty then
+    begin
+      // Normalizar nome do header (case-insensitive)
+      Result.AddOrSetValue(LowerCase(Name), Value);
+    end;
+  end;
+end;
+
+function TIndyHttpRequest.GetHeaders: TDictionary<string, string>;
+begin
+  Result := FHeaders; // ✅ NOVO: Retornar headers
+end;
+
+function TIndyHttpRequest.ParseQueryString(const AQuery: string): TStrings;
+var
+  I: Integer;
+  Params: TStringList;
+begin
+  Params := TStringList.Create;
+  try
+    Params.Delimiter := '&';
+    Params.StrictDelimiter := True;
+    Params.DelimitedText := AQuery;
+
+    // Decodificar URL encoding
+    for I := 0 to Params.Count - 1 do
+    begin
+      Params[I] := TIdURI.URLDecode(Params[I]);
+    end;
+
+    Result := Params;
+  except
+    Params.Free;
+    raise;
+  end;
+end;
+
+function TIndyHttpRequest.GetMethod: string;
+begin
+  Result := FRequestInfo.Command;
+end;
+
+function TIndyHttpRequest.GetPath: string;
+begin
+  Result := FRequestInfo.Document;
+  // Garantir que paths vazios sejam '/'
+  if Result = '' then
+    Result := '/';
+end;
+
+function TIndyHttpRequest.GetQuery: TStrings;
+begin
+  Result := FQuery;
+end;
+
+function TIndyHttpRequest.GetRouteParams: TDictionary<string, string>;
+begin
+  Result := FRouteParams;
+end;
+
+function TIndyHttpRequest.GetBody: TStream;
+begin
+  Result := FBodyStream;
+end;
+
+{ TIndyHttpResponse }
+
+constructor TIndyHttpResponse.Create(AResponseInfo: TIdHTTPResponseInfo);
+begin
+  inherited Create;
+  FResponseInfo := AResponseInfo;
+end;
+
+// ✅ NOVO: Adicionar header à response
+procedure TIndyHttpResponse.AddHeader(const AName, AValue: string);
+begin
+  FResponseInfo.CustomHeaders.AddValue(AName, AValue);
+end;
+
+procedure TIndyHttpResponse.SetStatusCode(AValue: Integer);
+begin
+  FResponseInfo.ResponseNo := AValue;
+end;
+
+procedure TIndyHttpResponse.SetContentType(const AValue: string);
+begin
+  AddHeader('Content-Type', AValue);
+  FResponseInfo.ContentType := AValue;
+end;
+
+procedure TIndyHttpResponse.Write(const AContent: string);
+begin
+  FResponseInfo.ContentText := AContent;
+  FResponseInfo.ContentType := 'text/plain; charset=utf-8';
+end;
+
+procedure TIndyHttpResponse.Json(const AJson: string);
+begin
+  FResponseInfo.ContentText := AJson;
+  FResponseInfo.ContentType := 'application/json; charset=utf-8';
+end;
+
+{ TIndyHttpContext }
+
+constructor TIndyHttpContext.Create(ARequestInfo: TIdHTTPRequestInfo;
+  AResponseInfo: TIdHTTPResponseInfo; const AServices: IServiceProvider);
+begin
+  inherited Create;
+  FRequest := TIndyHttpRequest.Create(ARequestInfo);
+  FResponse := TIndyHttpResponse.Create(AResponseInfo);
+  FServices := AServices;
+end;
+
+function TIndyHttpContext.GetRequest: IHttpRequest;
+begin
+  Result := FRequest;
+end;
+
+function TIndyHttpContext.GetResponse: IHttpResponse;
+begin
+  Result := FResponse;
+end;
+
+function TIndyHttpContext.GetServices: IServiceProvider;
+begin
+  Result := FServices;
+end;
+
+procedure TIndyHttpContext.SetRouteParams(const AParams: TDictionary<string, string>);
+var
+  IndyRequest: TIndyHttpRequest;
+  Param: TPair<string, string>;
+begin
+  // ✅ CORREÇÃO: Cast manual em vez de Supports
+  if FRequest is TIndyHttpRequest then
+  begin
+    IndyRequest := TIndyHttpRequest(FRequest);
+
+    // Limpar parâmetros existentes e adicionar os novos
+    IndyRequest.FRouteParams.Clear;
+    for Param in AParams do
+    begin
+      IndyRequest.FRouteParams.Add(Param.Key, Param.Value);
+    end;
+
+    Writeln(Format('Injected route params: %d parameters', [AParams.Count]));
+    for Param in AParams do
+    begin
+      Writeln(Format('  %s = %s', [Param.Key, Param.Value]));
+    end;
+  end
+  else
+  begin
+    Writeln('WARNING: Cannot inject route params - request is not TIndyHttpRequest');
+  end;
+end;
+
+end.
