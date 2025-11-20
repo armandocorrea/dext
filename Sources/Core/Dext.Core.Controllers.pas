@@ -13,7 +13,7 @@ type
   end;
 
   // Para Approach 1: Records estáticos
-  TStaticHandler = reference to procedure(AContext: IHttpContext);
+  // TStaticHandler movido para Dext.Http.Interfaces
 
   // Para Approach 2: Classes com DI
   TControllerClass = class of TController;

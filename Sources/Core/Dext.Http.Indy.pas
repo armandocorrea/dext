@@ -46,6 +46,7 @@ type
     FRequest: IHttpRequest;
     FResponse: IHttpResponse;
     FServices: IServiceProvider;
+    FUser: TObject;
   public
     constructor Create(ARequestInfo: TIdHTTPRequestInfo;
       AResponseInfo: TIdHTTPResponseInfo; const AServices: IServiceProvider);
@@ -53,6 +54,8 @@ type
     function GetRequest: IHttpRequest;
     function GetResponse: IHttpResponse;
     function GetServices: IServiceProvider;
+    function GetUser: TObject;
+    procedure SetUser(const AValue: TObject);
   end;
 
 implementation
@@ -223,6 +226,16 @@ end;
 function TIndyHttpContext.GetServices: IServiceProvider;
 begin
   Result := FServices;
+end;
+
+function TIndyHttpContext.GetUser: TObject;
+begin
+  Result := FUser;
+end;
+
+procedure TIndyHttpContext.SetUser(const AValue: TObject);
+begin
+  FUser := AValue;
 end;
 
 procedure TIndyHttpContext.SetRouteParams(const AParams: TDictionary<string, string>);

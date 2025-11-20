@@ -74,23 +74,7 @@ var
   Arg1: T;
 begin
   try
-    // Resolver argumento usando ModelBinder
-    // O ModelBinder precisa ser capaz de resolver baseado no tipo T e no contexto
-    // Como não temos atributos no parametro do delegate (limitação do Delphi),
-    // assumimos que o ModelBinder vai inferir a fonte (Body para records complexos, Query/Route para simples, Services para interfaces)
-    // OU precisamos de uma estratégia de "Binding Context" mais elaborada.
-    
-    // Por enquanto, vamos usar uma estratégia simplificada de inferência:
-    // Se T é record -> Tenta BindBody
-    // Se falhar ou não for record -> Tenta BindServices se for interface
-    
-    // Melhor abordagem: Usar o TModelBinderHelper que pode ter lógicas de "Smart Bind"
-    // Mas como o ModelBinder já tem métodos genéricos (que vamos implementar/usar), vamos tentar usá-los.
-    
-    // HACK: Como não podemos decorar os argumentos do método anônimo com atributos [FromBody],
-    // a estratégia de binding tem que ser baseada no TIPO.
-    
-    // 1. Verificar se é IHttpContext
+    // 1. Verify if IHttpContext
     if TypeInfo(T) = TypeInfo(IHttpContext) then
       Arg1 := TValue.From<IHttpContext>(FContext).AsType<T>
     // 2. Records -> Body
@@ -99,9 +83,14 @@ begin
     // 3. Interfaces -> Services
     else if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
       Arg1 := FModelBinder.BindServices(TypeInfo(T), FContext).AsType<T>
-    // 4. Fallback -> Query
+    // 4. Primitives -> Route (if available) or Query
     else
-      Arg1 := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext);
+    begin
+      if FContext.Request.RouteParams.Count > 0 then
+        Arg1 := TModelBinderHelper.BindRoute<T>(FModelBinder, FContext)
+      else
+        Arg1 := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext);
+    end;
 
     AHandler(Arg1);
     Result := True;
@@ -132,7 +121,12 @@ begin
     else if PTypeInfo(TypeInfo(T1)).Kind = tkInterface then
       Arg1 := FModelBinder.BindServices(TypeInfo(T1), FContext).AsType<T1>
     else
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
+    begin
+      if FContext.Request.RouteParams.Count > 0 then
+        Arg1 := TModelBinderHelper.BindRoute<T1>(FModelBinder, FContext)
+      else
+        Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
+    end;
 
     // Argumento 2
     if TypeInfo(T2) = TypeInfo(IHttpContext) then
@@ -142,7 +136,12 @@ begin
     else if PTypeInfo(TypeInfo(T2)).Kind = tkInterface then
       Arg2 := FModelBinder.BindServices(TypeInfo(T2), FContext).AsType<T2>
     else
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
+    begin
+      if FContext.Request.RouteParams.Count > 0 then
+        Arg2 := TModelBinderHelper.BindRoute<T2>(FModelBinder, FContext)
+      else
+        Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
+    end;
 
     AHandler(Arg1, Arg2);
     Result := True;
@@ -174,7 +173,12 @@ begin
     else if PTypeInfo(TypeInfo(T1)).Kind = tkInterface then
       Arg1 := FModelBinder.BindServices(TypeInfo(T1), FContext).AsType<T1>
     else
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
+    begin
+      if FContext.Request.RouteParams.Count > 0 then
+        Arg1 := TModelBinderHelper.BindRoute<T1>(FModelBinder, FContext)
+      else
+        Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
+    end;
 
     // Argumento 2
     if TypeInfo(T2) = TypeInfo(IHttpContext) then
@@ -184,7 +188,12 @@ begin
     else if PTypeInfo(TypeInfo(T2)).Kind = tkInterface then
       Arg2 := FModelBinder.BindServices(TypeInfo(T2), FContext).AsType<T2>
     else
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
+    begin
+      if FContext.Request.RouteParams.Count > 0 then
+        Arg2 := TModelBinderHelper.BindRoute<T2>(FModelBinder, FContext)
+      else
+        Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
+    end;
 
     // Argumento 3
     if TypeInfo(T3) = TypeInfo(IHttpContext) then
@@ -194,7 +203,12 @@ begin
     else if PTypeInfo(TypeInfo(T3)).Kind = tkInterface then
       Arg3 := FModelBinder.BindServices(TypeInfo(T3), FContext).AsType<T3>
     else
-      Arg3 := TModelBinderHelper.BindQuery<T3>(FModelBinder, FContext);
+    begin
+      if FContext.Request.RouteParams.Count > 0 then
+        Arg3 := TModelBinderHelper.BindRoute<T3>(FModelBinder, FContext)
+      else
+        Arg3 := TModelBinderHelper.BindQuery<T3>(FModelBinder, FContext);
+    end;
 
     AHandler(Arg1, Arg2, Arg3);
     Result := True;

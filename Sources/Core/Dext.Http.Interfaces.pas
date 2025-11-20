@@ -18,6 +18,7 @@ type
   IWebHostBuilder = interface;
 
   TRequestDelegate = reference to procedure(AContext: IHttpContext);
+  TStaticHandler = reference to procedure(AContext: IHttpContext);
 
   IHttpRequest = interface
     ['{C3E8F1A2-4B7D-4A9C-9E2B-8F6D5A1C3E7F}']
@@ -50,9 +51,12 @@ type
     function GetRequest: IHttpRequest;
     function GetResponse: IHttpResponse;
     function GetServices: IServiceProvider;
+    function GetUser: TObject;
+    procedure SetUser(const AValue: TObject);
     property Request: IHttpRequest read GetRequest;
     property Response: IHttpResponse read GetResponse;
     property Services: IServiceProvider read GetServices;
+    property User: TObject read GetUser write SetUser; // Placeholder if needed
   end;
 
   IMiddleware = interface
@@ -70,8 +74,10 @@ type
     function UseModelBinding: IApplicationBuilder;
 
     function Map(const APath: string; ADelegate: TRequestDelegate): IApplicationBuilder;
-    function MapPost(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder;
-    function MapGet(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder;
+    function MapPost(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
+    function MapGet(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
+    function MapPut(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
+    function MapDelete(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
     function Build: TRequestDelegate;
   end;
 

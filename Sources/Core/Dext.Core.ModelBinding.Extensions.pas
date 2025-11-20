@@ -46,7 +46,7 @@ constructor TApplicationBuilderWithModelBinding.Create(ABuilder: TApplicationBui
 begin
   inherited Create;
   FBuilder := ABuilder;
-  FModelBinder := TModelBinder.Create(FBuilder.GetServiceProvider);
+  FModelBinder := TModelBinder.Create;
 end;
 
 function TApplicationBuilderWithModelBinding.MapPost<T>(const Path: string;

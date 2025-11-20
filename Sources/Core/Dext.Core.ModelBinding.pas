@@ -85,11 +85,9 @@ type
 
   TModelBinder = class(TInterfacedObject, IModelBinder)
   private
-    FServiceProvider: IServiceProvider;
-
     function ReadStreamToString(Stream: TStream): string;
   public
-    constructor Create(AServiceProvider: IServiceProvider);
+    constructor Create;
     destructor Destroy; override;
 
     // Interface methods
@@ -199,10 +197,9 @@ end;
 
 { TModelBinder }
 
-constructor TModelBinder.Create(AServiceProvider: IServiceProvider);
+constructor TModelBinder.Create;
 begin
   inherited Create;
-  FServiceProvider := AServiceProvider;
 end;
 
 destructor TModelBinder.Destroy;
@@ -398,16 +395,69 @@ var
   RouteParams: TDictionary<string, string>;
   FieldName: string;
   FieldValue: string;
+  SingleParamValue: string;
 begin
-  if AType.Kind <> tkRecord then
-    raise EBindingException.Create('BindRoute currently only supports records');
+  // ✅ SUPPORT FOR PRIMITIVES (Single Route Param Inference)
+  if (AType.Kind in [tkInteger, tkInt64, tkFloat, tkString, tkLString, tkWString, tkUString, tkEnumeration]) or
+     ((AType.Kind = tkRecord) and (AType = TypeInfo(TGUID))) then
+  begin
+    RouteParams := Context.Request.RouteParams;
+    
+    if RouteParams.Count = 1 then
+    begin
+      for var Pair in RouteParams do
+      begin
+        SingleParamValue := Pair.Value;
+        Break; 
+      end;
+      
+      try
+        if AType = TypeInfo(TGUID) then
+        begin
+          Result := TValue.From<TGUID>(StringToGUID(SingleParamValue));
+          Exit;
+        end;
 
-  // ✅ DEBUG: Verificar RouteParams
-  RouteParams := Context.Request.RouteParams;
-  Writeln('🔍 BindRoute Debug:');
-  Writeln('  RouteParams count: ', RouteParams.Count);
-  for var Param in RouteParams do
-    Writeln('  ', Param.Key, ' = ', Param.Value);
+        case AType.Kind of
+          tkInteger: Result := TValue.From<Integer>(StrToIntDef(SingleParamValue, 0));
+          tkInt64: Result := TValue.From<Int64>(StrToInt64Def(SingleParamValue, 0));
+          tkFloat: 
+            begin
+              if AType = TypeInfo(TDateTime) then
+                Result := TValue.From<TDateTime>(StrToDateTimeDef(SingleParamValue, 0))
+              else
+              begin
+                var F: Double;
+                if TryStrToFloat(SingleParamValue, F, TFormatSettings.Invariant) then
+                  Result := TValue.From<Double>(F)
+                else
+                  Result := TValue.From<Double>(0);
+              end;
+            end;
+          tkString, tkLString, tkWString, tkUString: Result := TValue.From<string>(SingleParamValue);
+          tkEnumeration:
+            begin
+               if AType = TypeInfo(Boolean) then
+               begin
+                 var B := SameText(SingleParamValue, 'true') or SameText(SingleParamValue, '1') or SameText(SingleParamValue, 'on');
+                 Result := TValue.From<Boolean>(B);
+               end
+               else
+                 Result := TValue.FromOrdinal(AType, StrToIntDef(SingleParamValue, 0));
+            end;
+        end;
+        Exit;
+      except
+        on E: Exception do
+          raise EBindingException.CreateFmt('Error converting route param "%s" to %s: %s', [SingleParamValue, AType.Name, E.Message]);
+      end;
+    end
+    else if RouteParams.Count > 1 then
+      raise EBindingException.CreateFmt('Ambiguous binding for type %s. Found %d route parameters. Use a Record.', [AType.Name, RouteParams.Count]);
+  end;
+
+  if AType.Kind <> tkRecord then
+    raise EBindingException.Create('BindRoute currently only supports records or single primitive inference');
 
   TValue.Make(nil, AType, Result);
 
@@ -660,7 +710,8 @@ end;
 
 function TModelBinder.BindRoute<T>(Context: IHttpContext): T;
 begin
-  raise EBindingException.Create('BindRoute<T> not implemented yet');
+  var Value := BindRoute(TypeInfo(T), Context);
+  Result := Value.AsType<T>;
 end;
 
 function TModelBinder.BindHeader(AType: PTypeInfo; Context: IHttpContext): TValue;
@@ -916,15 +967,32 @@ var
   ServiceInstance: TValue;
   ServiceType: TServiceType;
 begin
-  if AType.Kind <> tkRecord then
-    raise EBindingException.Create('BindServices currently only supports records');
-
-  TValue.Make(nil, AType, Result);
+  if (AType.Kind <> tkRecord) and (AType.Kind <> tkInterface) then
+    raise EBindingException.Create('BindServices currently only supports records or interfaces');
 
   ContextRtti := TRttiContext.Create;
   try
-    RttiType := ContextRtti.GetType(AType);
     Services := Context.GetServices;
+
+    // ✅ NOVO: Suporte direto a interfaces
+    if AType.Kind = tkInterface then
+    begin
+      var InterfaceType := ContextRtti.GetType(AType) as TRttiInterfaceType;
+      ServiceType := TServiceType.FromInterface(InterfaceType.GUID);
+      var InterfaceInstance := Services.GetServiceAsInterface(ServiceType);
+      
+      if Assigned(InterfaceInstance) then
+      begin
+        TValue.Make(@InterfaceInstance, AType, Result);
+        Exit;
+      end
+      else
+        raise EBindingException.CreateFmt('Service not found for interface: %s', [InterfaceType.Name]);
+    end;
+
+    TValue.Make(nil, AType, Result);
+    RttiType := ContextRtti.GetType(AType);
+    // Services já inicializado acima
 
     for Field in RttiType.GetFields do
     begin
@@ -964,19 +1032,6 @@ begin
                 end;
               end;
 
-//            tkClass:
-//              begin
-//                // Para classes
-//                ServiceType := TServiceType.FromClass(Field.FieldType.Handle);
-//
-//                // Obter serviço do container DI como objeto
-//                var ClassInstance := Services.GetService(ServiceType);
-//                if Assigned(ClassInstance) then
-//                begin
-//                  ServiceInstance := TValue.From<TObject>(ClassInstance);
-//                  Field.SetValue(Result.GetReferenceToRawData, ServiceInstance);
-//                end;
-//              end;
             tkClass:
               begin
                 // ✅ CORREÇÃO: Usar o RTTI para obter a classe corretamente

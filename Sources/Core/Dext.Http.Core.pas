@@ -40,8 +40,10 @@ type
     function UseModelBinding: IApplicationBuilder;
 
     function Map(const APath: string; ADelegate: TRequestDelegate): IApplicationBuilder;
-    function MapPost(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder; overload;
-    function MapGet(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder; overload;
+    function MapPost(const Path: string; Handler: TStaticHandler): IApplicationBuilder; overload;
+    function MapGet(const Path: string; Handler: TStaticHandler): IApplicationBuilder; overload;
+    function MapPut(const Path: string; Handler: TStaticHandler): IApplicationBuilder; overload;
+    function MapDelete(const Path: string; Handler: TStaticHandler): IApplicationBuilder; overload;
     function Build: TRequestDelegate;
   end;
 
@@ -53,7 +55,6 @@ type
 implementation
 
 uses
-  Dext.Core.Controllers, // ✅ Adicionado para TStaticHandler
   Dext.Core.ModelBinding,
   Dext.Http.Indy,
   Dext.Http.Pipeline,
@@ -252,7 +253,7 @@ begin
   Result := Self;
 end;
 
-function TApplicationBuilder.MapGet(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder;
+function TApplicationBuilder.MapGet(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
 begin
   WriteLn('📍 REGISTERING GET: ', Path);
 
@@ -263,7 +264,7 @@ begin
       Invoker: THandlerInvoker;
       Binder: IModelBinder;
     begin
-      Binder := TModelBinder.Create(FServiceProvider);
+      Binder := TModelBinder.Create;
       Invoker := THandlerInvoker.Create(Context, Binder);
       try
         Invoker.Invoke(Handler);
@@ -276,7 +277,7 @@ end;
 
 
 
-function TApplicationBuilder.MapPost(const Path: string; Handler: TProc<IHttpContext>): IApplicationBuilder;
+function TApplicationBuilder.MapPost(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
 begin
   WriteLn('📍 REGISTERING POST: ', Path);
 
@@ -286,7 +287,53 @@ begin
       Invoker: THandlerInvoker;
       Binder: IModelBinder;
     begin
-      Binder := TModelBinder.Create(FServiceProvider);
+      Binder := TModelBinder.Create;
+      Invoker := THandlerInvoker.Create(Context, Binder);
+      try
+        Invoker.Invoke(Handler);
+      finally
+        Invoker.Free;
+      end;
+    end
+  );
+end;
+
+function TApplicationBuilder.MapPut(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
+begin
+  WriteLn('📍 REGISTERING PUT: ', Path);
+
+  Result := Map(Path,
+    procedure(Context: IHttpContext)
+    var
+      Invoker: THandlerInvoker;
+      Binder: IModelBinder;
+    begin
+      if Context.Request.Method <> 'PUT' then Exit;
+      
+      Binder := TModelBinder.Create;
+      Invoker := THandlerInvoker.Create(Context, Binder);
+      try
+        Invoker.Invoke(Handler);
+      finally
+        Invoker.Free;
+      end;
+    end
+  );
+end;
+
+function TApplicationBuilder.MapDelete(const Path: string; Handler: TStaticHandler): IApplicationBuilder;
+begin
+  WriteLn('📍 REGISTERING DELETE: ', Path);
+
+  Result := Map(Path,
+    procedure(Context: IHttpContext)
+    var
+      Invoker: THandlerInvoker;
+      Binder: IModelBinder;
+    begin
+      if Context.Request.Method <> 'DELETE' then Exit;
+      
+      Binder := TModelBinder.Create;
       Invoker := THandlerInvoker.Create(Context, Binder);
       try
         Invoker.Invoke(Handler);
