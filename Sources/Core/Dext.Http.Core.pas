@@ -18,9 +18,11 @@ uses
 type
   TMiddlewareRegistration = record
     MiddlewareClass: TClass;
-    MiddlewareDelegate: TMiddlewareDelegate; // ✅ NOVO
+    MiddlewareDelegate: TMiddlewareDelegate;
+    MiddlewareInstance: IMiddleware; // ✅ Singleton Instance
     Parameters: TArray<TValue>;
-    IsDelegate: Boolean; // ✅ NOVO
+    IsDelegate: Boolean;
+    IsInstance: Boolean; // ✅ Flag for Singleton
   end;
 
   TAnonymousMiddleware = class(TInterfacedObject, IMiddleware)
@@ -46,6 +48,7 @@ type
     function UseMiddleware(AMiddleware: TClass): IApplicationBuilder; overload;
     function UseMiddleware(AMiddleware: TClass; const AParam: TValue): IApplicationBuilder; overload;
     function UseMiddleware(AMiddleware: TClass; const AParams: array of TValue): IApplicationBuilder; overload;
+    function UseMiddleware(AMiddleware: IMiddleware): IApplicationBuilder; overload; // ✅ Singleton
     
     // ✅ Functional Middleware
     function Use(AMiddleware: TMiddlewareDelegate): IApplicationBuilder;
@@ -94,7 +97,9 @@ var
   Registration: TMiddlewareRegistration;
 begin
   Registration.IsDelegate := True;
+  Registration.IsInstance := False; // ✅ Initialize explicitly
   Registration.MiddlewareDelegate := AMiddleware;
+  Registration.MiddlewareInstance := nil; // ✅ Initialize explicitly
   Registration.MiddlewareClass := nil;
   SetLength(Registration.Parameters, 0);
   
@@ -108,22 +113,30 @@ function TApplicationBuilder.CreateMiddlewarePipeline(const ARegistration: TMidd
   ANext: TRequestDelegate): TRequestDelegate;
 var
   LServiceProvider: IServiceProvider;
+  LRegistration: TMiddlewareRegistration; // ✅ Capture copy
 begin
   LServiceProvider := FServiceProvider;
+  LRegistration := ARegistration; // Copy record to local var for closure capture
+
   Result :=
     procedure(AContext: IHttpContext)
     var
       MiddlewareInstance: IMiddleware;
     begin
-      if ARegistration.IsDelegate then
+      if LRegistration.IsDelegate then
       begin
         // ✅ Handle Anonymous Middleware
-        MiddlewareInstance := TAnonymousMiddleware.Create(ARegistration.MiddlewareDelegate);
+        MiddlewareInstance := TAnonymousMiddleware.Create(LRegistration.MiddlewareDelegate);
+      end
+      else if LRegistration.IsInstance then
+      begin
+        // ✅ Handle Singleton Middleware
+        MiddlewareInstance := LRegistration.MiddlewareInstance;
       end
       else
       begin
         // Handle Class Middleware
-        var Obj := TActivator.CreateInstance(LServiceProvider, ARegistration.MiddlewareClass, ARegistration.Parameters);
+        var Obj := TActivator.CreateInstance(LServiceProvider, LRegistration.MiddlewareClass, LRegistration.Parameters);
         try
           if not Supports(Obj, IMiddleware, MiddlewareInstance) then
             raise EArgumentException.Create('Middleware must implement IMiddleware');
@@ -134,6 +147,9 @@ begin
       end;
 
       try
+        if MiddlewareInstance = nil then
+          raise EAccessViolation.Create('MiddlewareInstance is nil');
+
         MiddlewareInstance.Invoke(AContext, ANext);
       finally
         // Cleanup
@@ -184,7 +200,9 @@ begin
 
   Registration.MiddlewareClass := AMiddleware;
   Registration.IsDelegate := False;
+  Registration.IsInstance := False; // ✅ Initialize explicitly
   Registration.MiddlewareDelegate := nil;
+  Registration.MiddlewareInstance := nil; // ✅ Initialize explicitly
   SetLength(Registration.Parameters, 1);
   Registration.Parameters[0] := AParam;
 
@@ -207,13 +225,33 @@ begin
 
   Registration.MiddlewareClass := AMiddleware;
   Registration.IsDelegate := False;
+  Registration.IsInstance := False; // ✅ Initialize explicitly
   Registration.MiddlewareDelegate := nil;
+  Registration.MiddlewareInstance := nil; // ✅ Initialize explicitly
   SetLength(Registration.Parameters, Length(AParams));
 
   for I := 0 to High(AParams) do
     Registration.Parameters[I] := AParams[I];
 
   FMiddlewares.Add(Registration);
+  FMiddlewares.Add(Registration);
+  Result := Self;
+end;
+
+function TApplicationBuilder.UseMiddleware(AMiddleware: IMiddleware): IApplicationBuilder;
+var
+  Registration: TMiddlewareRegistration;
+begin
+  Registration.MiddlewareClass := nil;
+  Registration.IsDelegate := False;
+  Registration.IsInstance := True;
+  Registration.MiddlewareInstance := AMiddleware;
+  Registration.MiddlewareDelegate := nil;
+  SetLength(Registration.Parameters, 0);
+
+  FMiddlewares.Add(Registration);
+  Writeln('✅ SINGLETON MIDDLEWARE REGISTERED: ', (AMiddleware as TObject).ClassName);
+  
   Result := Self;
 end;
 
@@ -236,7 +274,9 @@ begin
   // ✅ CRIAR REGISTRATION SEM PARÂMETROS
   Registration.MiddlewareClass := AMiddleware;
   Registration.IsDelegate := False;
+  Registration.IsInstance := False; // ✅ Initialize explicitly
   Registration.MiddlewareDelegate := nil;
+  Registration.MiddlewareInstance := nil; // ✅ Initialize explicitly
   SetLength(Registration.Parameters, 0); // Array vazio
 
   FMiddlewares.Add(Registration);

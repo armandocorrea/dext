@@ -1,4 +1,4 @@
-unit Dext.RateLimiting;
+﻿unit Dext.RateLimiting;
 
 interface
 
@@ -342,13 +342,17 @@ end;
 class function TApplicationBuilderRateLimitExtensions.UseRateLimiting(
   const ABuilder: IApplicationBuilder): IApplicationBuilder;
 begin
-  Result := ABuilder.UseMiddleware(TRateLimitMiddleware, TRateLimitPolicy.Create);
+  // ✅ Instantiate Singleton Middleware
+  var Middleware := TRateLimitMiddleware.Create(TRateLimitPolicy.Create);
+  Result := ABuilder.UseMiddleware(Middleware);
 end;
 
 class function TApplicationBuilderRateLimitExtensions.UseRateLimiting(
   const ABuilder: IApplicationBuilder; const APolicy: TRateLimitPolicy): IApplicationBuilder;
 begin
-  Result := ABuilder.UseMiddleware(TRateLimitMiddleware, APolicy);
+  // ✅ Instantiate Singleton Middleware
+  var Middleware := TRateLimitMiddleware.Create(APolicy);
+  Result := ABuilder.UseMiddleware(Middleware);
 end;
 
 class function TApplicationBuilderRateLimitExtensions.UseRateLimiting(
@@ -366,7 +370,9 @@ begin
     Builder.Free;
   end;
 
-  Result := ABuilder.UseMiddleware(TRateLimitMiddleware, Policy);
+  // ✅ Instantiate Singleton Middleware
+  var Middleware := TRateLimitMiddleware.Create(Policy);
+  Result := ABuilder.UseMiddleware(Middleware);
 end;
 
 { TRateLimitPolicyHelper }

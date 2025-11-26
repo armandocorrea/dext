@@ -16,7 +16,8 @@ uses
   Dext.Logging,
   Dext.Logging.Extensions,
   Dext.Http.Middleware,
-  Dext.Http.Middleware.Extensions;
+  Dext.Http.Middleware.Extensions,
+  Dext.RateLimiting;
 
 {$R *.res}
 
@@ -95,10 +96,15 @@ begin
         // 1. Exception Handler (First to catch everything)
         TApplicationBuilderMiddlewareExtensions.UseExceptionHandler(App);
         
-        // 2. HTTP Logging
+        // 2. Rate Limiting (Protect resources)
+        // Limit: 5 requests per 10 seconds
+        TApplicationBuilderRateLimitExtensions.UseRateLimiting(App, 
+          TRateLimitPolicy.Create(5, 10));
+        
+        // 3. HTTP Logging
         TApplicationBuilderMiddlewareExtensions.UseHttpLogging(App);
         
-        // 3. Response Cache
+        // 4. Response Cache
         TApplicationBuilderCacheExtensions.UseResponseCache(App, 10);
         
         WriteLn('Configuring routes...');
@@ -127,40 +133,14 @@ begin
           end
         );
 
-        WriteLn('3. POST /api/users');
+        WriteLn('3. POST /api/users (Automatic Validation)');
         TApplicationBuilderExtensions.MapPostR<TCreateUserRequest, IResult>(
           App,
           '/api/users',
           function(Request: TCreateUserRequest): IResult
-          var
-            Validator: IValidator<TCreateUserRequest>;
-            ValidationResult: TValidationResult;
-            Error: TValidationError;
-            ErrorsJson: string;
           begin
-            Validator := TValidator<TCreateUserRequest>.Create;
-            ValidationResult := Validator.Validate(Request);
-            
-            if not ValidationResult.IsValid then
-            begin
-              WriteLn('  Validation failed:');
-              ErrorsJson := '[';
-              for Error in ValidationResult.Errors do
-              begin
-                WriteLn(Format('     - %s: %s', [Error.FieldName, Error.ErrorMessage]));
-                if ErrorsJson <> '[' then
-                  ErrorsJson := ErrorsJson + ',';
-                ErrorsJson := ErrorsJson + Format('{"field":"%s","message":"%s"}', 
-                  [Error.FieldName, Error.ErrorMessage]);
-              end;
-              ErrorsJson := ErrorsJson + ']';
-              
-              ValidationResult.Free;
-              Result := Results.BadRequest(Format('{"errors":%s}', [ErrorsJson]));
-              Exit;
-            end;
-            
-            ValidationResult.Free;
+            // Note: Validation is now handled automatically by the framework.
+            // If we reach here, the Request is valid!
             
             WriteLn(Format('  Creating user: %s <%s>, Age: %d', 
               [Request.Name, Request.Email, Request.Age]));

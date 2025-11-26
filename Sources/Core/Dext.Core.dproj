@@ -140,6 +140,7 @@
         <DCCReference Include="Dext.Http.Results.pas"/>
         <DCCReference Include="Dext.Http.Routing.pas"/>
         <DCCReference Include="Dext.Http.RoutingMiddleware.pas"/>
+        <DCCReference Include="Dext.Http.StaticFiles.pas"/>
         <DCCReference Include="Dext.Json.pas"/>
         <DCCReference Include="Dext.Json.Types.pas"/>
         <DCCReference Include="Dext.Logging.Console.pas"/>

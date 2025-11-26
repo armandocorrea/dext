@@ -92,6 +92,7 @@ type
     function UseMiddleware(AMiddleware: TClass): IApplicationBuilder; overload;
     function UseMiddleware(AMiddleware: TClass; const AParam: TValue): IApplicationBuilder; overload;
     function UseMiddleware(AMiddleware: TClass; const AParams: array of TValue): IApplicationBuilder; overload;
+    function UseMiddleware(AMiddleware: IMiddleware): IApplicationBuilder; overload; // ✅ Singleton Middleware
     
     // ✅ Functional Middleware
     function Use(AMiddleware: TMiddlewareDelegate): IApplicationBuilder;
