@@ -130,15 +130,14 @@ type
 
   IWebApplication = interface
     ['{B6C96B49-0292-42A6-A767-C7EAF52F71FC}']
-    function GetServices: IServiceCollection;
+    function GetServices: TDextServices;
     function UseMiddleware(Middleware: TClass): IWebApplication;
     function MapControllers: IWebApplication;
-    function GetApplicationBuilder: IApplicationBuilder; // ✅ NOVO
-    function GetConfiguration: IConfiguration; // ✅ Configuration
+    function GetApplicationBuilder: IApplicationBuilder;
+    function GetConfiguration: IConfiguration;
     procedure Run(Port: Integer = 8080);
 
-    // Fluent interface para DI
-    function Services: IServiceCollection;
+    property Services: TDextServices read GetServices;
     property Configuration: IConfiguration read GetConfiguration;
   end;
 

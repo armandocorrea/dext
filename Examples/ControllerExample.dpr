@@ -5,18 +5,10 @@
 uses
   System.SysUtils,
   System.Rtti,
-  Dext.Core.WebApplication,
-  Dext.DI.Interfaces,
-  Dext.DI.Core,
-  Dext.DI.Extensions,
-  Dext.Http.Interfaces,
+  DextFramework, // ✅ The only core unit needed!
   Dext.Http.Cors,
   Dext.Http.StaticFiles,
   Dext.Auth.Middleware,
-  Dext.Configuration.Interfaces,
-  Dext.Options.Extensions,
-  Dext.Core.Extensions,
-  Dext.HealthChecks,
   ControllerExample.Controller in 'ControllerExample.Controller.pas',
   ControllerExample.Services in 'ControllerExample.Services.pas';
 
@@ -26,22 +18,22 @@ begin
     var App: IWebApplication := TDextApplication.Create;
 
     // 1. Register Configuration (IOptions)
-    TOptionsServiceCollectionExtensions.Configure<TMySettings>(
-      App.Services, 
+    App.Services.Configure<TMySettings>(
       App.Configuration.GetSection('AppSettings')
     );
 
     // 2. Register Services
-    TServiceCollectionExtensions.AddSingleton<IGreetingService, TGreetingService>(App.Services);
-    TServiceCollectionExtensions.AddControllers(App.Services);
+    App.Services
+      .AddSingleton<IGreetingService, TGreetingService>
+      .AddControllers;
     
     // 3. Register Health Checks
-    TDextServiceCollectionExtensions.AddHealthChecks(App.Services)
+    App.Services.AddHealthChecks
       .AddCheck<TDatabaseHealthCheck>
       .Build;
 
     // 4. Register Background Services
-    TDextServiceCollectionExtensions.AddBackgroundServices(App.Services)
+    App.Services.AddBackgroundServices
       .AddHostedService<TWorkerService>
       .Build;
 

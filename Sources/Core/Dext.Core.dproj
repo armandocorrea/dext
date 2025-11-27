@@ -172,6 +172,8 @@
         <DCCReference Include="Dext.Hosting.BackgroundService.pas"/>
         <DCCReference Include="Dext.HealthChecks.pas"/>
         <DCCReference Include="Dext.Core.Extensions.pas"/>
+        <DCCReference Include="DextFramework.pas"/>
+        <DCCReference Include="Dext.Options.Extensions.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

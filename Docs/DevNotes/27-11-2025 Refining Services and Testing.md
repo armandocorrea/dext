@@ -785,3 +785,33 @@ O projeto está em um estado excelente para a versão Beta 0.95! Se precisar de 
 ### User Input
 
 Analisando tudo que está pronto até o momento, qual seria o nosso próximo passo?
+
+### Planner Response
+
+Com base na análise do [ROADMAP.md](cci:7://file:///c:/dev/Dext/ROADMAP.md:0:0-0:0) e no estado atual do código (que já possui todas as *features* principais da v1.0 implementadas), estamos na fase de **"Polimento e Qualidade"**.
+
+Para lançarmos a **v1.0** com confiança, eu sugiro fortemente um dos dois caminhos abaixo como próximo passo:
+
+### Opção 1: Testes Unitários (Recomendado 🛡️)
+Atualmente, dependemos muito de testes manuais (`ControllerExample`). Para um framework, isso é arriscado. Se alterarmos o Core amanhã, podemos quebrar o DI ou o Roteamento sem saber.
+*   **Ação:** Criar um projeto **DUnitX** (`Dext.Tests.dpr`).
+*   **Foco:** Testar cenários críticos do Container de DI (ciclo de vida, scopes), Roteamento (matching de rotas complexas) e Model Binding.
+*   **Por que:** Garante estabilidade e evita regressões. Está listado como prioridade nº 1 no Roadmap.
+
+### Opção 2: Aplicação "Real World" (Validar DX 🏗️)
+Criar uma API mais complexa que o "Hello World". Exemplo: Uma **API de Todo List** ou **Blog** usando **Clean Architecture**.
+*   **Ação:** Criar `Examples/TodoApi`.
+*   **Foco:** Usar Banco de Dados real (SQLite ou Firebird), Repositories, Scoped Services (Unit of Work), Validação real, Auth JWT e Tratamento de Erros global.
+*   **Por que:** Vai validar a "Experiência do Desenvolvedor" (DX). Vamos descobrir se é fácil ou difícil "colar" todas as peças (DI + Config + Banco + Controllers) em um cenário real.
+
+### Opção 3: Benchmarks (Performance ⚡)
+Criar um projeto para medir Requests/Sec comparado ao Horse ou DMVC.
+*   **Por que:** Para ter números para o marketing da v1.0.
+
+---
+
+**Minha recomendação:**
+Eu iria na **Opção 2 (Aplicação Real World)** agora.
+Por quê? Porque ao construir uma aplicação real, vamos naturalmente encontrar *bugs* ou *fricções* no uso do framework que os testes unitários isolados talvez não peguem. Depois de fazer essa aplicação funcionar "liso", aí sim blindamos o core com a **Opção 1**.
+
+O que você prefere?

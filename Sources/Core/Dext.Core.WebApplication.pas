@@ -23,12 +23,10 @@ type
     // IWebApplication
     function GetApplicationBuilder: IApplicationBuilder;
     function GetConfiguration: IConfiguration;
-    function GetServices: IServiceCollection;
+    function GetServices: TDextServices;
     function UseMiddleware(Middleware: TClass): IWebApplication;
     function MapControllers: IWebApplication;
     procedure Run(Port: Integer = 8080);
-    // Fluent interface helpers
-    function Services: IServiceCollection;
   end;
 
 implementation
@@ -93,9 +91,9 @@ begin
   Result := FConfiguration;
 end;
 
-function TDextApplication.GetServices: IServiceCollection;
+function TDextApplication.GetServices: TDextServices;
 begin
-  Result := FServices;
+  Result := TDextServices.Create(FServices);
 end;
 
 function TDextApplication.MapControllers: IWebApplication;
@@ -163,11 +161,6 @@ begin
       HostedManager.StopAsync;
     end;
   end;
-end;
-
-function TDextApplication.Services: IServiceCollection;
-begin
-  Result := FServices;
 end;
 
 function TDextApplication.UseMiddleware(Middleware: TClass): IWebApplication;

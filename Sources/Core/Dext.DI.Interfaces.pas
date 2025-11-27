@@ -81,7 +81,99 @@ type
     class function CreateServiceCollection: IServiceCollection;
   end;
 
+  /// <summary>
+  ///   Fluent wrapper for IServiceCollection.
+  /// </summary>
+  TDextServices = record
+  private
+    FServices: IServiceCollection;
+  public
+    constructor Create(AServices: IServiceCollection);
+
+    // Core DI
+    function AddSingleton<T: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+    function AddTransient<T: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+    function AddScoped<T: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+
+    function AddSingleton<TService: IInterface; TImplementation: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+    function AddTransient<TService: IInterface; TImplementation: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+    function AddScoped<TService: IInterface; TImplementation: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+
+    function BuildServiceProvider: IServiceProvider;
+    function Unwrap: IServiceCollection;
+    
+    class operator Implicit(const A: TDextServices): IServiceCollection;
+  end;
+
 implementation
+
+{ TDextServices }
+
+constructor TDextServices.Create(AServices: IServiceCollection);
+begin
+  FServices := AServices;
+end;
+
+function TDextServices.AddSingleton<T>(const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+begin
+  FServices.AddSingleton(TServiceType.FromClass(T), T, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddTransient<T>(const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+begin
+  FServices.AddTransient(TServiceType.FromClass(T), T, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddScoped<T>(const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+begin
+  FServices.AddScoped(TServiceType.FromClass(T), T, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddSingleton<TService, TImplementation>(const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+var
+  Guid: TGUID;
+begin
+  Guid := GetTypeData(TypeInfo(TService))^.Guid;
+  FServices.AddSingleton(TServiceType.FromInterface(Guid), TImplementation, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddTransient<TService, TImplementation>(const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+var
+  Guid: TGUID;
+begin
+  Guid := GetTypeData(TypeInfo(TService))^.Guid;
+  FServices.AddTransient(TServiceType.FromInterface(Guid), TImplementation, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddScoped<TService, TImplementation>(const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+var
+  Guid: TGUID;
+begin
+  Guid := GetTypeData(TypeInfo(TService))^.Guid;
+  FServices.AddScoped(TServiceType.FromInterface(Guid), TImplementation, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.BuildServiceProvider: IServiceProvider;
+begin
+  Result := FServices.BuildServiceProvider;
+end;
+
+function TDextServices.Unwrap: IServiceCollection;
+begin
+  Result := FServices;
+end;
+
+class operator TDextServices.Implicit(const A: TDextServices): IServiceCollection;
+begin
+  Result := A.FServices;
+end;
+
 
 { TServiceType }
 
