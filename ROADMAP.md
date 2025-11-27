@@ -188,6 +188,9 @@ Abaixo, comparamos o Dext com as principais alternativas do mercado Delphi e sua
   - [x] Exception handling em filtros
   - [x] Filtros built-in (LogAction, RequireHeader, ResponseCache, AddHeader)
   - [x] Controller-level e Method-level filters
+- [x] **Health Checks**: Middleware de monitoramento de saúde (`/health`) com suporte a checks customizados.
+- [x] **Background Services**: Suporte a `IHostedService` e `TBackgroundService` para tarefas em segundo plano.
+- [x] **Options Pattern**: Configuração fortemente tipada via `IOptions<T>`.
 
 ### 5. Ecossistema & Tooling (📅 Planejado para v1.1)
 - [ ] **CLI**: Ferramenta de linha de comando (`dext new webapi`).
@@ -203,6 +206,9 @@ Abaixo, comparamos o Dext com as principais alternativas do mercado Delphi e sua
 - [x] **Rate Limiting Docs**: Documentação completa do sistema de Rate Limiting.
 - [x] **Action Filters Docs**: Documentação completa do sistema de Action Filters.
 - [x] **Scoped Services Docs**: Documentação do Scoped Lifetime.
+- [x] **Health Checks Docs**: Documentação de Health Checks.
+- [x] **Background Services Docs**: Documentação de Background Services.
+- [x] **Options Pattern Docs**: Documentação do padrão Options.
 - [ ] **Unit Tests**: Cobertura abrangente (Core, DI, Http).
 - [ ] **Documentation**: Site de documentação oficial (VitePress/Docusaurus).
 - [ ] **Samples**: Repositório de exemplos "Real World".

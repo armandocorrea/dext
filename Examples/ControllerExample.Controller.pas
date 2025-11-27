@@ -24,7 +24,9 @@ uses
   Dext.Filters, // Added for Action Filters
   Dext.Filters.BuiltIn, // Added for built-in filters
   Dext.Http.Results, // Added for IResult
-  Dext.Configuration.Interfaces; // Added for IConfiguration
+  Dext.Configuration.Interfaces, // Added for IConfiguration
+  Dext.Options, // Added for IOptions
+  ControllerExample.Services; // Added for TMySettings
 
 {.$RTTI EXPLICIT METHODS([vcPublic, vcPublished])}
 
@@ -70,10 +72,10 @@ type
   TGreetingController = class
   private
     FService: IGreetingService;
-    FConfig: IConfiguration;
+    FSettings: IOptions<TMySettings>;
   public
     // Constructor Injection!
-    constructor Create(AService: IGreetingService; Config: IConfiguration);
+    constructor Create(AService: IGreetingService; Settings: IOptions<TMySettings>);
 
     [DextGet('/{name}')]
     procedure GetGreeting(Ctx: IHttpContext; [FromRoute] const Name: string); virtual;
@@ -168,30 +170,33 @@ end;
 
 { TGreetingController }
 
-constructor TGreetingController.Create(AService: IGreetingService; Config: IConfiguration);
+constructor TGreetingController.Create(AService: IGreetingService; Settings: IOptions<TMySettings>);
 begin
   FService := AService;
-  FConfig := Config;
+  FSettings := Settings;
 end;
 
 procedure TGreetingController.GetGreeting(Ctx: IHttpContext; const Name: string);
 begin
   var Message := FService.GetGreeting(Name);
   Ctx.Response.Json(
-    Format('{"message": "%s" - %s}', [Message, FormatDateTime('hh:nn:ss.zzz', Now)]));
+    Format('{"message": "%s" - %s}',
+    [Message, FormatDateTime('hh:nn:ss.zzz', Now)]));
 end;
 
 procedure TGreetingController.CreateGreeting(Ctx: IHttpContext; const Request: TGreetingRequest);
 begin
   // Demonstrates Body Binding
   Ctx.Response.Status(201).Json(
-    Format('{"status": "created", "name": "%s", "title": "%s"}', [Request.Name, Request.Title]));
+    Format('{"status": "created", "name": "%s", "title": "%s"}',
+    [Request.Name, Request.Title]));
 end;
 
 procedure TGreetingController.SearchGreeting(Ctx: IHttpContext; const Filter: TGreetingFilter);
 begin
   // Demonstrates Query Binding
-  Ctx.Response.Json(Format('{"results": [], "query": "%s", "limit": %d}',
+  Ctx.Response.Json(
+    Format('{"results": [], "query": "%s", "limit": %d}',
     [Filter.Query, Filter.Limit]));
 end;
 
@@ -199,11 +204,13 @@ procedure TGreetingController.GetConfig(Ctx: IHttpContext);
 var
   Msg: string;
   Secret: string;
+  Retries: Integer;
 begin
-  Msg := FConfig['AppSettings:Message'];
-  Secret := FConfig['AppSettings:SecretKey'];
+  Msg := FSettings.Value.Message;
+  Secret := FSettings.Value.SecretKey;
+  Retries := FSettings.Value.MaxRetries;
   
-  Ctx.Response.Json(Format('{"message": "%s", "secret": "%s"}', [Msg, Secret]));
+  Ctx.Response.Json(Format('{"message": "%s", "secret": "%s", "retries": %d}', [Msg, Secret, Retries]));
 end;
 
 { TAuthController }

@@ -34,13 +34,15 @@ type
 implementation
 
 uses
-  Dext.DI.Core, // ✅ Para TDextServiceCollection
+  System.SysUtils,
+  Dext.DI.Core,
   Dext.Http.Core,
-  Dext.Http.Indy.Server, // ✅ Para TIndyWebServer
-//  Dext.Configuration.Interfaces,
+  Dext.Http.Indy.Server,
   Dext.Configuration.Core,
   Dext.Configuration.Json,
-  Dext.Configuration.EnvironmentVariables;
+  Dext.Configuration.EnvironmentVariables,
+  Dext.HealthChecks,
+  Dext.Hosting.BackgroundService;
 
 { TDextApplication }
 
@@ -49,6 +51,7 @@ var
   ConfigBuilder: IConfigurationBuilder;
 begin
   inherited Create;
+  WriteLn('🏗️ TDextApplication.Create');
   
   // Initialize Configuration
   ConfigBuilder := TConfigurationBuilder.Create;
@@ -58,7 +61,7 @@ begin
     
   FConfiguration := ConfigBuilder.Build;
   
-  FServices := TDextServiceCollection.Create; // ✅ Corrigido
+  FServices := TDextServiceCollection.Create;
   
   // Register Configuration
   FServices.AddSingleton(
@@ -76,6 +79,7 @@ end;
 
 destructor TDextApplication.Destroy;
 begin
+  WriteLn('💥 TDextApplication.Destroy');
   inherited Destroy;
 end;
 
@@ -100,7 +104,7 @@ var
 begin
   WriteLn('🔍 Scanning for controllers...');
 
-  // ✅ CRITICAL: Rebuild ServiceProvider to include controllers registered via AddControllers
+  // Rebuild ServiceProvider to include controllers registered via AddControllers
   FServiceProvider := FServices.BuildServiceProvider;
 
   FScanner := TControllerScanner.Create(FServiceProvider);
@@ -117,22 +121,48 @@ begin
   Result := Self;
 end;
 
-
 procedure TDextApplication.Run(Port: Integer);
 var
-  WebHost: IWebHost; // ✅ Usar IWebHost em vez de IHttpServer
+  WebHost: IWebHost;
   RequestHandler: TRequestDelegate;
+  HostedManager: THostedServiceManager;
+  Obj: TObject;
 begin
-  // Construir pipeline
+  // Rebuild provider one last time to ensure all services (including hosted ones) are registered
+  FServiceProvider := FServices.BuildServiceProvider;
+  
+  // Start Hosted Services
+  HostedManager := nil;
+  try
+    Obj := FServiceProvider.GetService(TServiceType.FromClass(THostedServiceManager));
+    if Obj <> nil then
+    begin
+      HostedManager := Obj as THostedServiceManager;
+      HostedManager.StartAsync;
+    end;
+  except
+    on E: Exception do
+      WriteLn('⚠️ Failed to start hosted services: ' + E.Message);
+  end;
+
+  // Build pipeline
   RequestHandler := FAppBuilder.Build;
 
-  // ✅ CORRETO: Criar TIndyWebServer que implementa IWebHost
+  // Create WebHost
   WebHost := TIndyWebServer.Create(Port, RequestHandler, FServiceProvider);
 
   WriteLn('🚀 Starting Dext HTTP Server on port ', Port);
   WriteLn('📡 Listening for requests...');
 
-  WebHost.Run; // ✅ Chamar Run do IWebHost
+  try
+    WebHost.Run;
+  finally
+    // Stop Hosted Services
+    if HostedManager <> nil then
+    begin
+      HostedManager.StopAsync;
+    end;
+  end;
 end;
 
 function TDextApplication.Services: IServiceCollection;

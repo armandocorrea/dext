@@ -1,0 +1,74 @@
+unit ControllerExample.Services;
+
+interface
+
+uses
+  System.SysUtils,
+  System.Classes,
+  System.SyncObjs,
+  System.Threading,
+  Dext.HealthChecks,
+  Dext.Hosting.BackgroundService,
+  Dext.Core.CancellationToken; // ✅ Added
+
+type
+  // Settings Class for IOptions<T>
+  TMySettings = class
+  private
+    FMessage: string;
+    FSecretKey: string;
+    FMaxRetries: Integer;
+  public
+    property Message: string read FMessage write FMessage;
+    property SecretKey: string read FSecretKey write FSecretKey;
+    property MaxRetries: Integer read FMaxRetries write FMaxRetries;
+  end;
+
+  // Dummy Health Check
+  TDatabaseHealthCheck = class(TInterfacedObject, IHealthCheck)
+  public
+    function CheckHealth: THealthCheckResult;
+  end;
+
+  // Dummy Background Service
+  TWorkerService = class(TBackgroundService)
+  protected
+    procedure Execute(Token: ICancellationToken); override;
+  end;
+
+implementation
+
+{ TDatabaseHealthCheck }
+
+function TDatabaseHealthCheck.CheckHealth: THealthCheckResult;
+begin
+  // Simulate a check
+  if Random(10) > 1 then
+    Result := THealthCheckResult.Healthy('Database is reachable')
+  else
+    Result := THealthCheckResult.Unhealthy('Database connection timeout');
+end;
+
+{ TWorkerService }
+
+procedure TWorkerService.Execute(Token: ICancellationToken);
+begin
+  WriteLn('👷 WorkerService started.');
+  
+  while not Token.IsCancellationRequested do
+  begin
+    WriteLn(Format('👷 WorkerService running at: %s', [DateTimeToStr(Now)]));
+    
+    try
+      // Wait for 5 seconds or until cancelled
+      if Token.WaitForCancellation(5000) = wrSignaled then
+        Break;
+    except
+      Break;
+    end;
+  end;
+  
+  WriteLn('👷 WorkerService stopping.');
+end;
+
+end.

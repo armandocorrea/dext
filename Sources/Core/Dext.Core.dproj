@@ -168,6 +168,10 @@
         <DCCReference Include="Dext.Http.Pipeline.pas"/>
         <DCCReference Include="Dext.Utils.pas"/>
         <DCCReference Include="Dext.WebHost.pas"/>
+        <DCCReference Include="Dext.Core.CancellationToken.pas"/>
+        <DCCReference Include="Dext.Hosting.BackgroundService.pas"/>
+        <DCCReference Include="Dext.HealthChecks.pas"/>
+        <DCCReference Include="Dext.Core.Extensions.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

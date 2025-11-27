@@ -1,3 +1,22 @@
+- Scheduler - Agendador de tarefas
+- WebSockets / SignalR
+- Async methods
+- Entity Framework
+- Servidores
+    - Indy - OK
+    - Webbroker
+    - HTTP.sys
+
+- Autenticação
+    - JWT - OK
+    - OAuth/OAuth2
+
+- Templates
+- Web Stencils
+- HTMX
+
+
+
 1. Revisão do Roadmap vs. Código
 A maioria dos itens marcados como "Concluído" (✅) realmente existe no código, EXCETO um item crítico:
 

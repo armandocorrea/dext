@@ -95,7 +95,11 @@ contains
   Dext.Http.Injection in 'Dext.Http.Injection.pas',
   Dext.Http.Pipeline in 'Dext.Http.Pipeline.pas',
   Dext.Utils in 'Dext.Utils.pas',
-  Dext.WebHost in 'Dext.WebHost.pas';
+  Dext.WebHost in 'Dext.WebHost.pas',
+  Dext.Core.CancellationToken in 'Dext.Core.CancellationToken.pas',
+  Dext.Hosting.BackgroundService in 'Dext.Hosting.BackgroundService.pas',
+  Dext.HealthChecks in 'Dext.HealthChecks.pas',
+  Dext.Core.Extensions in 'Dext.Core.Extensions.pas';
 
 end.
 
