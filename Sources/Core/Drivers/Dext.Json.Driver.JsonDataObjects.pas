@@ -46,6 +46,9 @@ type
     function GetBoolean(const Name: string): Boolean;
     function GetObject(const Name: string): IDextJsonObject;
     function GetArray(const Name: string): IDextJsonArray;
+    
+    function GetCount: Integer;
+    function GetName(Index: Integer): string;
 
     procedure SetString(const Name, Value: string);
     procedure SetInteger(const Name: string; Value: Integer);
@@ -218,6 +221,16 @@ begin
     Result := TJsonDataArrayAdapter.Create(Arr, False) // Reference
   else
     Result := nil;
+end;
+
+function TJsonDataObjectAdapter.GetCount: Integer;
+begin
+  Result := FObj.Count;
+end;
+
+function TJsonDataObjectAdapter.GetName(Index: Integer): string;
+begin
+  Result := FObj.Names[Index];
 end;
 
 procedure TJsonDataObjectAdapter.SetString(const Name, Value: string);
