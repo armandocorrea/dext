@@ -1,9 +1,9 @@
-unit DextStore.Models;
+﻿unit DextStore.Models;
 
 interface
 
 uses
-  Dext.Validation;
+  Dext;
 
 type
   // ===========================================================================

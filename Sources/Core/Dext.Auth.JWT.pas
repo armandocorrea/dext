@@ -35,9 +35,102 @@ type
   end;
 
   /// <summary>
+  ///   JWT token generator and validator interface.
+  /// </summary>
+  IJwtTokenHandler = interface
+    ['{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D}']
+    function GenerateToken(const AClaims: TArray<TClaim>): string;
+    function ValidateToken(const AToken: string): TJwtValidationResult;
+    function GetClaims(const AToken: string): TArray<TClaim>;
+    
+    function GetSecretKey: string;
+    procedure SetSecretKey(const Value: string);
+    function GetIssuer: string;
+    procedure SetIssuer(const Value: string);
+    function GetAudience: string;
+    procedure SetAudience(const Value: string);
+    function GetExpirationMinutes: Integer;
+    procedure SetExpirationMinutes(const Value: Integer);
+    
+    property SecretKey: string read GetSecretKey write SetSecretKey;
+    property Issuer: string read GetIssuer write SetIssuer;
+    property Audience: string read GetAudience write SetAudience;
+    property ExpirationMinutes: Integer read GetExpirationMinutes write SetExpirationMinutes;
+  end;
+
+  /// <summary>
+  ///   JWT authentication configuration options.
+  /// </summary>
+  TJwtOptions = record
+  public
+    /// <summary>
+    ///   Secret key used for signing and validating tokens.
+    /// </summary>
+    SecretKey: string;
+    
+    /// <summary>
+    ///   Token issuer (iss claim).
+    /// </summary>
+    Issuer: string;
+    
+    /// <summary>
+    ///   Token audience (aud claim).
+    /// </summary>
+    Audience: string;
+    
+    /// <summary>
+    ///   Token expiration time in minutes.
+    /// </summary>
+    ExpirationMinutes: Integer;
+
+    /// <summary>
+    ///   Creates default JWT options.
+    /// </summary>
+    class function Create(const ASecretKey: string): TJwtOptions; static;
+  end;
+
+  /// <summary>
+  ///   Fluent builder for creating JWT options.
+  /// </summary>
+  TJwtOptionsBuilder = class
+  private
+    FOptions: TJwtOptions;
+  public
+    constructor Create(const ASecretKey: string);
+    
+    /// <summary>
+    ///   Sets the token issuer (iss claim).
+    /// </summary>
+    function WithIssuer(const AIssuer: string): TJwtOptionsBuilder;
+    
+    /// <summary>
+    ///   Sets the token audience (aud claim).
+    /// </summary>
+    function WithAudience(const AAudience: string): TJwtOptionsBuilder;
+    
+    /// <summary>
+    ///   Sets the token expiration time in minutes.
+    /// </summary>
+    function WithExpirationMinutes(AMinutes: Integer): TJwtOptionsBuilder;
+
+    /// <summary>
+    ///   Builds and returns the JWT options.
+    /// </summary>
+    function Build: TJwtOptions;
+  end;
+
+  /// <summary>
+  ///   Helper for implicit conversion of TJwtOptions to TValue.
+  /// </summary>
+  TJwtOptionsHelper = record helper for TJwtOptions
+  public
+    class operator Implicit(const AValue: TJwtOptions): TValue;
+  end;
+
+  /// <summary>
   ///   JWT token generator and validator.
   /// </summary>
-  TJwtTokenHandler = class
+  TJwtTokenHandler = class(TInterfacedObject, IJwtTokenHandler)
   private
     FSecretKey: string;
     FIssuer: string;
@@ -49,6 +142,15 @@ type
     function Base64UrlDecode(const AInput: string): string;
     function CreateSignature(const AHeader, APayload: string): string;
     function VerifySignature(const AToken: string): Boolean;
+    
+    function GetSecretKey: string;
+    procedure SetSecretKey(const Value: string);
+    function GetIssuer: string;
+    procedure SetIssuer(const Value: string);
+    function GetAudience: string;
+    procedure SetAudience(const Value: string);
+    function GetExpirationMinutes: Integer;
+    procedure SetExpirationMinutes(const Value: Integer);
   public
     constructor Create(const ASecretKey: string; const AIssuer: string = '';
       const AAudience: string = ''; AExpirationMinutes: Integer = 60);
@@ -69,10 +171,10 @@ type
     /// </summary>
     function GetClaims(const AToken: string): TArray<TClaim>;
 
-    property SecretKey: string read FSecretKey write FSecretKey;
-    property Issuer: string read FIssuer write FIssuer;
-    property Audience: string read FAudience write FAudience;
-    property ExpirationMinutes: Integer read FExpirationMinutes write FExpirationMinutes;
+    property SecretKey: string read GetSecretKey write SetSecretKey;
+    property Issuer: string read GetIssuer write SetIssuer;
+    property Audience: string read GetAudience write SetAudience;
+    property ExpirationMinutes: Integer read GetExpirationMinutes write SetExpirationMinutes;
   end;
 
 implementation
@@ -166,6 +268,46 @@ destructor TJwtTokenHandler.Destroy;
 begin
   FBase64.Free;
   inherited;
+end;
+
+function TJwtTokenHandler.GetSecretKey: string;
+begin
+  Result := FSecretKey;
+end;
+
+procedure TJwtTokenHandler.SetSecretKey(const Value: string);
+begin
+  FSecretKey := Value;
+end;
+
+function TJwtTokenHandler.GetIssuer: string;
+begin
+  Result := FIssuer;
+end;
+
+procedure TJwtTokenHandler.SetIssuer(const Value: string);
+begin
+  FIssuer := Value;
+end;
+
+function TJwtTokenHandler.GetAudience: string;
+begin
+  Result := FAudience;
+end;
+
+procedure TJwtTokenHandler.SetAudience(const Value: string);
+begin
+  FAudience := Value;
+end;
+
+function TJwtTokenHandler.GetExpirationMinutes: Integer;
+begin
+  Result := FExpirationMinutes;
+end;
+
+procedure TJwtTokenHandler.SetExpirationMinutes(const Value: Integer);
+begin
+  FExpirationMinutes := Value;
 end;
 
 function TJwtTokenHandler.GenerateToken(const AClaims: TArray<TClaim>): string;

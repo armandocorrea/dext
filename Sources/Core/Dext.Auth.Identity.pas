@@ -95,9 +95,25 @@ type
   end;
 
   /// <summary>
+  ///   Fluent builder for creating claims arrays (interface).
+  /// </summary>
+  IClaimsBuilder = interface
+    ['{B2C3D4E5-F6A7-8B9C-0D1E-2F3A4B5C6D7E}']
+    function AddClaim(const AType, AValue: string): IClaimsBuilder;
+    function WithNameIdentifier(const AValue: string): IClaimsBuilder;
+    function WithName(const AValue: string): IClaimsBuilder;
+    function WithEmail(const AValue: string): IClaimsBuilder;
+    function WithRole(const AValue: string): IClaimsBuilder;
+    function WithGivenName(const AValue: string): IClaimsBuilder;
+    function WithFamilyName(const AValue: string): IClaimsBuilder;
+    function Build: TArray<TClaim>;
+    function Count: Integer;
+  end;
+
+  /// <summary>
   ///   Fluent builder for creating claims arrays.
   /// </summary>
-  TClaimsBuilder = class
+  TClaimsBuilder = class(TInterfacedObject, IClaimsBuilder)
   private
     FClaims: TList<TClaim>;
   public
@@ -107,37 +123,37 @@ type
     /// <summary>
     ///   Adds a custom claim.
     /// </summary>
-    function AddClaim(const AType, AValue: string): TClaimsBuilder;
+    function AddClaim(const AType, AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Adds the 'sub' (subject/user ID) claim.
     /// </summary>
-    function WithNameIdentifier(const AValue: string): TClaimsBuilder;
+    function WithNameIdentifier(const AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Adds the 'name' claim.
     /// </summary>
-    function WithName(const AValue: string): TClaimsBuilder;
+    function WithName(const AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Adds the 'email' claim.
     /// </summary>
-    function WithEmail(const AValue: string): TClaimsBuilder;
+    function WithEmail(const AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Adds the 'role' claim. Can be called multiple times for multiple roles.
     /// </summary>
-    function WithRole(const AValue: string): TClaimsBuilder;
+    function WithRole(const AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Adds the 'given_name' claim.
     /// </summary>
-    function WithGivenName(const AValue: string): TClaimsBuilder;
+    function WithGivenName(const AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Adds the 'family_name' claim.
     /// </summary>
-    function WithFamilyName(const AValue: string): TClaimsBuilder;
+    function WithFamilyName(const AValue: string): IClaimsBuilder;
 
     /// <summary>
     ///   Builds and returns the claims array.
@@ -245,38 +261,38 @@ begin
   inherited;
 end;
 
-function TClaimsBuilder.AddClaim(const AType, AValue: string): TClaimsBuilder;
+function TClaimsBuilder.AddClaim(const AType, AValue: string): IClaimsBuilder;
 begin
   FClaims.Add(TClaim.Create(AType, AValue));
   Result := Self;
 end;
 
-function TClaimsBuilder.WithNameIdentifier(const AValue: string): TClaimsBuilder;
+function TClaimsBuilder.WithNameIdentifier(const AValue: string): IClaimsBuilder;
 begin
   Result := AddClaim(TClaimTypes.NameIdentifier, AValue);
 end;
 
-function TClaimsBuilder.WithName(const AValue: string): TClaimsBuilder;
+function TClaimsBuilder.WithName(const AValue: string): IClaimsBuilder;
 begin
   Result := AddClaim(TClaimTypes.Name, AValue);
 end;
 
-function TClaimsBuilder.WithEmail(const AValue: string): TClaimsBuilder;
+function TClaimsBuilder.WithEmail(const AValue: string): IClaimsBuilder;
 begin
   Result := AddClaim(TClaimTypes.Email, AValue);
 end;
 
-function TClaimsBuilder.WithRole(const AValue: string): TClaimsBuilder;
+function TClaimsBuilder.WithRole(const AValue: string): IClaimsBuilder;
 begin
   Result := AddClaim(TClaimTypes.Role, AValue);
 end;
 
-function TClaimsBuilder.WithGivenName(const AValue: string): TClaimsBuilder;
+function TClaimsBuilder.WithGivenName(const AValue: string): IClaimsBuilder;
 begin
   Result := AddClaim(TClaimTypes.GivenName, AValue);
 end;
 
-function TClaimsBuilder.WithFamilyName(const AValue: string): TClaimsBuilder;
+function TClaimsBuilder.WithFamilyName(const AValue: string): IClaimsBuilder;
 begin
   Result := AddClaim(TClaimTypes.FamilyName, AValue);
 end;

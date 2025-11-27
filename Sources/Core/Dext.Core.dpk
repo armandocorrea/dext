@@ -101,7 +101,8 @@ contains
   Dext.HealthChecks in 'Dext.HealthChecks.pas',
   Dext.Core.Extensions in 'Dext.Core.Extensions.pas',
   Dext in 'Dext.pas',
-  Dext.Options.Extensions in 'Dext.Options.Extensions.pas';
+  Dext.Options.Extensions in 'Dext.Options.Extensions.pas',
+  Dext.Core.Memory in 'Dext.Core.Memory.pas';
 
 end.
 

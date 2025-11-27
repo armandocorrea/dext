@@ -8,12 +8,15 @@ uses
   System.TypInfo,
   System.Generics.Collections,
   Dext.Auth.Attributes,
+  Dext.Auth.Identity,
   Dext.Auth.JWT,
   Dext.Auth.Middleware,
   Dext.Configuration.Interfaces,
+  Dext.Core.Activator,
   Dext.Core.CancellationToken,
   Dext.Core.Controllers,
   Dext.Core.ControllerScanner,
+  Dext.Core.Memory,
   Dext.Core.ModelBinding,
   Dext.Core.Routing,
   Dext.Core.WebApplication,
@@ -87,16 +90,20 @@ type
   FromQueryAttribute = Dext.Core.ModelBinding.FromQueryAttribute;
   FromRouteAttribute = Dext.Core.ModelBinding.FromRouteAttribute;
   FromBodyAttribute = Dext.Core.ModelBinding.FromBodyAttribute;
+  FromServicesAttribute = Dext.Core.ModelBinding.FromServicesAttribute;
   RequiredAttribute = Dext.Validation.RequiredAttribute;
   StringLengthAttribute = Dext.Validation.StringLengthAttribute;
-  
+
   // OpenAPI
   SwaggerAuthorizeAttribute = Dext.OpenAPI.Attributes.SwaggerAuthorizeAttribute;
   
   // Auth
   AllowAnonymousAttribute = Dext.Auth.Attributes.AllowAnonymousAttribute;
   TJwtTokenHandler = Dext.Auth.JWT.TJwtTokenHandler;
+  IJwtTokenHandler = Dext.Auth.JWT.IJwtTokenHandler;
   TClaim = Dext.Auth.JWT.TClaim;
+  TClaimsBuilder = Dext.Auth.Identity.TClaimsBuilder;
+  IClaimsBuilder = Dext.Auth.Identity.IClaimsBuilder;
   
   // Filters
   ActionFilterAttribute = Dext.Filters.ActionFilterAttribute;
@@ -113,6 +120,79 @@ type
   THealthCheckResult = Dext.HealthChecks.THealthCheckResult;
   TBackgroundService = Dext.Hosting.BackgroundService.TBackgroundService;
   ICancellationToken = Dext.Core.CancellationToken.ICancellationToken;
+
+  // Memory Management
+  IDeferred = Dext.Core.Memory.IDeferred;
+
+  /// <summary>
+  ///   Smart pointer record that automatically frees the object when it goes out of scope.
+  ///   Uses an internal interface to support ARC (Automatic Reference Counting).
+  /// </summary>
+  Auto<T: class> = record
+  private
+    FLifetime: Dext.Core.Memory.ILifetime<T>;
+    function GetValue: T;
+  public
+    constructor Create(AValue: T);
+    
+    /// <summary>
+    ///   Access the underlying object.
+    /// </summary>
+    property Value: T read GetValue;
+    
+    /// <summary>
+    ///   Implicitly converts the object to Auto&lt;T&gt;.
+    /// </summary>
+    class operator Implicit(const AValue: T): Auto<T>;
+    
+    /// <summary>
+    ///   Implicitly converts Auto&lt;T&gt; to the object.
+    /// </summary>
+    class operator Implicit(const AAuto: Auto<T>): T;
+  end;
+
+  Auto = class abstract
+  public
+    class function Create<T: class>: Auto<T>;
+  end;
+
+  /// <summary>
+  ///   Factory for creating interface-based objects with automatic reference counting (ARC).
+  ///   This eliminates the need for try...finally blocks when working with interfaces.
+  ///   
+  ///   Example 1 - Parameterless constructor:
+  ///   <code>
+  ///   var Builder := Factory.Create&lt;TClaimsBuilder, IClaimsBuilder&gt;;
+  ///   var Claims := Builder.WithName('John').WithRole('Admin').Build;
+  ///   // Automatically freed when Builder goes out of scope
+  ///   </code>
+  ///   
+  ///   Example 2 - Constructor with parameters:
+  ///   <code>
+  ///   var Handler := Factory.Create&lt;IJwtTokenHandler&gt;(
+  ///     TJwtTokenHandler.Create('secret', 'issuer', 'audience', 120)
+  ///   );
+  ///   var Token := Handler.GenerateToken(Claims);
+  ///   // Automatically freed when Handler goes out of scope
+  ///   </code>
+  /// </summary>
+  Factory = class abstract
+  public
+    /// <summary>
+    ///   Creates an instance of T using its parameterless constructor and returns as interface I.
+    ///   Use this overload when the class has a default constructor.
+    /// </summary>
+    class function Create<T: class, constructor; I: IInterface>: I; overload;
+    
+    /// <summary>
+    ///   Wraps an existing instance and returns as interface I.
+    ///   Use this overload when you need to pass parameters to the constructor.
+    ///   The instance will be automatically freed when the interface goes out of scope.
+    /// </summary>
+    class function Create<I: IInterface>(Instance: TInterfacedObject): I; overload;
+  end;
+
+  TActivator = Dext.Core.Activator.TActivator;
 
   // ===========================================================================
   // 🛠️ Fluent Helpers & Wrappers
@@ -148,6 +228,8 @@ type
     /// </summary>
     function Configure<T: class, constructor>(Section: IConfigurationSection): TDextServices; overload;
   end;
+
+
 
   /// <summary>
   ///   Helper for TDextAppBuilder to provide factory methods and extensions for middleware configuration.
@@ -231,7 +313,41 @@ type
     function Build: TRequestDelegate;
   end;
 
+  /// <summary>
+  ///   Schedules an action to be executed when the returned interface goes out of scope.
+  /// </summary>
+  function Defer(AAction: TProc): IDeferred;
+
 implementation
+
+
+{ Auto<T> }
+
+constructor Auto<T>.Create(AValue: T);
+begin
+  if AValue <> nil then
+    FLifetime := Dext.Core.Memory.TLifetime<T>.Create(AValue)
+  else
+    FLifetime := nil;
+end;
+
+function Auto<T>.GetValue: T;
+begin
+  if FLifetime <> nil then
+    Result := FLifetime.GetValue
+  else
+    Result := nil;
+end;
+
+class operator Auto<T>.Implicit(const AValue: T): Auto<T>;
+begin
+  Result := Auto<T>.Create(AValue);
+end;
+
+class operator Auto<T>.Implicit(const AAuto: Auto<T>): T;
+begin
+  Result := AAuto.Value;
+end;
 
 { TDextServicesHelper }
 
@@ -264,6 +380,11 @@ function TDextServicesHelper.Configure<T>(Section: IConfigurationSection): TDext
 begin
   TOptionsServiceCollectionExtensions.Configure<T>(Self.Unwrap, Section);
   Result := Self;
+end;
+
+function Defer(AAction: TProc): IDeferred;
+begin
+  Result := Dext.Core.Memory.TDeferredAction.Create(AAction);
 end;
 
 { TDextAppBuilderHelper }
@@ -346,6 +467,38 @@ end;
 function TDextAppBuilderHelper.Build: TRequestDelegate;
 begin
   Result := Self.Unwrap.Build;
+end;
+
+{ Auto }
+
+class function Auto.Create<T>: Auto<T>;
+begin
+  Result := TActivator.CreateInstance<T>([]);
+end;
+
+{ Factory }
+
+class function Factory.Create<T, I>: I;
+var
+  Instance: TObject;
+begin
+  Instance := TActivator.CreateInstance<T>([]);
+  if not Supports(Instance, GetTypeData(TypeInfo(I))^.Guid, Result) then
+  begin
+    Instance.Free;
+    raise Exception.CreateFmt('Class %s does not implement interface %s', 
+      [T.ClassName, GetTypeName(TypeInfo(I))]);
+  end;
+end;
+
+class function Factory.Create<I>(Instance: TInterfacedObject): I;
+begin
+  if not Supports(Instance, GetTypeData(TypeInfo(I))^.Guid, Result) then
+  begin
+    Instance.Free;
+    raise Exception.CreateFmt('Instance does not implement interface %s', 
+      [GetTypeName(TypeInfo(I))]);
+  end;
 end;
 
 end.

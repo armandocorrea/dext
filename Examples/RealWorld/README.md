@@ -84,11 +84,95 @@ If the variable is not set, it defaults to `Production`.
   - Lists the authenticated user's order history.
   - *Requires Authentication.*
 
+## 🧪 Testing the API
+
+Run the PowerShell test script to verify all endpoints:
+
+```powershell
+.\test-api.ps1
+```
+
+Or test manually with curl:
+
+```bash
+# 1. Login
+curl -X POST http://localhost:9000/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"user\",\"password\":\"password\"}"
+
+# 2. Get Products (save the token from step 1)
+curl http://localhost:9000/api/products
+
+# 3. Add to Cart (use your token)
+curl -X POST http://localhost:9000/api/cart/items -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d "{\"productId\":1,\"quantity\":2}"
+```
+
 ## ✨ Features Demonstrated
 
-- **Fluent API**: Configuration using `App.Builder` and `TDextAppBuilderHelper`.
-- **Dependency Injection**: Registering services and controllers via `App.Services`.
-- **Middleware Pipeline**: Configuring CORS, JWT, and Routing.
-- **Minimal APIs**: Mixing Controllers with lightweight endpoints (`App.Builder.MapGet`).
-- **Model Binding & Validation**: Using attributes like `[FromBody]`, `[Required]`, `[StringLength]`.
-- **JSON Serialization**: Handling JSON responses with `System.JSON` and `REST.Json`.
+### 1. **Dependency Injection**
+Services and controllers are registered in the DI container:
+```pascal
+App.Services
+  .AddSingleton(TServiceType.FromInterface(IJwtTokenHandler), TJwtTokenHandler, ...)
+  .AddSingleton<IProductService, TProductService>
+  .AddControllers;
+```
+
+### 2. **Interface-based Design with Factory**
+Using the new `Factory` DSL for automatic memory management:
+```pascal
+var Builder := Factory.Create<TClaimsBuilder, IClaimsBuilder>;
+var Token := FTokenHandler.GenerateToken(
+  Builder
+    .WithNameIdentifier(Username)
+    .WithRole('customer')
+    .Build
+);
+// Automatic cleanup via ARC!
+```
+
+### 3. **Fluent API**
+Configuration using `App.Builder` and `TDextAppBuilderHelper`:
+```pascal
+var AppBuilder := App.Builder;
+AppBuilder
+  .UseCors(Cors)
+  .UseJwtAuthentication(Auth);
+```
+
+### 4. **Minimal APIs**
+Mixing Controllers with lightweight endpoints:
+```pascal
+AppBuilder.MapGet('/health', 
+  procedure(Ctx: IHttpContext)
+  begin
+    Ctx.Response.Json('{"status": "healthy"}');
+  end
+);
+```
+
+### 5. **Model Binding & Validation**
+Using attributes like `[FromBody]`, `[Required]`, `[StringLength]`:
+```pascal
+[DextPost('/login')]
+procedure Login(Ctx: IHttpContext; const Request: TLoginRequest);
+```
+
+### 6. **JWT Authentication**
+Centralized configuration with DI:
+```pascal
+[SwaggerAuthorize('Bearer')]
+TCartController = class
+  // All methods require authentication
+end;
+```
+
+### 7. **Environment-based Configuration**
+Automatic loading of `appsettings.{Environment}.json` based on `DEXT_ENVIRONMENT` variable.
+
+## 🎯 Key Patterns Used
+
+- **Repository Pattern**: In-memory services (`IProductService`, `ICartService`, `IOrderService`)
+- **Builder Pattern**: `IClaimsBuilder` for fluent claim construction
+- **Factory Pattern**: `Factory.Create<T, I>` for interface-based object creation
+- **Dependency Injection**: Constructor injection throughout
+- **Interface Segregation**: Separate interfaces for each service
+- **Single Responsibility**: Each controller handles one resource

@@ -16,7 +16,20 @@ begin
     var App: IWebApplication := TDextApplication.Create;
 
     // 1. Dependency Injection
+    const JwtSecret = 'dext-store-secret-key-must-be-very-long-and-secure';
+    const JwtIssuer = 'dext-store';
+    const JwtAudience = 'dext-users';
+    const JwtExpiration = 120;
+    
     App.Services
+      // Register JWT Token Handler
+      .AddSingleton<IJwtTokenHandler, TJwtTokenHandler>(
+        function(Provider: IServiceProvider): TObject
+        begin
+          Result := TJwtTokenHandler.Create(JwtSecret, JwtIssuer, JwtAudience, JwtExpiration);
+        end
+      )
+      .AddTransient<IClaimsBuilder, TClaimsBuilder>
       // Register Services (Singleton for In-Memory Persistence)
       .AddSingleton<IProductService, TProductService>
       .AddSingleton<ICartService, TCartService>
@@ -43,7 +56,7 @@ begin
     AppBuilder.UseJwtAuthentication(Auth);
 
     // Minimal API Health Check
-    AppBuilder.MapGet('/health', 
+    AppBuilder.MapGet('/health',
       procedure(Ctx: IHttpContext)
       begin
         Ctx.Response.Json('{"status": "healthy", "timestamp": "' + DateTimeToStr(Now) + '"}');

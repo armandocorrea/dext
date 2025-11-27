@@ -1,4 +1,4 @@
-unit DextStore.Controllers;
+﻿unit DextStore.Controllers;
 
 interface
 
@@ -16,10 +16,15 @@ type
   // ===========================================================================
   [DextController('/api/auth')]
   TAuthController = class
+  private
+    FTokenHandler: IJwtTokenHandler;
   public
+    constructor Create(TokenHandler: IJwtTokenHandler);
+    
     [DextPost('/login')]
     [AllowAnonymous]
-    procedure Login(Ctx: IHttpContext; const Request: TLoginRequest);
+    procedure Login(Ctx: IHttpContext; const Request: TLoginRequest; [FromServices] const
+      ClaimsBuilder: IClaimsBuilder);
   end;
 
   // ===========================================================================
@@ -85,31 +90,28 @@ type
 
 implementation
 
+
 { TAuthController }
 
-procedure TAuthController.Login(Ctx: IHttpContext; const Request: TLoginRequest);
+constructor TAuthController.Create(TokenHandler: IJwtTokenHandler);
+begin
+  FTokenHandler := TokenHandler;
+end;
+
+procedure TAuthController.Login(Ctx: IHttpContext; const Request:
+  TLoginRequest; const ClaimsBuilder: IClaimsBuilder);
 begin
   // Hardcoded user for demo
   if (Request.Username = 'user') and (Request.Password = 'password') then
   begin
-    var TokenHandler := TJwtTokenHandler.Create(
-      'dext-store-secret-key-must-be-very-long-and-secure',
-      'dext-store',
-      'dext-users',
-      120 // 2 hours
+    var Token := FTokenHandler.GenerateToken(
+      ClaimsBuilder
+        .WithNameIdentifier(Request.Username)
+        .WithRole('customer')
+        .Build
     );
-    try
-      var Claims: TArray<TClaim>;
-      SetLength(Claims, 2);
-      Claims[0] := TClaim.Create('sub', Request.Username);
-      Claims[1] := TClaim.Create('role', 'customer');
-      
-      var Token := TokenHandler.GenerateToken(Claims);
-      
-      Ctx.Response.Json(Format('{"token": "%s", "expires_in": 7200}', [Token]));
-    finally
-      TokenHandler.Free;
-    end;
+    
+    Ctx.Response.Json(Format('{"token": "%s", "expires_in": 7200}', [Token]));
   end
   else
     Ctx.Response.Status(401).Json('{"error": "Invalid credentials"}');
@@ -149,8 +151,6 @@ begin
   var Product := FService.CreateProduct(Request);
   Ctx.Response.Status(201).Json(TJson.ObjectToJsonString(Product));
 end;
-
-
 
 { TCartController }
 

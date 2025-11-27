@@ -99,6 +99,11 @@ type
     function AddTransient<TService: IInterface; TImplementation: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
     function AddScoped<TService: IInterface; TImplementation: class>(const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
 
+    // Non-generic overloads (forward to IServiceCollection)
+    function AddSingleton(const AServiceType: TServiceType; const AImplementationClass: TClass; const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+    function AddTransient(const AServiceType: TServiceType; const AImplementationClass: TClass; const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+    function AddScoped(const AServiceType: TServiceType; const AImplementationClass: TClass; const AFactory: TFunc<IServiceProvider, TObject> = nil): TDextServices; overload;
+
     function BuildServiceProvider: IServiceProvider;
     function Unwrap: IServiceCollection;
     
@@ -156,6 +161,25 @@ var
 begin
   Guid := GetTypeData(TypeInfo(TService))^.Guid;
   FServices.AddScoped(TServiceType.FromInterface(Guid), TImplementation, AFactory);
+  Result := Self;
+end;
+
+// Non-generic overloads
+function TDextServices.AddSingleton(const AServiceType: TServiceType; const AImplementationClass: TClass; const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+begin
+  FServices.AddSingleton(AServiceType, AImplementationClass, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddTransient(const AServiceType: TServiceType; const AImplementationClass: TClass; const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+begin
+  FServices.AddTransient(AServiceType, AImplementationClass, AFactory);
+  Result := Self;
+end;
+
+function TDextServices.AddScoped(const AServiceType: TServiceType; const AImplementationClass: TClass; const AFactory: TFunc<IServiceProvider, TObject>): TDextServices;
+begin
+  FServices.AddScoped(AServiceType, AImplementationClass, AFactory);
   Result := Self;
 end;
 
