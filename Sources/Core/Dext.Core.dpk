@@ -124,7 +124,8 @@ contains
   Dext.Persistence in '..\Entity\Dext.Persistence.pas',
   Dext.Entity.Query in '..\Entity\Dext.Entity.Query.pas',
   Dext.Entity.Grouping in '..\Entity\Dext.Entity.Grouping.pas',
-  Dext.Entity.Joining in '..\Entity\Dext.Entity.Joining.pas';
+  Dext.Entity.Joining in '..\Entity\Dext.Entity.Joining.pas',
+  Dext.Specifications.Evaluator in '..\Specifications\Dext.Specifications.Evaluator.pas';
 
 end.
 

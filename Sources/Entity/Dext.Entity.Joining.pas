@@ -184,7 +184,7 @@ begin
       Result := TJoinIterator<TOuter, TInner, TKey, TResult>.Create(
         LOuter, LInner, OuterKeySelector, InnerKeySelector, ResultSelector);
     end,
-    Outer); // Parent is Outer? Or nil? 
+    TObject(Outer)); // Parent is Outer? Or nil? 
     // If we pass Outer, it might manage lifetime. 
     // But Join depends on both. 
     // Usually TFluentQuery takes ownership of parent to keep chain alive.

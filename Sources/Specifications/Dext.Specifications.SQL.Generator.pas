@@ -131,7 +131,7 @@ var
   ParamNames: TStringBuilder;
 begin
   // Special handling for IN and NOT IN operators
-  if (C.Operator = boIn) or (C.Operator = boNotIn) then
+  if (C.BinaryOperator = boIn) or (C.BinaryOperator = boNotIn) then
   begin
     ArrayValue := C.Value;
     
@@ -155,7 +155,7 @@ begin
         FSQL.Append('(')
             .Append(FDialect.QuoteIdentifier(C.PropertyName))
             .Append(' ')
-            .Append(GetBinaryOpSQL(C.Operator))
+            .Append(GetBinaryOpSQL(C.BinaryOperator))
             .Append(' (')
             .Append(ParamNames.ToString)
             .Append('))');
@@ -172,7 +172,7 @@ begin
       FSQL.Append('(')
           .Append(FDialect.QuoteIdentifier(C.PropertyName))
           .Append(' ')
-          .Append(GetBinaryOpSQL(C.Operator))
+          .Append(GetBinaryOpSQL(C.BinaryOperator))
           .Append(' (:')
           .Append(ParamName)
           .Append('))');
@@ -190,7 +190,7 @@ begin
     FSQL.Append('(')
         .Append(FDialect.QuoteIdentifier(C.PropertyName))
         .Append(' ')
-        .Append(GetBinaryOpSQL(C.Operator))
+        .Append(GetBinaryOpSQL(C.BinaryOperator))
         .Append(' :')
         .Append(ParamName)
         .Append(')');
@@ -203,7 +203,7 @@ begin
   FSQL.Append('(');
   Process(C.Left);
   FSQL.Append(' ')
-      .Append(GetLogicalOpSQL(C.Operator))
+      .Append(GetLogicalOpSQL(C.LogicalOperator))
       .Append(' ');
   Process(C.Right);
   FSQL.Append(')');
@@ -211,7 +211,7 @@ end;
 
 procedure TSQLWhereGenerator.ProcessUnary(const C: TUnaryCriterion);
 begin
-  if C.Operator = uoNot then
+  if C.UnaryOperator = uoNot then
   begin
     FSQL.Append('(NOT ');
     Process(C.Criterion);
@@ -223,7 +223,7 @@ begin
     FSQL.Append('(')
         .Append(FDialect.QuoteIdentifier(C.PropertyName))
         .Append(' ')
-        .Append(GetUnaryOpSQL(C.Operator))
+        .Append(GetUnaryOpSQL(C.UnaryOperator))
         .Append(')');
   end;
 end;

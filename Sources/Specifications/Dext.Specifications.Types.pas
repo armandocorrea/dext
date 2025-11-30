@@ -30,7 +30,7 @@ type
     constructor Create(const APropertyName: string; AOperator: TBinaryOperator; const AValue: TValue);
     property PropertyName: string read FPropertyName;
     property Value: TValue read FValue;
-    property Operator: TBinaryOperator read FOperator;
+    property BinaryOperator: TBinaryOperator read FOperator;
     function ToString: string; override;
   end;
 
@@ -48,7 +48,7 @@ type
     constructor Create(const ALeft, ARight: ICriterion; AOperator: TLogicalOperator);
     property Left: ICriterion read FLeft;
     property Right: ICriterion read FRight;
-    property Operator: TLogicalOperator read FOperator;
+    property LogicalOperator: TLogicalOperator read FOperator;
     function ToString: string; override;
   end;
 
@@ -68,7 +68,7 @@ type
     
     property Criterion: ICriterion read FCriterion;
     property PropertyName: string read FPropertyName;
-    property Operator: TUnaryOperator read FOperator;
+    property UnaryOperator: TUnaryOperator read FOperator;
     function ToString: string; override;
   end;
 
@@ -121,7 +121,9 @@ type
     class operator GreaterThanOrEqual(const Left: TProp; const Right: TValue): TExpr;
     class operator LessThan(const Left: TProp; const Right: TValue): TExpr;
     class operator LessThanOrEqual(const Left: TProp; const Right: TValue): TExpr;
-    
+
+    class operator Implicit(const Value: TProp): string;
+
     // Special Methods (Like, In, etc)
     function Like(const Pattern: string): ICriterion;
     function NotLike(const Pattern: string): ICriterion;
@@ -143,6 +145,7 @@ type
     // OrderBy support
     function Asc: IOrderBy;
     function Desc: IOrderBy;
+    property Name: string read FName;
   end;
 
 implementation
@@ -324,6 +327,11 @@ var
 begin
   Val := TValue.From<TArray<string>>(Values);
   Result := TBinaryCriterion.Create(FName, boIn, Val);
+end;
+
+class operator TProp.Implicit(const Value: TProp): string;
+begin
+  Result := Value.Name;
 end;
 
 function TProp.&In(const Values: TArray<Integer>): ICriterion;

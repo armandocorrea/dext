@@ -26,6 +26,7 @@ type
     procedure TestJoin;
     procedure TestInclude;
     procedure TestSelectOptimized;
+    procedure TestFluentSyntax;
   end;
 
 implementation
@@ -40,6 +41,7 @@ begin
   TestJoin;
   TestInclude;
   TestSelectOptimized;
+
   Log('');
 end;
 
@@ -237,7 +239,7 @@ begin
   Users := FContext.Entities<TUser>.Query;
   
   // Use the TQuery.GroupBy function
-  Grouped := Dext.Entity.Grouping.TQuery.GroupBy<TUser, string>(
+  Grouped := TQuery.GroupBy<TUser, string>(
     Users.Where(function(U: TUser): Boolean begin Result := U.City <> ''; end),
     function(U: TUser): string begin Result := U.City; end
   );
@@ -307,7 +309,7 @@ begin
   InnerKeyFunc := function(A: TAddress): Integer begin Result := A.Id; end;
   ResultFunc := function(U: TUser; A: TAddress): string begin Result := U.Name + ' - ' + A.Street; end;
   
-  Joined := Dext.Entity.Joining.TJoining.Join<TUser, TAddress, Integer, string>(
+  Joined := TJoining.Join<TUser, TAddress, Integer, string>(
     Users,
     Addresses,
     OuterKeyFunc,
@@ -320,11 +322,34 @@ begin
     AssertTrue(Results.Count = 2, 'Should have 2 joined results', Format('Found %d', [Results.Count]));
     if Results.Count = 2 then
     begin
-      AssertTrue(Results.Contains('User 1 - Street 1'), 'User 1 - Street 1', 'Should contain User 1 - Street 1');
-      AssertTrue(Results.Contains('User 2 - Street 2'), 'User 2 - Street 2', 'Should contain User 2 - Street 2');
+      AssertTrue(Results.Contains('User 1 - Street 1'), 'Should contain User 1 - Street 1', 'Missing User 1 - Street 1');
+      AssertTrue(Results.Contains('User 2 - Street 2'), 'Should contain User 2 - Street 2', 'Missing User 2 - Street 2');
     end;
   finally
     Results.Free;
+  end;
+
+  // Test Simplified Join
+  var JoinedSimplified := Users.Join<TAddress, Integer, string>(
+    Addresses,
+    UserEntity.AddressId, // Outer Key Prop
+    UserEntity.Id,        // Inner Key Prop
+    function(U: TUser; A: TAddress): string
+    begin
+      Result := U.Name + ' lives in ' + A.Street;
+    end);
+  
+  try
+    var SimpResults := JoinedSimplified.ToList;
+    try
+      AssertTrue(SimpResults.Count = 2, 'Simplified Join should have 2 results', Format('Found %d', [SimpResults.Count]));
+      if SimpResults.Count = 2 then
+         AssertTrue(SimpResults.Contains('User 1 lives in Street 1'), 'Should contain User 1...', 'Missing User 1...');
+    finally
+      SimpResults.Free;
+    end;
+  finally
+    JoinedSimplified.Free;
   end;
 end;
 
@@ -366,7 +391,7 @@ begin
   
   // Test: Load users with Include('Address')
   Builder := Specification.All<TUser>;
-  Spec := Builder.Include('Address');
+  Spec := Builder.Include(UserEntity.Address);
   Users := FContext.Entities<TUser>.List(Spec);
   
   try
@@ -386,6 +411,77 @@ begin
       if Users[1].Address <> nil then
         AssertTrue(Users[1].Address.Street = 'Second Avenue', 'User 2 should live on Second Avenue', Format('Found: %s', [Users[1].Address.Street]));
     end;
+  finally
+    Users.Free;
+  end;
+end;
+
+
+
+procedure TAdvancedQueryTest.TestFluentSyntax;
+var
+  Users: TFluentQuery<TUser>;
+  Count: Integer;
+  SumAge: Double;
+  Names: TFluentQuery<string>;
+  NameList: TList<string>;
+  PartialUsers: TFluentQuery<TUser>;
+  PartialList: TList<TUser>;
+begin
+  Log('   Testing Fluent Syntax Overloads...');
+  
+  // Setup Data
+  TearDown;
+  Setup;
+  var U1 := TUser.Create; U1.Name := 'A'; U1.Age := 10; U1.City := 'NY'; FContext.Entities<TUser>.Add(U1);
+  var U2 := TUser.Create; U2.Name := 'B'; U2.Age := 20; U2.City := 'LA'; FContext.Entities<TUser>.Add(U2);
+  var U3 := TUser.Create; U3.Name := 'C'; U3.Age := 30; U3.City := 'NY'; FContext.Entities<TUser>.Add(U3);
+  
+  Users := FContext.Entities<TUser>.Query;
+  try
+    // Test Where(ICriterion) - Simplified syntax
+    var Filtered := Users.Where(UserEntity.Age > 15);
+    try
+      Count := Filtered.Count;
+      AssertTrue(Count = 2, 'Where(Age > 15) should return 2 users', Format('Found %d', [Count]));
+    finally
+      Filtered.Free;
+    end;
+
+    // Test Sum(string)
+    SumAge := Users.Sum(UserEntity.Age.Name);
+    AssertTrue(Abs(SumAge - 60) < 0.001, 'Sum("Age") should be 60', Format('Sum was %f', [SumAge]));
+    
+    // Test Select<string>(string)
+    Names := Users.Select<string>(UserEntity.Name);
+    try
+      NameList := Names.ToList;
+      try
+        AssertTrue(NameList.Count = 3, 'Select<string>("Name") should return 3 names', Format('Found %d', [NameList.Count]));
+        AssertTrue(NameList.Contains('A'), 'Should contain A', 'Missing A');
+      finally
+        NameList.Free;
+      end;
+    finally
+      Names.Free;
+    end;
+
+    // Test Select(array of string) - Partial Load
+    PartialUsers := Users.Select([UserEntity.Name, UserEntity.City]);
+    try
+      PartialList := PartialUsers.ToList;
+      try
+        AssertTrue(PartialList.Count = 3, 'Select(["Name", "City"]) should return 3 users', Format('Found %d', [PartialList.Count]));
+        AssertTrue(PartialList[0].Name = 'A', 'Name should be loaded', 'Name was not loaded');
+        AssertTrue(PartialList[0].City = 'NY', 'City should be loaded', 'City was not loaded');
+        AssertTrue(PartialList[0].Age = 0, 'Age should NOT be loaded (0)', Format('Age was %d', [PartialList[0].Age]));
+      finally
+        PartialList.Free;
+      end;
+    finally
+      PartialUsers.Free;
+    end;
+    
   finally
     Users.Free;
   end;

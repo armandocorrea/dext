@@ -40,6 +40,7 @@ O objetivo é permitir consultas complexas de forma tipada e fluente.
 - [x] **Fluent Query API**: Builder para consultas (`Where`, `OrderBy`, `Skip`, `Take`).
   - *Exemplo:* `Context.Entities<TUser>.List(UserEntity.Age >= 18)`
   - *Exemplo:* `Specification.Where<TUser>(UserEntity.Age >= 18).OrderBy(UserEntity.Name.Asc).Take(10)`
+  - *Melhoria:* Overloads simplificados para `Where(ICriterion)` e `Select(string)`.
 - [x] **Metadados Tipados (TypeOf)**: Geração de metadados para evitar strings mágicas nas queries.
   - *Exemplo:* `UserEntity.Age >= 18`, `UserEntity.Name.StartsWith('John')`
 - [x] **Specifications Pattern**: Integração completa com o padrão Specification.
@@ -67,14 +68,15 @@ O objetivo é permitir consultas complexas de forma tipada e fluente.
 
 - [x] **Projeções (Select)**: Retornar apenas campos específicos
   - `Select<TResult>(selector: TFunc<T, TResult>): TFluentQuery<TResult>`
-  - *Exemplo*: `Context.Entities<TUser>.Select<string>(u => u.Name).ToList()`
-  - *Status*: ✅ **Implementado (Em memória)**
-  - *Futuro*: Otimizar SQL (`SELECT Name FROM users`)
+  - `Select<TResult>(PropertyName: string): TFluentQuery<TResult>` (Novo)
+  - `Select(Properties: array of string): TFluentQuery<T>` (Novo - Partial Load)
+  - *Exemplo*: `Context.Entities<TUser>.Select(['Name', 'City']).ToList()`
+  - *Status*: ✅ **Implementado e Validado**
 
 - [x] **Agregações**: Funções de agregação tipadas
-  - `Sum<TResult>(selector)`, `Average`, `Min`, `Max`
+  - `Sum`, `Average`, `Min`, `Max` (Suporte a Property Name string e TFunc)
   - `Count()`, `Count(predicate)`, `Any()`, `Any(predicate)`
-  - *Exemplo*: `var avgAge := Context.Entities<TUser>.Average(u => u.Age);`
+  - *Exemplo*: `var avgAge := Context.Entities<TUser>.Average('Age');`
   - *Status*: ✅ **Implementado e Validado**
 
 - [x] **Distinct**: Remover duplicatas
@@ -95,7 +97,7 @@ O objetivo é permitir consultas complexas de forma tipada e fluente.
 
 - [x] **Join Explícito**: Joins tipados
   - `Join<TInner, TKey, TResult>(inner, outerKey, innerKey, resultSelector)`
-  - *Exemplo*: `users.Join(addresses, u => u.AddressId, a => a.Id, ...)`
+  - *Exemplo*: `users.Join(addresses, 'AddressId', 'Id', ...)` (Novo overload simplificado)
   - *Status*: ✅ **Implementado e Validado** (Em memória)
 
 #### 🚀 Otimizações de Performance

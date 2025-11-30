@@ -1,4 +1,4 @@
-unit EntityDemo.Entities;
+﻿unit EntityDemo.Entities;
 
 interface
 
@@ -92,7 +92,11 @@ type
     class var Id: TProp;
     class var Name: TProp;
     class var Age: TProp;
-    
+    class var Email: TProp;
+    class var City: TProp;
+    class var AddressId: TProp;
+    class var Address: TProp;
+
     class constructor Create;
   end;
 
@@ -111,6 +115,10 @@ begin
   Id := TProp.Create('Id');
   Name := TProp.Create('full_name'); // Use column name from [Column('full_name')]
   Age := TProp.Create('Age');
+  Email := TProp.Create('Email');
+  City := TProp.Create('City');
+  AddressId := TProp.Create('AddressId');
+  Address := TProp.Create('Address');
 end;
 
 { TAdultUsersSpec }

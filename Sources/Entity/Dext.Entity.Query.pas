@@ -90,12 +90,17 @@ type
     ///   Projects each element of a sequence into a new form.
     ///   This is a generic method on a class, which is supported by Delphi.
     /// </summary>
-    function Select<TResult>(const ASelector: TFunc<T, TResult>): TFluentQuery<TResult>;
+    function Select<TResult>(const ASelector: TFunc<T, TResult>): TFluentQuery<TResult>; overload;
+    function Select<TResult>(const APropertyName: string): TFluentQuery<TResult>; overload;
+    function Select(const AProperties: array of string): TFluentQuery<T>; overload;
+
 
     /// <summary>
     ///   Filters a sequence of values based on a predicate.
     /// </summary>
-    function Where(const APredicate: TPredicate<T>): TFluentQuery<T>;
+    function Where(const APredicate: TPredicate<T>): TFluentQuery<T>; overload;
+    function Where(const ACriterion: ICriterion): TFluentQuery<T>; overload;
+
 
     /// <summary>
     ///   Bypasses a specified number of elements in a sequence and then returns the remaining elements.
@@ -116,6 +121,14 @@ type
     ///   Returns distinct elements from a sequence.
     /// </summary>
     function Distinct: TFluentQuery<T>;
+
+    // Join
+    function Join<TInner, TKey, TResult>(
+      const AInner: TFluentQuery<TInner>;
+      const AOuterKeyProp: string;
+      const AInnerKeyProp: string;
+      const AResultSelector: TFunc<T, TInner, TResult>
+    ): TFluentQuery<TResult>; overload;
     
 
 
@@ -124,20 +137,28 @@ type
     function Count(const APredicate: TPredicate<T>): Integer; overload;
     function Any: Boolean; overload;
     function Any(const APredicate: TPredicate<T>): Boolean; overload;
-    
     function First: T; overload;
     function First(const APredicate: TPredicate<T>): T; overload;
     function FirstOrDefault: T; overload;
     function FirstOrDefault(const APredicate: TPredicate<T>): T; overload;
     
-    function Sum(const ASelector: TFunc<T, Double>): Double;
-    function Average(const ASelector: TFunc<T, Double>): Double;
-    function Min(const ASelector: TFunc<T, Double>): Double;
-    function Max(const ASelector: TFunc<T, Double>): Double;
+    function Sum(const ASelector: TFunc<T, Double>): Double; overload;
+    function Sum(const APropertyName: string): Double; overload;
+
+    
+    function Average(const ASelector: TFunc<T, Double>): Double; overload;
+    function Average(const APropertyName: string): Double; overload;
+
+    
+    function Min(const ASelector: TFunc<T, Double>): Double; overload;
+    function Min(const APropertyName: string): Double; overload;
+
+    
+    function Max(const ASelector: TFunc<T, Double>): Double; overload;
+    function Max(const APropertyName: string): Double; overload;
+
 
     /// <summary>
-    ///   Paginate the result.
-    ///   Note: This currently executes the query twice (one for count, one for data).
     /// </summary>
     function Paginate(const APageNumber, APageSize: Integer): IPagedResult<T>;
   end;
@@ -237,6 +258,66 @@ type
 
 implementation
 
+uses
+  System.Rtti,
+  System.TypInfo,
+  System.Variants,
+  Dext.Specifications.Evaluator,
+  Dext.Entity.Joining;
+
+{ TPagedResult<T> }
+
+constructor TPagedResult<T>.Create(AItems: TList<T>; ATotalCount, APageNumber, APageSize: Integer);
+begin
+  inherited Create;
+  FItems := AItems;
+  FTotalCount := ATotalCount;
+  FPageNumber := APageNumber;
+  FPageSize := APageSize;
+end;
+
+destructor TPagedResult<T>.Destroy;
+begin
+  FItems.Free;
+  inherited;
+end;
+
+function TPagedResult<T>.GetItems: TList<T>;
+begin
+  Result := FItems;
+end;
+
+function TPagedResult<T>.GetTotalCount: Integer;
+begin
+  Result := FTotalCount;
+end;
+
+function TPagedResult<T>.GetPageNumber: Integer;
+begin
+  Result := FPageNumber;
+end;
+
+function TPagedResult<T>.GetPageSize: Integer;
+begin
+  Result := FPageSize;
+end;
+
+function TPagedResult<T>.GetPageCount: Integer;
+begin
+  if FPageSize <= 0 then Exit(0);
+  Result := (FTotalCount + FPageSize - 1) div FPageSize;
+end;
+
+function TPagedResult<T>.GetHasNextPage: Boolean;
+begin
+  Result := FPageNumber < GetPageCount;
+end;
+
+function TPagedResult<T>.GetHasPreviousPage: Boolean;
+begin
+  Result := FPageNumber > 1;
+end;
+
 { TQueryIterator<T> }
 
 constructor TQueryIterator<T>.Create;
@@ -285,8 +366,101 @@ begin
     begin
       Result := TProjectingIterator<T, TResult>.Create(LSource, ASelector);
     end,
-    Self); // Pass Self as parent
+    TObject(Self)); // Pass Self as parent
 end;
+
+function TFluentQuery<T>.Select<TResult>(const APropertyName: string): TFluentQuery<TResult>;
+var
+  LSource: TEnumerable<T>;
+  Selector: TFunc<T, TResult>;
+begin
+  LSource := Self;
+  Selector := TFunc<T, TResult>(function(const Item: T): TResult
+    var
+      Ctx: TRttiContext;
+      Typ: TRttiType;
+      Prop: TRttiProperty;
+      Val: TValue;
+      Obj: TObject;
+    begin
+      Obj := TValue.From<T>(Item).AsObject;
+      if Obj = nil then raise Exception.Create('Item is not an object');
+      
+      Ctx := TRttiContext.Create;
+      Typ := Ctx.GetType(Obj.ClassType);
+      Prop := Typ.GetProperty(APropertyName);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+      Val := Prop.GetValue(Obj);
+      Result := Val.AsType<TResult>;
+    end);
+
+  Result := TFluentQuery<TResult>.Create(
+    function: TQueryIterator<TResult>
+    begin
+      Result := TProjectingIterator<T, TResult>.Create(LSource, Selector);
+    end,
+    TObject(Self));
+end;
+
+
+
+function TFluentQuery<T>.Select(const AProperties: array of string): TFluentQuery<T>;
+var
+  LProperties: TArray<string>;
+  LSource: TEnumerable<T>;
+begin
+  SetLength(LProperties, Length(AProperties));
+  if Length(AProperties) > 0 then
+    Move(AProperties[0], LProperties[0], Length(AProperties) * SizeOf(string));
+
+  LSource := Self;
+  Result := TFluentQuery<T>.Create(
+    function: TQueryIterator<T>
+    begin
+      Result := TProjectingIterator<T, T>.Create(LSource, 
+        TFunc<T, T>(function(const Source: T): T
+        var
+          Ctx: TRttiContext;
+          Typ: TRttiType;
+          Prop: TRttiProperty;
+          Val: TValue;
+          ObjSource, ObjDest: TObject;
+          PropName: string;
+        begin
+          Ctx := TRttiContext.Create;
+          Typ := Ctx.GetType(TypeInfo(T));
+          
+          if Typ.TypeKind = tkClass then
+          begin
+             // Create new instance using the class type
+             ObjDest := Typ.AsInstance.MetaclassType.Create;
+             ObjSource := TValue.From<T>(Source).AsObject;
+             
+             for PropName in LProperties do
+             begin
+               Prop := Typ.GetProperty(PropName);
+               if Prop <> nil then
+               begin
+                 Val := Prop.GetValue(ObjSource);
+                 if Prop.IsWritable then
+                   Prop.SetValue(ObjDest, Val);
+               end;
+             end;
+             
+             Result := Default(T);
+             Move(ObjDest, Result, SizeOf(Pointer));
+          end
+          else
+            raise Exception.Create('Select with properties only supports classes');
+        end));
+    end,
+    TObject(Self));
+end;
+
+
+
+
 
 function TFluentQuery<T>.Where(const APredicate: TPredicate<T>): TFluentQuery<T>;
 var
@@ -298,8 +472,19 @@ begin
     begin
       Result := TFilteringIterator<T>.Create(LSource, APredicate);
     end,
-    Self); // Pass Self as parent
+    TObject(Self)); // Pass Self as parent
 end;
+
+
+
+function TFluentQuery<T>.Where(const ACriterion: ICriterion): TFluentQuery<T>;
+begin
+  Result := Where(ACriterion);
+end;
+
+
+
+
 
 function TFluentQuery<T>.Skip(const ACount: Integer): TFluentQuery<T>;
 var
@@ -311,7 +496,7 @@ begin
     begin
       Result := TSkipIterator<T>.Create(LSource, ACount);
     end,
-    Self); // Pass Self as parent
+    TObject(Self)); // Pass Self as parent
 end;
 
 function TFluentQuery<T>.Take(const ACount: Integer): TFluentQuery<T>;
@@ -324,7 +509,7 @@ begin
     begin
       Result := TTakeIterator<T>.Create(LSource, ACount);
     end,
-    Self); // Pass Self as parent
+    TObject(Self)); // Pass Self as parent
 end;
 
 function TFluentQuery<T>.ToList: TList<T>;
@@ -351,7 +536,49 @@ begin
     begin
       Result := TDistinctIterator<T>.Create(LSource);
     end,
-    Self);
+    TObject(Self));
+end;
+
+function TFluentQuery<T>.Join<TInner, TKey, TResult>(
+  const AInner: TFluentQuery<TInner>;
+  const AOuterKeyProp: string;
+  const AInnerKeyProp: string;
+  const AResultSelector: TFunc<T, TInner, TResult>): TFluentQuery<TResult>;
+var
+  OuterSelector: TFunc<T, TKey>;
+  InnerSelector: TFunc<TInner, TKey>;
+begin
+  // Create selectors from property names
+  OuterSelector := TFunc<T, TKey>(function(const Item: T): TKey
+    var
+      Ctx: TRttiContext;
+      Obj: TObject;
+      Prop: TRttiProperty;
+    begin
+      Obj := TValue.From<T>(Item).AsObject;
+      Ctx := TRttiContext.Create;
+      Prop := Ctx.GetType(Obj.ClassType).GetProperty(AOuterKeyProp);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on outer type', [AOuterKeyProp]);
+      Result := Prop.GetValue(Obj).AsType<TKey>;
+    end);
+    
+  InnerSelector := TFunc<TInner, TKey>(function(const Item: TInner): TKey
+    var
+      Ctx: TRttiContext;
+      Obj: TObject;
+      Prop: TRttiProperty;
+    begin
+      Obj := TValue.From<TInner>(Item).AsObject;
+      Ctx := TRttiContext.Create;
+      Prop := Ctx.GetType(Obj.ClassType).GetProperty(AInnerKeyProp);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on inner type', [AInnerKeyProp]);
+      Result := Prop.GetValue(Obj).AsType<TKey>;
+    end);
+
+  Result := TJoining.Join<T, TInner, TKey, TResult>(
+    Self, AInner, OuterSelector, InnerSelector, AResultSelector);
 end;
 
 function TFluentQuery<T>.Count: Integer;
@@ -454,6 +681,32 @@ begin
     Result := Result + ASelector(Item);
 end;
 
+function TFluentQuery<T>.Sum(const APropertyName: string): Double;
+var
+  Item: T;
+  Val: Double;
+  Ctx: TRttiContext;
+  Obj: TObject;
+  Prop: TRttiProperty;
+begin
+  Result := 0;
+  Ctx := TRttiContext.Create;
+  for Item in Self do
+  begin
+    Obj := TValue.From<T>(Item).AsObject;
+    if Obj = nil then raise Exception.Create('Item is not an object');
+    
+    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+    if Prop = nil then
+      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+      
+    Val := Prop.GetValue(Obj).AsType<Double>;
+    Result := Result + Val;
+  end;
+end;
+
+
+
 function TFluentQuery<T>.Average(const ASelector: TFunc<T, Double>): Double;
 var
   Item: T;
@@ -473,6 +726,42 @@ begin
     
   Result := SumVal / CountVal;
 end;
+
+function TFluentQuery<T>.Average(const APropertyName: string): Double;
+var
+  Item: T;
+  Val: Double;
+  SumVal: Double;
+  CountVal: Integer;
+  Ctx: TRttiContext;
+  Obj: TObject;
+  Prop: TRttiProperty;
+begin
+  SumVal := 0;
+  CountVal := 0;
+  Ctx := TRttiContext.Create;
+  
+  for Item in Self do
+  begin
+    Obj := TValue.From<T>(Item).AsObject;
+    if Obj = nil then raise Exception.Create('Item is not an object');
+    
+    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+    if Prop = nil then
+      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+      
+    Val := Prop.GetValue(Obj).AsType<Double>;
+    SumVal := SumVal + Val;
+    Inc(CountVal);
+  end;
+  
+  if CountVal = 0 then
+    raise Exception.Create('Sequence contains no elements');
+    
+  Result := SumVal / CountVal;
+end;
+
+
 
 function TFluentQuery<T>.Min(const ASelector: TFunc<T, Double>): Double;
 var
@@ -499,6 +788,45 @@ begin
     raise Exception.Create('Sequence contains no elements');
 end;
 
+function TFluentQuery<T>.Min(const APropertyName: string): Double;
+var
+  Item: T;
+  Val: Double;
+  HasValue: Boolean;
+  Ctx: TRttiContext;
+  Obj: TObject;
+  Prop: TRttiProperty;
+begin
+  HasValue := False;
+  Result := 0;
+  Ctx := TRttiContext.Create;
+  
+  for Item in Self do
+  begin
+    Obj := TValue.From<T>(Item).AsObject;
+    if Obj = nil then raise Exception.Create('Item is not an object');
+    
+    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+    if Prop = nil then
+      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+      
+    Val := Prop.GetValue(Obj).AsType<Double>;
+    
+    if not HasValue then
+    begin
+      Result := Val;
+      HasValue := True;
+    end
+    else if Val < Result then
+      Result := Val;
+  end;
+  
+  if not HasValue then
+    raise Exception.Create('Sequence contains no elements');
+end;
+
+
+
 function TFluentQuery<T>.Max(const ASelector: TFunc<T, Double>): Double;
 var
   Item: T;
@@ -523,6 +851,47 @@ begin
   if not HasValue then
     raise Exception.Create('Sequence contains no elements');
 end;
+
+function TFluentQuery<T>.Max(const APropertyName: string): Double;
+var
+  Item: T;
+  Val: Double;
+  HasValue: Boolean;
+  Ctx: TRttiContext;
+  Obj: TObject;
+  Prop: TRttiProperty;
+begin
+  HasValue := False;
+  Result := 0;
+  Ctx := TRttiContext.Create;
+  
+  for Item in Self do
+  begin
+    Obj := TValue.From<T>(Item).AsObject;
+    if Obj = nil then raise Exception.Create('Item is not an object');
+    
+    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+    if Prop = nil then
+      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+      
+    Val := Prop.GetValue(Obj).AsType<Double>;
+    
+    if not HasValue then
+    begin
+      Result := Val;
+      HasValue := True;
+    end
+    else if Val > Result then
+      Result := Val;
+  end;
+  
+  if not HasValue then
+    raise Exception.Create('Sequence contains no elements');
+end;
+
+
+
+
 
 function TFluentQuery<T>.Paginate(const APageNumber, APageSize: Integer): IPagedResult<T>;
 var
@@ -737,62 +1106,6 @@ begin
   
   Result := False;
 end;
-
-{ TPagedResult<T> }
-
-constructor TPagedResult<T>.Create(AItems: TList<T>; ATotalCount, APageNumber, APageSize: Integer);
-begin
-  inherited Create;
-  FItems := AItems;
-  FTotalCount := ATotalCount;
-  FPageNumber := APageNumber;
-  FPageSize := APageSize;
-end;
-
-destructor TPagedResult<T>.Destroy;
-begin
-  FItems.Free;
-  inherited;
-end;
-
-function TPagedResult<T>.GetItems: TList<T>;
-begin
-  Result := FItems;
-end;
-
-function TPagedResult<T>.GetTotalCount: Integer;
-begin
-  Result := FTotalCount;
-end;
-
-function TPagedResult<T>.GetPageNumber: Integer;
-begin
-  Result := FPageNumber;
-end;
-
-function TPagedResult<T>.GetPageSize: Integer;
-begin
-  Result := FPageSize;
-end;
-
-function TPagedResult<T>.GetPageCount: Integer;
-begin
-  if FPageSize = 0 then Exit(0);
-  Result := (FTotalCount + FPageSize - 1) div FPageSize;
-end;
-
-function TPagedResult<T>.GetHasNextPage: Boolean;
-begin
-  Result := GetPageNumber < GetPageCount;
-end;
-
-function TPagedResult<T>.GetHasPreviousPage: Boolean;
-begin
-  Result := GetPageNumber > 1;
-end;
-
-
-
 
 
 end.
