@@ -3,6 +3,7 @@
 interface
 
 uses
+  System.Classes,
   System.SysUtils,
   Data.DB,
   FireDAC.Stan.Intf,
@@ -40,7 +41,7 @@ type
     procedure LogSuccess(const Msg: string);
     procedure LogError(const Msg: string);
     procedure AssertTrue(Condition: Boolean; const SuccessMsg, FailMsg: string);
-    
+
     procedure Setup; virtual;
     procedure TearDown; virtual;
   public
@@ -69,6 +70,52 @@ procedure TBaseTest.Setup;
 var
   DbConnection: IDbConnection;
   Dialect: ISQLDialect;
+  Tables: TStringList;
+  
+  procedure DropTableIfExists(const ATableName: string);
+  begin
+    try
+      case TDbConfig.GetProvider of
+        dpSQLite:
+        begin
+          // SQLite and PostgreSQL support DROP TABLE IF EXISTS
+          FConn.ExecSQL('DROP TABLE IF EXISTS ' + ATableName);
+        end;
+
+        dpPostgreSQL:
+        begin
+          // SQLite and PostgreSQL support DROP TABLE IF EXISTS
+          FConn.ExecSQL('DROP TABLE IF EXISTS ' + ATableName + ' CASCADE');
+        end;
+        
+        dpFirebird:
+        begin
+          // Firebird: Check if table exists first
+          Tables := TStringList.Create;
+          try
+            // FireDAC syntax: GetTableNames(Catalog, Schema, Pattern, List, Scopes, Kinds, FullName)
+            FConn.GetTableNames('', '', '', Tables, [osMy], [tkTable], True);
+            // Firebird returns table names with quotes: "table_name"
+            // We need to use the exact name (with quotes) for DROP
+            var TableNameWithQuotes := '"' + ATableName + '"';
+            var idx := Tables.IndexOf(TableNameWithQuotes);
+            if idx >= 0 then
+            begin
+              // Use the exact name from the list (with quotes)
+              FConn.ExecSQL('DROP TABLE ' + Tables[idx]);
+              WriteLn('  🗑️  Dropped table: ' + ATableName);
+            end;
+          finally
+            Tables.Free;
+          end;
+        end;
+      end;
+    except
+      on E: Exception do
+        WriteLn('  ⚠️  Warning dropping ' + ATableName + ': ' + E.Message);
+    end;
+  end;
+  
 begin
   WriteLn('🔧 Setting up test with: ' + TDbConfig.GetProviderName);
   
@@ -80,17 +127,12 @@ begin
   FConn := (DbConnection as TFireDACConnection).Connection;
 
   // Drop tables to ensure clean state
-  try
-    WriteLn('🗑️  Dropping existing tables...');
-    // Order matters due to FKs
-    FConn.ExecSQL('DROP TABLE IF EXISTS order_items CASCADE');
-    FConn.ExecSQL('DROP TABLE IF EXISTS products CASCADE');
-    FConn.ExecSQL('DROP TABLE IF EXISTS users CASCADE');
-    FConn.ExecSQL('DROP TABLE IF EXISTS addresses CASCADE');
-  except
-    on E: Exception do
-      WriteLn('⚠️  Warning dropping tables: ' + E.Message);
-  end;
+  WriteLn('🗑️  Dropping existing tables...');
+  // Order matters due to FKs - drop child tables first
+  DropTableIfExists('order_items');
+  DropTableIfExists('products');
+  DropTableIfExists('users');
+  DropTableIfExists('addresses');
 
   // 2. Initialize Context
   FContext := TDbContext.Create(DbConnection, Dialect);
@@ -111,7 +153,7 @@ end;
 procedure TBaseTest.TearDown;
 begin
   FContext.Free;
-  FConn.Free;
+  // FConn.Free; OwnConnection default = true
 end;
 
 procedure TBaseTest.Log(const Msg: string);

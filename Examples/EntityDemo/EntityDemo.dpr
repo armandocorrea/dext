@@ -71,16 +71,16 @@ begin
     // Uncomment the provider you want to test:
     
     // Option 1: SQLite (Default - File-based, good for development)
-    // TDbConfig.SetProvider(dpSQLite);
-    // TDbConfig.ConfigureSQLite('test.db');
-    
+    TDbConfig.SetProvider(dpSQLite);
+    TDbConfig.ConfigureSQLite('test.db');
+
     // Option 2: PostgreSQL (Server-based, production-ready)
-    TDbConfig.SetProvider(dpPostgreSQL);
-    TDbConfig.ConfigurePostgreSQL('localhost', 5432, 'postgres', 'postgres', 'root');
+    // TDbConfig.SetProvider(dpPostgreSQL);
+    // TDbConfig.ConfigurePostgreSQL('localhost', 5432, 'postgres', 'postgres', 'root');
     
-    // Option 3: Firebird (Coming soon - Brazilian market favorite)
+    // Option 3: Firebird (Brazilian market favorite)
     // TDbConfig.SetProvider(dpFirebird);
-    // TDbConfig.ConfigureFirebird('test.fdb', 'SYSDBA', 'masterkey');
+    // TDbConfig.ConfigureFirebird('C:\temp\dext_test.fdb', 'SYSDBA', 'masterkey');
     
     WriteLn('📊 Database Provider: ' + TDbConfig.GetProviderName);
     WriteLn('');

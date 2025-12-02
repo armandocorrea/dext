@@ -467,13 +467,41 @@ begin
           SQL := Node.DbSet.GenerateCreateTableScript;
           if SQL <> '' then
           begin
-            try
-              CmdIntf := FConnection.CreateCommand(SQL);
-              Cmd := IDbCommand(CmdIntf);
-              Cmd.ExecuteNonQuery;
-            except
-               on E: Exception do
-                 WriteLn('Warning creating table for ' + string(Node.TypeInfo.Name) + ': ' + E.Message);
+            // Check if table exists first (to support databases without IF NOT EXISTS like Firebird)
+            // Note: GenerateCreateTableScript returns "CREATE TABLE Name ...". We need to extract the name.
+            // But we already have the name in the Node/DbSet metadata.
+            // Actually, we can just use FConnection.TableExists(TableName)
+            
+            var TableName := '';
+            var Mapping := GetMapping(Node.TypeInfo);
+            if Mapping <> nil then
+              TableName := Dext.Entity.Mapping.TEntityMap(Mapping).TableName
+            else
+            begin
+              // Fallback to Naming Strategy
+              var RContext := TRttiContext.Create;
+              var RType := RContext.GetType(Node.TypeInfo);
+              var TableAttr := RType.GetAttribute<TableAttribute>;
+              if TableAttr <> nil then
+                TableName := TableAttr.Name
+              else
+                TableName := FNamingStrategy.GetTableName(Node.TypeInfo.TypeData.ClassType);
+            end;
+            
+            // Quote identifier if needed (Dialect specific)
+            // But TableExists expects the name as is (or handles quotes internally)
+            // Let's pass the raw name first.
+            
+            if not FConnection.TableExists(TableName) then
+            begin
+              try
+                CmdIntf := FConnection.CreateCommand(SQL);
+                Cmd := IDbCommand(CmdIntf);
+                Cmd.ExecuteNonQuery;
+              except
+                 on E: Exception do
+                   WriteLn('Warning creating table for ' + string(Node.TypeInfo.Name) + ': ' + E.Message);
+              end;
             end;
           end;
           

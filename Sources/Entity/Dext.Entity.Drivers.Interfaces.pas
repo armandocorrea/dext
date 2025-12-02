@@ -28,6 +28,8 @@ type
     function CreateCommand(const ASQL: string): IInterface; // Returns IDbCommand (circular ref avoidance)
     
     function GetLastInsertId: Variant;
+    
+    function TableExists(const ATableName: string): Boolean;
   end;
 
   /// <summary>

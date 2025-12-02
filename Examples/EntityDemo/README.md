@@ -36,10 +36,10 @@ TDbConfig.ConfigureSQLite('test.db');
 
 **No server required!** SQLite creates a local file.
 
-### 3. Switch to Firebird (Coming Soon)
+### 3. Switch to Firebird
 
 ```pascal
-// Option 3: Firebird (Coming soon - Brazilian market favorite)
+// Option 3: Firebird (Brazilian market favorite)
 TDbConfig.SetProvider(dpFirebird);
 TDbConfig.ConfigureFirebird('test.fdb', 'SYSDBA', 'masterkey');
 ```
@@ -97,7 +97,7 @@ Running Test: TCRUDTest
 
 No setup required! Just switch the provider.
 
-### Firebird Setup (Coming Soon)
+### Firebird Setup
 
 1. Install Firebird
 2. Database file will be created automatically

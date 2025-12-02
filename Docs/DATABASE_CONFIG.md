@@ -206,6 +206,21 @@ Server=localhost;Port=5432;Database=dext_test;User_Name=postgres;Password=postgr
 TDbConfig.ConfigureFirebird('test.fdb', 'SYSDBA', 'masterkey');
 ```
 
+#### Firebird Specifics & Limitations
+
+1.  **Case Sensitivity**: Dext ORM uses quoted identifiers by default. In Firebird, quoted identifiers are **case-sensitive**.
+    - `CREATE TABLE "Users"` -> Table `Users` (not `USERS`).
+    - **Raw SQL**: You must use quotes in raw SQL: `SELECT * FROM "Users"`, not `SELECT * FROM Users` (which looks for `USERS`).
+    - **Drop Table**: `DROP TABLE "Users"` works, `DROP TABLE Users` fails if created with quotes.
+
+2.  **Table Existence**: Firebird does not support `CREATE TABLE IF NOT EXISTS` natively in all versions.
+    - Dext ORM implements a `TableExists` check in `EnsureCreated` to handle this transparently.
+    - When using `TDbConfig.ResetDatabase`, the `.fdb` file is deleted to ensure a clean state.
+
+3.  **Database Creation**:
+    - Dext ORM uses `OpenMode=OpenOrCreate` to automatically create the `.fdb` file if it doesn't exist.
+    - Recommended Page Size: 16384 (set automatically by `TDbConfig`).
+
 ## API Reference
 
 ### TDatabaseProvider

@@ -1,4 +1,4 @@
-unit EntityDemo.DbConfig;
+﻿unit EntityDemo.DbConfig;
 
 interface
 
@@ -174,6 +174,10 @@ begin
       FDConn.Params.Values['User_Name'] := FFirebirdUsername;
       FDConn.Params.Values['Password'] := FFirebirdPassword;
       FDConn.Params.Values['CharacterSet'] := 'UTF8';
+      FDConn.Params.Values['Protocol'] := 'Local';  // Use local protocol for embedded/local server
+      FDConn.Params.Values['OpenMode'] := 'OpenOrCreate';  // Create database if it doesn't exist
+      FDConn.Params.Values['PageSize'] := '16384';  // 16KB page size (recommended)
+      FDConn.Params.Values['SQLDialect'] := '3';  // SQL Dialect 3
     end;
     
     else

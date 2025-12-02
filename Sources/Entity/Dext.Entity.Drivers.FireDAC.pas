@@ -86,6 +86,7 @@ type
     function BeginTransaction: IDbTransaction;
     function CreateCommand(const ASQL: string): IInterface; // Returns IDbCommand
     function GetLastInsertId: Variant;
+    function TableExists(const ATableName: string): Boolean;
     
     property Connection: TFDConnection read FConnection;
   end;
@@ -401,6 +402,48 @@ end;
 function TFireDACConnection.IsConnected: Boolean;
 begin
   Result := FConnection.Connected;
+end;
+
+function TFireDACConnection.TableExists(const ATableName: string): Boolean;
+var
+  List: TStringList;
+begin
+  List := TStringList.Create;
+  try
+    try
+      // Get list of tables
+      // Note: We use empty catalog/schema to search in current context
+      FConnection.GetTableNames('', '', '', List, [osMy], [tkTable], True);
+      
+      // Check for existence
+      // 1. Exact match
+      if List.IndexOf(ATableName) >= 0 then
+        Exit(True);
+        
+      // 2. Quoted match (if ATableName is not quoted but DB returns quoted)
+      if List.IndexOf('"' + ATableName + '"') >= 0 then
+        Exit(True);
+        
+      // 3. Unquoted match (if ATableName is quoted but DB returns unquoted)
+      if List.IndexOf(ATableName.Replace('"', '')) >= 0 then
+        Exit(True);
+        
+      // 4. Case insensitive match (fallback)
+      for var Table in List do
+      begin
+        if SameText(Table, ATableName) or 
+           SameText(Table, '"' + ATableName + '"') or
+           SameText(Table, ATableName.Replace('"', '')) then
+          Exit(True);
+      end;
+      
+      Result := False;
+    except
+      Result := False; // If metadata query fails, assume false or handle error?
+    end;
+  finally
+    List.Free;
+  end;
 end;
 
 end.

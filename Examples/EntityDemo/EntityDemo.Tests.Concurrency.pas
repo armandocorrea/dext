@@ -80,7 +80,7 @@ begin
     
     // Verify DB state
     // Check DB directly
-    var DBPrice: Double := FConn.ExecSQLScalar('SELECT "Price" FROM products WHERE "Id" = ' + P.Id.ToString);
+    var DBPrice: Double := FConn.ExecSQLScalar('SELECT "Price" FROM "products" WHERE "Id" = ' + P.Id.ToString);
     AssertTrue(DBPrice = 150, 'DB Price is 150 (User A)', 'DB Price mismatch: ' + DBPrice.ToString);
     
     // 3. Concurrent Delete Scenario
