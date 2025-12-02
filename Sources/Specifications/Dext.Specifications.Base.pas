@@ -38,7 +38,7 @@ type
     
     // Fluent Builders (public for TSpecificationBuilder)
     procedure Where(const AExpression: IExpression); overload;
-    procedure Where(const AExpr: TProperty.TExpression); overload;
+    procedure Where(const AExpr: Dext.Specifications.Types.TPropExpression.TExpression); overload;
     procedure AddInclude(const APath: string);
     procedure AddOrderBy(const AOrderBy: IOrderBy);
     procedure ApplyPaging(ASkip, ATake: Integer);
@@ -81,7 +81,7 @@ begin
     FExpression := TLogicalExpression.Create(FExpression, AExpression, loAnd);
 end;
 
-procedure TSpecification<T>.Where(const AExpr: TProperty.TExpression);
+procedure TSpecification<T>.Where(const AExpr: Dext.Specifications.Types.TPropExpression.TExpression);
 begin
   Where(IExpression(AExpr));
 end;

@@ -86,9 +86,9 @@ type
 
   /// <summary>
   ///   Helper record to build expressions fluently.
-  ///   Usage: Property('Age') > 18
+  ///   Usage: PropExpression('Age') > 18
   /// </summary>
-  TProperty = record
+  TPropExpression = record
   public
     type
       /// <summary>
@@ -115,14 +115,14 @@ type
     constructor Create(const AName: string);
     
     // Comparison Operators
-    class operator Equal(const Left: TProperty; const Right: TValue): TExpression;
-    class operator NotEqual(const Left: TProperty; const Right: TValue): TExpression;
-    class operator GreaterThan(const Left: TProperty; const Right: TValue): TExpression;
-    class operator GreaterThanOrEqual(const Left: TProperty; const Right: TValue): TExpression;
-    class operator LessThan(const Left: TProperty; const Right: TValue): TExpression;
-    class operator LessThanOrEqual(const Left: TProperty; const Right: TValue): TExpression;
+    class operator Equal(const Left: TPropExpression; const Right: TValue): TExpression;
+    class operator NotEqual(const Left: TPropExpression; const Right: TValue): TExpression;
+    class operator GreaterThan(const Left: TPropExpression; const Right: TValue): TExpression;
+    class operator GreaterThanOrEqual(const Left: TPropExpression; const Right: TValue): TExpression;
+    class operator LessThan(const Left: TPropExpression; const Right: TValue): TExpression;
+    class operator LessThanOrEqual(const Left: TPropExpression; const Right: TValue): TExpression;
 
-    class operator Implicit(const Value: TProperty): string;
+    class operator Implicit(const Value: TPropExpression): string;
 
     // Special Methods (Like, In, etc)
     function Like(const Pattern: string): IExpression;
@@ -232,96 +232,96 @@ begin
   Result := BoolToStr(FValue, True);
 end;
 
-{ TProperty.TExpression }
+{ TPropExpression.TExpression }
 
-class operator TProperty.TExpression.Implicit(const Value: IExpression): TExpression;
+class operator TPropExpression.TExpression.Implicit(const Value: IExpression): TExpression;
 begin
   Result.FExpression := Value;
 end;
 
-class operator TProperty.TExpression.Implicit(const Value: TExpression): IExpression;
+class operator TPropExpression.TExpression.Implicit(const Value: TExpression): IExpression;
 begin
   Result := Value.FExpression;
 end;
 
-class operator TProperty.TExpression.LogicalAnd(const Left, Right: TExpression): IExpression;
+class operator TPropExpression.TExpression.LogicalAnd(const Left, Right: TExpression): IExpression;
 begin
   Result := TLogicalExpression.Create(Left.FExpression, Right.FExpression, loAnd);
 end;
 
-class operator TProperty.TExpression.LogicalOr(const Left, Right: TExpression): IExpression;
+class operator TPropExpression.TExpression.LogicalOr(const Left, Right: TExpression): IExpression;
 begin
   Result := TLogicalExpression.Create(Left.FExpression, Right.FExpression, loOr);
 end;
 
-class operator TProperty.TExpression.LogicalNot(const Value: TExpression): IExpression;
+class operator TPropExpression.TExpression.LogicalNot(const Value: TExpression): IExpression;
 begin
   Result := TUnaryExpression.Create(Value.FExpression);
 end;
 
-{ TProperty }
+{ TPropExpression }
 
-constructor TProperty.Create(const AName: string);
+constructor TPropExpression.Create(const AName: string);
 begin
   FName := AName;
 end;
 
-class operator TProperty.Equal(const Left: TProperty; const Right: TValue): TExpression;
+class operator TPropExpression.Equal(const Left: TPropExpression; const Right: TValue): TExpression;
 begin
   Result.FExpression := TBinaryExpression.Create(Left.FName, boEqual, Right);
 end;
 
-class operator TProperty.NotEqual(const Left: TProperty; const Right: TValue): TExpression;
+class operator TPropExpression.NotEqual(const Left: TPropExpression; const Right: TValue): TExpression;
 begin
   Result.FExpression := TBinaryExpression.Create(Left.FName, boNotEqual, Right);
 end;
 
-class operator TProperty.GreaterThan(const Left: TProperty; const Right: TValue): TExpression;
+class operator TPropExpression.GreaterThan(const Left: TPropExpression; const Right: TValue): TExpression;
 begin
   Result.FExpression := TBinaryExpression.Create(Left.FName, boGreaterThan, Right);
 end;
 
-class operator TProperty.GreaterThanOrEqual(const Left: TProperty; const Right: TValue): TExpression;
+class operator TPropExpression.GreaterThanOrEqual(const Left: TPropExpression; const Right: TValue): TExpression;
 begin
   Result.FExpression := TBinaryExpression.Create(Left.FName, boGreaterThanOrEqual, Right);
 end;
 
-class operator TProperty.LessThan(const Left: TProperty; const Right: TValue): TExpression;
+class operator TPropExpression.LessThan(const Left: TPropExpression; const Right: TValue): TExpression;
 begin
   Result.FExpression := TBinaryExpression.Create(Left.FName, boLessThan, Right);
 end;
 
-class operator TProperty.LessThanOrEqual(const Left: TProperty; const Right: TValue): TExpression;
+class operator TPropExpression.LessThanOrEqual(const Left: TPropExpression; const Right: TValue): TExpression;
 begin
   Result.FExpression := TBinaryExpression.Create(Left.FName, boLessThanOrEqual, Right);
 end;
 
-function TProperty.Like(const Pattern: string): IExpression;
+function TPropExpression.Like(const Pattern: string): IExpression;
 begin
   Result := TBinaryExpression.Create(FName, boLike, Pattern);
 end;
 
-function TProperty.NotLike(const Pattern: string): IExpression;
+function TPropExpression.NotLike(const Pattern: string): IExpression;
 begin
   Result := TBinaryExpression.Create(FName, boNotLike, Pattern);
 end;
 
-function TProperty.StartsWith(const Value: string): IExpression;
+function TPropExpression.StartsWith(const Value: string): IExpression;
 begin
   Result := Like(Value + '%');
 end;
 
-function TProperty.EndsWith(const Value: string): IExpression;
+function TPropExpression.EndsWith(const Value: string): IExpression;
 begin
   Result := Like('%' + Value);
 end;
 
-function TProperty.Contains(const Value: string): IExpression;
+function TPropExpression.Contains(const Value: string): IExpression;
 begin
   Result := Like('%' + Value + '%');
 end;
 
-function TProperty.&In(const Values: TArray<string>): IExpression;
+function TPropExpression.&In(const Values: TArray<string>): IExpression;
 var
   Val: TValue;
 begin
@@ -329,12 +329,12 @@ begin
   Result := TBinaryExpression.Create(FName, boIn, Val);
 end;
 
-class operator TProperty.Implicit(const Value: TProperty): string;
+class operator TPropExpression.Implicit(const Value: TPropExpression): string;
 begin
   Result := Value.Name;
 end;
 
-function TProperty.&In(const Values: TArray<Integer>): IExpression;
+function TPropExpression.&In(const Values: TArray<Integer>): IExpression;
 var
   Val: TValue;
 begin
@@ -342,7 +342,7 @@ begin
   Result := TBinaryExpression.Create(FName, boIn, Val);
 end;
 
-function TProperty.NotIn(const Values: TArray<string>): IExpression;
+function TPropExpression.NotIn(const Values: TArray<string>): IExpression;
 var
   Val: TValue;
 begin
@@ -350,7 +350,7 @@ begin
   Result := TBinaryExpression.Create(FName, boNotIn, Val);
 end;
 
-function TProperty.NotIn(const Values: TArray<Integer>): IExpression;
+function TPropExpression.NotIn(const Values: TArray<Integer>): IExpression;
 var
   Val: TValue;
 begin
@@ -358,17 +358,17 @@ begin
   Result := TBinaryExpression.Create(FName, boNotIn, Val);
 end;
 
-function TProperty.IsNull: IExpression;
+function TPropExpression.IsNull: IExpression;
 begin
   Result := TUnaryExpression.Create(FName, uoIsNull);
 end;
 
-function TProperty.IsNotNull: IExpression;
+function TPropExpression.IsNotNull: IExpression;
 begin
   Result := TUnaryExpression.Create(FName, uoIsNotNull);
 end;
 
-function TProperty.Between(const Lower, Upper: Variant): IExpression;
+function TPropExpression.Between(const Lower, Upper: Variant): IExpression;
 begin
   // (Prop >= Lower) AND (Prop <= Upper)
   // Create expressions manually to avoid operator ambiguity
@@ -377,12 +377,12 @@ begin
   Result := TLogicalExpression.Create(LowerCrit, UpperCrit, loAnd);
 end;
 
-function TProperty.Asc: IOrderBy;
+function TPropExpression.Asc: IOrderBy;
 begin
   Result := TOrderBy.Create(FName, True);
 end;
 
-function TProperty.Desc: IOrderBy;
+function TPropExpression.Desc: IOrderBy;
 begin
   Result := TOrderBy.Create(FName, False);
 end;

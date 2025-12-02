@@ -5,16 +5,8 @@ interface
 uses
   System.SysUtils,
   System.Generics.Collections,
-  Dext.Persistence;
-
-//  Dext.Entity.Attributes,
-//  Dext.Types.Lazy;
-
-//  Dext.Entity.Core,
-//  Dext.Specifications.Base,
-//  Dext.Specifications.Expression,
-//  Dext.Specifications.Interfaces,
-//  Dext.Specifications.Types,
+  Dext.Persistence,
+  Dext.Specifications.Base;
 
 type
   TUser = class; // Forward declaration
@@ -108,13 +100,13 @@ type
   // 🧬 Metadata Implementation (TypeOf)
   UserEntity = class
   public
-    class var Id: TProperty;
-    class var Name: TProperty;
-    class var Age: TProperty;
-    class var Email: TProperty;
-    class var City: TProperty;
-    class var AddressId: TProperty;
-    class var Address: TProperty;
+    class var Id: TPropExpression;
+    class var Name: TPropExpression;
+    class var Age: TPropExpression;
+    class var Email: TPropExpression;
+    class var City: TPropExpression;
+    class var AddressId: TPropExpression;
+    class var Address: TPropExpression;
 
     class constructor Create;
   end;
@@ -166,13 +158,13 @@ end;
 
 class constructor UserEntity.Create;
 begin
-  Id := TProperty.Create('Id');
-  Name := TProperty.Create('full_name');
-  Age := TProperty.Create('Age');
-  Email := TProperty.Create('Email');
-  City := TProperty.Create('City');
-  AddressId := TProperty.Create('AddressId');
-  Address := TProperty.Create('Address');
+  Id := TPropExpression.Create('Id');
+  Name := TPropExpression.Create('full_name');
+  Age := TPropExpression.Create('Age');
+  Email := TPropExpression.Create('Email');
+  City := TPropExpression.Create('City');
+  AddressId := TPropExpression.Create('AddressId');
+  Address := TPropExpression.Create('Address');
 end;
 
 { TAdultUsersSpec }

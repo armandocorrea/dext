@@ -3,8 +3,7 @@ unit EntityDemo.Tests.LazyLoading;
 interface
 
 uses
-  Dext.Entity,
-  Dext.Entity.LazyLoading,
+  Dext.Persistence,
   EntityDemo.Entities,
   EntityDemo.Tests.Base,
   System.SysUtils,

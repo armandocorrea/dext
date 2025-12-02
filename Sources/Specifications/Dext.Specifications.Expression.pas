@@ -11,13 +11,13 @@ uses
 /// <summary>
 ///   Global helper to create a property expression.
 /// </summary>
-function Prop(const AName: string): TProperty;
+function Prop(const AName: string): TPropExpression;
 
 implementation
 
-function Prop(const AName: string): TProperty;
+function Prop(const AName: string): TPropExpression;
 begin
-  Result := TProperty.Create(AName);
+  Result := TPropExpression.Create(AName);
 end;
 
 end.

@@ -4,8 +4,7 @@ interface
 
 uses
   EntityDemo.Tests.Base,
-  Dext.Specifications.Base,
-  Dext.Specifications.Fluent;
+  Dext.Persistence;
 
 type
   TFluentAPITest = class(TBaseTest)

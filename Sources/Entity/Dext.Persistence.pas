@@ -8,6 +8,7 @@ interface
 
 uses
   System.SysUtils,
+  Dext.Entity,
   Dext.Entity.Core,
   Dext.Entity.DbSet,
   Dext.Entity.Attributes,
@@ -16,16 +17,17 @@ uses
   Dext.Specifications.Fluent,
   Dext.Entity.Grouping,
   Dext.Entity.Joining,
-  Dext.Types.Lazy;
+  Dext.Types.Lazy,
+  Dext.Specifications.Types;
 
 type
   // Core Interfaces
   IDbContext = Dext.Entity.Core.IDbContext;
   IDbSet = Dext.Entity.Core.IDbSet;
+  TDbContext = Dext.Entity.TDbContext;
   
   // Exceptions
   EOptimisticConcurrencyException = Dext.Entity.Core.EOptimisticConcurrencyException;
-
 
   IExpression = Dext.Specifications.Interfaces.IExpression;
   
@@ -40,9 +42,13 @@ type
   TableAttribute = Dext.Entity.Attributes.TableAttribute;
   ColumnAttribute = Dext.Entity.Attributes.ColumnAttribute;
   PKAttribute = Dext.Entity.Attributes.PKAttribute;
+  AutoIncAttribute = Dext.Entity.Attributes.AutoIncAttribute;
+  ForeignKeyAttribute = Dext.Entity.Attributes.ForeignKeyAttribute;
   NotMappedAttribute = Dext.Entity.Attributes.NotMappedAttribute;
   VersionAttribute = Dext.Entity.Attributes.VersionAttribute;
-  ForeignKeyAttribute = Dext.Entity.Attributes.ForeignKeyAttribute;
+  
+  // Enums (Type Aliases)
+  TCascadeAction = Dext.Entity.Attributes.TCascadeAction;
 
   Lazy<T> = record
   private
@@ -62,6 +68,12 @@ type
     property Value: T read GetValue;
   end;
 
+  /// <summary>
+  ///   Helper record to build expressions fluently.
+  ///   Usage: PropExpression('Age') > 18
+  /// </summary>
+  TPropExpression = Dext.Specifications.Types.TPropExpression;
+
 
 const
   caNoAction = Dext.Entity.Attributes.TCascadeAction.caNoAction;
@@ -70,6 +82,10 @@ const
   caRestrict = Dext.Entity.Attributes.TCascadeAction.caRestrict;
 
 implementation
+
+uses
+  System.Rtti,
+  Dext.Specifications.OrderBy;
 
 { Lazy<T> }
 

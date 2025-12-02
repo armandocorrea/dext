@@ -426,6 +426,13 @@ var
   Generator: TSqlGenerator<T>;
   Sql: string;
   Cmd: IDbCommand;
+  RowsAffected: Integer;
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  Prop: TRttiProperty;
+  Attr: TCustomAttribute;
+  Val: TValue;
+  NewVer: Integer;
 begin
   Generator := TSqlGenerator<T>.Create(FContext.Dialect);
   try
@@ -438,7 +445,28 @@ begin
       Cmd.AddParam(Pair.Key, Pair.Value);
     end;
 
-    Cmd.ExecuteNonQuery;
+    RowsAffected := Cmd.ExecuteNonQuery;
+    
+    if RowsAffected = 0 then
+      raise EOptimisticConcurrencyException.Create('Concurrency violation: The record has been modified or deleted by another user.');
+      
+    // Update Version property in memory if applicable
+    Ctx := TRttiContext.Create;
+    Typ := Ctx.GetType(T);
+    for Prop in Typ.GetProperties do
+    begin
+      for Attr in Prop.GetAttributes do
+      begin
+        if Attr is VersionAttribute then
+        begin
+          Val := Prop.GetValue(Pointer(AEntity));
+          if Val.IsEmpty then NewVer := 1 else NewVer := Val.AsInteger + 1;
+          Prop.SetValue(Pointer(AEntity), NewVer);
+          Break;
+        end;
+      end;
+    end;
+    
   finally
     Generator.Free;
   end;

@@ -167,7 +167,7 @@ var
   FKPropName: string;
   P: TRttiProperty;
   PKVal: string;
-  PropHelper: TProperty;
+  PropHelper: TPropExpression;
   Expr: IExpression;
   ResList: TList<TObject>;
   ListObj: TObject;
@@ -230,7 +230,7 @@ begin
                     begin
                         PKVal := FContext.DataSet(FEntity.ClassInfo).GetEntityId(FEntity);
                         
-                        PropHelper := TProperty.Create(FKPropName);
+                        PropHelper := TPropExpression.Create(FKPropName);
                         
                         // Try to convert PK to Integer if possible, as most FKs are ints
                         var IntVal: Integer;

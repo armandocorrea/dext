@@ -6,8 +6,7 @@ uses
   System.SysUtils,
   EntityDemo.Tests.Base,
   EntityDemo.Entities,
-  Dext.Entity,
-  Dext.Entity.Core,
+  Dext.Persistence,
   Dext.Entity.Drivers.FireDAC,
   Dext.Entity.Dialects,
   FireDAC.Comp.Client;

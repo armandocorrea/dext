@@ -21,7 +21,7 @@ uses
   FireDAC.ConsoleUI.Wait,
   FireDAC.Comp.Client,
   FireDAC.DApt,
-  Dext.Entity,
+  Dext.Persistence,
   Dext.Entity.Drivers.FireDAC,
   Dext.Entity.Dialects,
   EntityDemo.Entities;
