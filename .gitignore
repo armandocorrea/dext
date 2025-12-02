@@ -10,3 +10,4 @@ __recover
 *.exe
 3thParty
 __recovery
+/Examples/EntityDemo/test.db

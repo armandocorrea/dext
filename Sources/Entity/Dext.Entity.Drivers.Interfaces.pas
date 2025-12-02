@@ -54,6 +54,11 @@ type
     function ExecuteQuery: IDbReader;
     function ExecuteNonQuery: Integer;
     function ExecuteScalar: TValue;
+    
+    // Array DML Support
+    procedure SetArraySize(const ASize: Integer);
+    procedure SetParamArray(const AName: string; const AValues: TArray<TValue>);
+    procedure ExecuteBatch(const ATimes: Integer; const AOffset: Integer = 0);
   end;
 
   /// <summary>

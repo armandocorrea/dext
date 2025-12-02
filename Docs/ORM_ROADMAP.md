@@ -148,17 +148,6 @@ Melhorar como os dados relacionados são carregados e gerenciar ciclo de vida da
 - [ ] **Fluent API Fixes**: Correção de `Any`, `FirstOrDefault` e projeções em casos de borda.
 - [x] **Global Naming Strategy**: Estratégia global para convenção de nomes (SnakeCase, CamelCase) sem poluir entidades.
 - [x] **External Mapping (Fluent Mapping)**: Configuração de mapeamento via código (Startup) para evitar Attributes nas entidades.
-  - *Objetivo*: Separar domínio de persistência (Clean Architecture).
-  - *Ref*: Spring4D Generators e ANSI SQL Fallback.
-
-### ⚡ Fase 5: Performance & Tuning
-- [ ] **True Bulk SQL**: Otimizar `AddRange` para usar `INSERT INTO ... VALUES (...), (...)`.
-- [ ] **Batch Updates**: `UPDATE ... WHERE ...` em massa sem carregar entidades.
-- [ ] **Query Caching**: Cache de planos de execução ou resultados.
-- [ ] **No-Tracking Queries**: Consultas rápidas sem overhead do Identity Map.
-
-### 🛠️ Fase 6: Tooling & Migrations
-- [ ] **Migrations**: Sistema de migração de schema Code-First.
 - [ ] **CLI Tools**: Comandos para gerar migrations e atualizar banco.
 - [ ] **Scaffolding**: Gerar classes de entidade a partir de banco existente (Db-First).
 
@@ -169,54 +158,24 @@ Melhorar como os dados relacionados são carregados e gerenciar ciclo de vida da
 ### Status Atual
 - ✅ **SQLite**: Suporte completo e testado
 - ✅ **PostgreSQL**: Suporte completo e validado (incluindo RETURNING clause, Nullable support)
+- ✅ **Firebird**: Suporte completo e validado
 
-### Expansão Planejada (Baseada em Pesquisa de Mercado Delphi)
+### Expansão Planejada
 
-#### Prioridade 1 - Crítica (Mercado BR + Prototipagem)
-1. **Firebird 3.0/4.0** (Próximo)
-   - **Segmento**: ERPs Modernos, Mercado BR
-   - **Driver**: FireDAC (TFDPhysFBDriverLink)
-   - **Desafios**: Dialeto SQL, Transações, Generators
-   - **Status**: ✅ **Implementado e Validado** (Todos os testes passando)
-
-2. **PostgreSQL** ✅
-   - **Segmento**: Microserviços, Cloud, Docker, Uso Diário
-   - **Driver**: FireDAC (TFDPhysPGDriverLink)
-   - **Desafios**: JSONB, Case Sensitivity, Batch
-   - **Status**: ✅ **Implementado e Validado** (Todos os testes passando)
-
-3. **SQLite** ✅
-   - **Segmento**: Mobile, Testes, Prototipagem
-   - **Driver**: FireDAC (TFDPhysSQLiteDriverLink)
-   - **Desafios**: Concorrência (Locking), Tipos
-   - **Status**: ✅ **Implementado e Validado**
-
-#### Prioridade 2 - Alta (Corporativo)
+#### Prioridade 1 - Crítica (Corporativo)
 4. **SQL Server**
-   - **Segmento**: Corporativo, Integração .NET
-   - **Driver**: FireDAC (TFDPhysMSSQLDriverLink)
-   - **Desafios**: Schemas, Tipos DateTime
    - **Status**: ⚠️ **Implementado, aguardando validação de integração**
 
+#### Prioridade 2 - Comunidade (Help Wanted)
 5. **Oracle**
-   - **Segmento**: Grandes Corporações
-   - **Driver**: FireDAC (TFDPhysOracleDriverLink)
-   - **Desafios**: Sequences, Tipos
-   - **Status**: ⚠️ **Dialeto validado via Unit Tests, precisa validação de integração**
+   - **Status**: ⏸️ **Aguardando Voluntários/Contribuição** (Dialeto implementado)
 
-#### Prioridade 3 - Média (Web)
 6. **MySQL/MariaDB**
-   - **Segmento**: Web Hosting, Linux Barato
-   - **Driver**: FireDAC (TFDPhysMySQLDriverLink)
-   - **Desafios**: Transações Aninhadas, Engines
-   - **Status**: ⚠️ **Dialeto validado via Unit Tests, precisa validação de integração**
+   - **Status**: ⏸️ **Aguardando Voluntários/Contribuição** (Dialeto implementado)
 
-#### Prioridade 4 - Baixa (Legado)
+#### Prioridade 3 - Legado
 7. **Firebird 2.5**
-   - **Segmento**: Legado, Migração
-   - **Driver**: FireDAC (TFDPhysFBDriverLink)
-   - **Desafios**: Paginação (FirstSkip), Boolean
-   - **Status**: ❌ Não implementado (pode reutilizar dialeto FB 3.0/4.0)
+   - **Status**: ❌ Não planejado no momento
 
 ---
 

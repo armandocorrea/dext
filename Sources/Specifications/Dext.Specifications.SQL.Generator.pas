@@ -81,6 +81,7 @@ type
     destructor Destroy; override;
     
     function GenerateInsert(const AEntity: T): string;
+    function GenerateInsertTemplate(out AProps: TList<TPair<TRttiProperty, string>>): string;
     function GenerateUpdate(const AEntity: T): string;
     function GenerateDelete(const AEntity: T): string;
     
@@ -535,6 +536,83 @@ begin
   finally
     SBCols.Free;
     SBVals.Free;
+  end;
+end;
+
+function TSQLGenerator<T>.GenerateInsertTemplate(out AProps: TList<TPair<TRttiProperty, string>>): string;
+var
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  Prop: TRttiProperty;
+  Attr: TCustomAttribute;
+  ColName: string;
+  SBCols, SBVals: TStringBuilder;
+  IsAutoInc, IsMapped: Boolean;
+begin
+  Ctx := TRttiContext.Create;
+  Typ := Ctx.GetType(T);
+  
+  SBCols := TStringBuilder.Create;
+  SBVals := TStringBuilder.Create;
+  AProps := TList<TPair<TRttiProperty, string>>.Create;
+  
+  try
+    var First := True;
+    
+    for Prop in Typ.GetProperties do
+    begin
+      IsMapped := True;
+      IsAutoInc := False;
+      ColName := Prop.Name;
+      
+      var PropMap: TPropertyMap := nil;
+      if FMap <> nil then
+        FMap.Properties.TryGetValue(Prop.Name, PropMap);
+        
+      if PropMap <> nil then
+      begin
+        if PropMap.IsIgnored then IsMapped := False;
+        if PropMap.IsAutoInc then IsAutoInc := True;
+        if PropMap.ColumnName <> '' then ColName := PropMap.ColumnName;
+      end;
+
+      for Attr in Prop.GetAttributes do
+      begin
+        if Attr is NotMappedAttribute then IsMapped := False;
+        
+        if (PropMap = nil) or not PropMap.IsAutoInc then
+          if Attr is AutoIncAttribute then IsAutoInc := True;
+          
+        if (PropMap = nil) or (PropMap.ColumnName = '') then
+        begin
+          if Attr is ColumnAttribute then ColName := ColumnAttribute(Attr).Name;
+          if Attr is ForeignKeyAttribute then ColName := ForeignKeyAttribute(Attr).ColumnName;
+        end;
+      end;
+      
+      if not IsMapped or IsAutoInc then Continue;
+      
+      AProps.Add(TPair<TRttiProperty, string>.Create(Prop, ColName));
+      
+      if not First then
+      begin
+        SBCols.Append(', ');
+        SBVals.Append(', ');
+      end;
+      First := False;
+      
+      SBCols.Append(FDialect.QuoteIdentifier(ColName));
+      // Use Column Name as Parameter Name for Array DML
+      SBVals.Append(':').Append(ColName); 
+    end;
+    
+    Result := Format('INSERT INTO %s (%s) VALUES (%s)', 
+      [FDialect.QuoteIdentifier(GetTableName), SBCols.ToString, SBVals.ToString]);
+      
+  finally
+    SBCols.Free;
+    SBVals.Free;
+    // AProps is returned, caller must free
   end;
 end;
 

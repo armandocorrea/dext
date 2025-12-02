@@ -577,16 +577,30 @@ begin
     
     if not InTransaction then BeginTransaction;
     try
-      // 1. Process Inserts
-      for Pair in TrackedEntities do
-      begin
-        if Pair.Value = esAdded then
+      // 1. Process Inserts (Bulk Optimized)
+      var AddedGroups := TDictionary<PTypeInfo, TList<TObject>>.Create;
+      try
+        for Pair in TrackedEntities do
         begin
-          Entity := Pair.Key;
-          DbSet := DataSet(Entity.ClassInfo); // Assuming ClassInfo is PTypeInfo
-          DbSet.PersistAdd(Entity);
-          Inc(Result);
+          if Pair.Value = esAdded then
+          begin
+            Entity := Pair.Key;
+            if not AddedGroups.ContainsKey(Entity.ClassInfo) then
+              AddedGroups.Add(Entity.ClassInfo, TList<TObject>.Create);
+            AddedGroups[Entity.ClassInfo].Add(Entity);
+          end;
         end;
+
+        for var TypeInfo in AddedGroups.Keys do
+        begin
+          var List := AddedGroups[TypeInfo];
+          DbSet := DataSet(TypeInfo);
+          DbSet.PersistAddRange(List.ToArray);
+          Inc(Result, List.Count);
+        end;
+      finally
+        for var List in AddedGroups.Values do List.Free;
+        AddedGroups.Free;
       end;
       
       // 2. Process Updates

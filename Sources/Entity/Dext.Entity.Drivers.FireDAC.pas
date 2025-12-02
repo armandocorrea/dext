@@ -69,6 +69,10 @@ type
     function ExecuteQuery: IDbReader;
     function ExecuteNonQuery: Integer;
     function ExecuteScalar: TValue;
+    
+    procedure SetArraySize(const ASize: Integer);
+    procedure SetParamArray(const AName: string; const AValues: TArray<TValue>);
+    procedure ExecuteBatch(const ATimes: Integer; const AOffset: Integer = 0);
   end;
 
   TFireDACConnection = class(TInterfacedObject, IDbConnection)
@@ -352,6 +356,127 @@ end;
 procedure TFireDACCommand.SetSQL(const ASQL: string);
 begin
   FQuery.SQL.Text := ASQL;
+end;
+
+procedure TFireDACCommand.SetArraySize(const ASize: Integer);
+begin
+  FQuery.Params.ArraySize := ASize;
+end;
+
+procedure TFireDACCommand.SetParamArray(const AName: string; const AValues: TArray<TValue>);
+var
+  Param: TFDParam;
+  i: Integer;
+begin
+  Param := FQuery.ParamByName(AName);
+  for i := 0 to High(AValues) do
+  begin
+    // Reuse logic similar to SetParamValue but for array index
+    var Val := AValues[i];
+    
+    if Val.IsEmpty then
+    begin
+      Param.Clear(i);
+      if Param.DataType = ftUnknown then Param.DataType := ftString;
+    end
+    else
+    begin
+      case Val.Kind of
+        tkInteger: 
+        begin
+          Param.DataType := ftInteger;
+          Param.AsIntegers[i] := Val.AsInteger;
+        end;
+        tkInt64:
+        begin
+          Param.DataType := ftLargeInt;
+          Param.AsLargeInts[i] := Val.AsInt64;
+        end;
+        tkFloat:
+        begin
+          Param.DataType := ftFloat;
+          Param.AsFloats[i] := Val.AsExtended;
+        end;
+        tkString, tkUString, tkWString, tkChar, tkWChar:
+        begin
+          Param.DataType := ftString;
+          Param.AsStrings[i] := Val.AsString;
+        end;
+        tkEnumeration:
+        begin
+          if Val.TypeInfo = TypeInfo(Boolean) then
+          begin
+            Param.DataType := ftBoolean;
+            Param.AsBooleans[i] := Val.AsBoolean;
+          end
+          else
+          begin
+            Param.DataType := ftInteger;
+            Param.AsIntegers[i] := Val.AsOrdinal;
+          end;
+        end;
+        tkRecord:
+        begin
+          if IsNullable(Val.TypeInfo) then
+          begin
+             var Helper := TNullableHelper.Create(Val.TypeInfo);
+             if Helper.HasValue(Val.GetReferenceToRawData) then
+             begin
+               var InnerVal := Helper.GetValue(Val.GetReferenceToRawData);
+               // Recursive call for inner value? No, just handle it here or duplicate logic.
+               // Duplicating logic for simplicity to avoid recursion with index passing
+               case InnerVal.Kind of
+                 tkInteger: 
+                 begin
+                   Param.DataType := ftInteger;
+                   Param.AsIntegers[i] := InnerVal.AsInteger;
+                 end;
+                 tkInt64:
+                 begin
+                   Param.DataType := ftLargeInt;
+                   Param.AsLargeInts[i] := InnerVal.AsInt64;
+                 end;
+                 tkFloat:
+                 begin
+                   Param.DataType := ftFloat;
+                   Param.AsFloats[i] := InnerVal.AsExtended;
+                 end;
+                 tkString, tkUString, tkWString:
+                 begin
+                   Param.DataType := ftString;
+                   Param.AsStrings[i] := InnerVal.AsString;
+                 end;
+                 tkEnumeration:
+                   if InnerVal.TypeInfo = TypeInfo(Boolean) then
+                   begin
+                     Param.DataType := ftBoolean;
+                     Param.AsBooleans[i] := InnerVal.AsBoolean;
+                   end
+                   else
+                   begin
+                     Param.DataType := ftInteger;
+                     Param.AsIntegers[i] := InnerVal.AsOrdinal;
+                   end;
+               end;
+             end
+             else
+             begin
+               Param.Clear(i);
+             end;
+          end
+          else
+             Param.Values[i] := Val.AsVariant;
+        end;
+      else
+        Param.Values[i] := Val.AsVariant;
+      end;
+    end;
+  end;
+end;
+
+procedure TFireDACCommand.ExecuteBatch(const ATimes: Integer; const AOffset: Integer);
+begin
+  FQuery.Execute(ATimes, AOffset);
 end;
 
 { TFireDACConnection }

@@ -52,6 +52,7 @@ type
     
     // Internal Persistence Methods (called by SaveChanges)
     procedure PersistAdd(const AEntity: TObject);
+    procedure PersistAddRange(const AEntities: TArray<TObject>);
     procedure PersistUpdate(const AEntity: TObject);
     procedure PersistRemove(const AEntity: TObject);
     

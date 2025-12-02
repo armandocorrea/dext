@@ -19,7 +19,8 @@ uses
   Dext.Specifications.Base,
   Dext.Specifications.Interfaces,
   Dext.Specifications.SQL.Generator,
-  Dext.Specifications.Types;
+  Dext.Specifications.Types,
+  Dext.Types.Nullable;
 
 type
   TDbSet<T: class> = class(TInterfacedObject, IDbSet<T>, IDbSet)
@@ -52,6 +53,7 @@ type
     procedure Remove(const AEntity: TObject); overload;
     function ListObjects(const AExpression: IExpression): TList<TObject>;
     procedure PersistAdd(const AEntity: TObject);
+    procedure PersistAddRange(const AEntities: TArray<TObject>);
     procedure PersistUpdate(const AEntity: TObject);
     procedure PersistRemove(const AEntity: TObject);
     function GenerateCreateTableScript: string;
@@ -535,6 +537,77 @@ begin
        end;
     end;
 
+  finally
+    Generator.Free;
+  end;
+end;
+
+procedure TDbSet<T>.PersistAddRange(const AEntities: TArray<TObject>);
+var
+  Generator: TSqlGenerator<T>;
+  Sql: string;
+  Cmd: IDbCommand;
+  EntitiesT: TArray<T>;
+  i: Integer;
+  Props: TList<TPair<TRttiProperty, string>>;
+  ParamValues: TArray<TValue>;
+  Prop: TRttiProperty;
+  ParamName: string;
+  Val: TValue;
+begin
+  if Length(AEntities) = 0 then Exit;
+
+  // Convert TObject array to T array
+  SetLength(EntitiesT, Length(AEntities));
+  for i := 0 to High(AEntities) do
+    EntitiesT[i] := T(AEntities[i]);
+
+  Generator := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
+  try
+    // 1. Generate Template SQL and get Mapped Properties
+    Sql := Generator.GenerateInsertTemplate(Props);
+    try
+      if Sql = '' then Exit;
+
+      Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+      
+      // 2. Set Array Size
+      Cmd.SetArraySize(Length(EntitiesT));
+      
+      // 3. Bind Parameters (Arrays)
+      SetLength(ParamValues, Length(EntitiesT));
+      
+      for var Pair in Props do
+      begin
+        Prop := Pair.Key;
+        ParamName := Pair.Value;
+        
+        for i := 0 to High(EntitiesT) do
+        begin
+          Val := Prop.GetValue(Pointer(EntitiesT[i]));
+          
+          // Handle Nullable
+          if IsNullable(Val.TypeInfo) then
+          begin
+             var Helper := TNullableHelper.Create(Val.TypeInfo);
+             if Helper.HasValue(Val.GetReferenceToRawData) then
+               ParamValues[i] := Helper.GetValue(Val.GetReferenceToRawData)
+             else
+               ParamValues[i] := TValue.Empty;
+          end
+          else
+             ParamValues[i] := Val;
+        end;
+        
+        Cmd.SetParamArray(ParamName, ParamValues);
+      end;
+      
+      // 4. Execute Batch
+      Cmd.ExecuteBatch(Length(EntitiesT));
+      
+    finally
+      Props.Free;
+    end;
   finally
     Generator.Free;
   end;
