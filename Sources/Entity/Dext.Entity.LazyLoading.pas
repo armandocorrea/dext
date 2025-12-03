@@ -26,27 +26,11 @@ type
     class procedure Inject(AContext: IDbContext; AEntity: TObject);
   end;
 
-  ILazyInvokeHandler = interface(IInterface)
-    ['{285AFE89-2FCC-41CF-8A9F-E2E9DAE069C8}']
-    procedure OnInvoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
-  end;
-
   /// <summary>
-  ///   Custom TVirtualInterface that owns the handler object.
+  ///   Standard implementation of ILazy for Entity Framework.
+  ///   Replaces the old TVirtualInterface-based approach.
   /// </summary>
-  TOwningVirtualInterface = class(TVirtualInterface)
-  private
-    FHandler: ILazyInvokeHandler;
-  public
-    constructor Create(AInterface: TRttiInterfaceType; const AHandler:
-      ILazyInvokeHandler; AInvokeEvent: TVirtualInterfaceInvokeEvent);
-    destructor Destroy; override;
-  end;
-
-  /// <summary>
-  ///   Handles the invocation of ILazy<T> methods (GetValue, GetIsValueCreated).
-  /// </summary>
-  TLazyInvokeHandler = class(TInterfacedObject, ILazyInvokeHandler)
+  TLazyLoader = class(TInterfacedObject, ILazy)
   private
     FContextPtr: Pointer;
     FEntity: TObject;
@@ -56,17 +40,14 @@ type
     FIsCollection: Boolean;
     
     function GetDbContext: IDbContext;
-    procedure Invoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
+    procedure LoadValue;
+    
+    // ILazy implementation
+    function GetIsValueCreated: Boolean;
+    function GetValue: TValue;
   public
     constructor Create(AContext: IDbContext; AEntity: TObject; const APropName: string; AIsCollection: Boolean);
-    // Public callback for TVirtualInterface - avoids closure capture
-    procedure OnInvoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
-  end;
-
-  // Deprecated: Old interceptor-based loader
-  TLazyLoader = class
-  public
-    constructor Create(AContext: IDbContext; AEntity: TObject);
+    destructor Destroy; override;
   end;
 
 implementation
@@ -147,29 +128,6 @@ begin
     Result := True; // For other types like GUID, assume valid if not empty
 end;
 
-{ TLazyLoader }
-
-constructor TLazyLoader.Create(AContext: IDbContext; AEntity: TObject);
-begin
-  // No-op
-end;
-
-{ TOwningVirtualInterface }
-
-constructor TOwningVirtualInterface.Create(AInterface: TRttiInterfaceType;
-  const AHandler: ILazyInvokeHandler; AInvokeEvent:
-  TVirtualInterfaceInvokeEvent);
-begin
-  inherited Create(AInterface.Handle, AInvokeEvent);
-  FHandler := AHandler;
-end;
-
-destructor TOwningVirtualInterface.Destroy;
-begin
-  FHandler := nil;
-  inherited;
-end;
-
 { TLazyInjector }
 
 class procedure TLazyInjector.Inject(AContext: IDbContext; AEntity: TObject);
@@ -194,11 +152,10 @@ class procedure TLazyInjector.InjectField(AContext: IDbContext; AEntity: TObject
 var
   LazyRecordType: TRttiRecordType;
   InstanceField: TRttiField;
-  InterfaceType: TRttiInterfaceType;
   PropName: string;
   IsCollection: Boolean;
-  Handler: ILazyInvokeHandler;
-  LazyIntf: IInterface;
+  Loader: TLazyLoader;
+  LazyIntf: ILazy;
   LazyVal: TValue;
   IntfVal: TValue;
 begin
@@ -218,55 +175,15 @@ begin
   if InstanceField = nil then 
     Exit;
   
-  if not (InstanceField.FieldType is TRttiInterfaceType) then
-    Exit;
-  
-  InterfaceType := InstanceField.FieldType as TRttiInterfaceType;
-  
-  // 4. Create Handler
-  Handler := TLazyInvokeHandler.Create(AContext, AEntity, PropName, IsCollection);
-  
-  // 5. Create TVirtualInterface using method reference (NOT closure)
-  // This avoids the closure activation record leak
-  // Use TOwningVirtualInterface to ensure Handler is freed when the interface is released
-  
-  // Create the object first. It has RefCount = 0 (if TInterfacedObject behavior).
-  // But TVirtualInterface might behave differently.
-  // We cast to IInterface immediately to ensure proper ref counting if it supports it.
-  // However, TOwningVirtualInterface is a class.
-  
-  var OwningIntf: TOwningVirtualInterface;
-  OwningIntf := TOwningVirtualInterface.Create(InterfaceType, Handler, 
-    procedure(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue)
-    begin
-      Handler.OnInvoke(Method, Args, Result);
-    end);
+  // 4. Create Loader
+  Loader := TLazyLoader.Create(AContext, AEntity, PropName, IsCollection);
+  LazyIntf := Loader;
 
-  try
-    if not Supports(OwningIntf, InterfaceType.GUID, LazyIntf) then
-    begin
-      // If Supports fails, LazyIntf is nil.
-      // OwningIntf is still alive. We must free it.
-      OwningIntf.Free;
-      Exit;
-    end;
-  except
-    OwningIntf.Free;
-    raise;
-  end;
-  
-  if LazyIntf = nil then
-  begin
-    Handler := nil; // Should not happen if Create succeeds
-    Exit;
-  end;
-
-  // 6. Assign interface to Lazy<T>.FInstance
-  // We need to get the record, set the field, and set it back
+  // 5. Assign interface to Lazy<T>.FInstance
   LazyVal := AField.GetValue(AEntity);
   
-  // Create TValue with correct interface type to avoid EInvalidCast
-  TValue.Make(@LazyIntf, InterfaceType.Handle, IntfVal);
+  // Create TValue with ILazy type
+  TValue.Make(@LazyIntf, TypeInfo(ILazy), IntfVal);
   
   // Set FInstance on the record
   InstanceField.SetValue(LazyVal.GetReferenceToRawData, IntfVal);
@@ -275,9 +192,9 @@ begin
   AField.SetValue(AEntity, LazyVal);
 end;
 
-{ TLazyInvokeHandler }
+{ TLazyLoader }
 
-constructor TLazyInvokeHandler.Create(AContext: IDbContext; AEntity: TObject; const APropName: string; AIsCollection: Boolean);
+constructor TLazyLoader.Create(AContext: IDbContext; AEntity: TObject; const APropName: string; AIsCollection: Boolean);
 begin
   inherited Create;
   FContextPtr := Pointer(AContext);
@@ -287,17 +204,35 @@ begin
   FLoaded := False;
 end;
 
-function TLazyInvokeHandler.GetDbContext: IDbContext;
+destructor TLazyLoader.Destroy;
+begin
+  // WriteLn('DEBUG: TLazyLoader.Destroy (Collection=' + BoolToStr(FIsCollection, True) + ')');
+  if FIsCollection and FLoaded and (not FValue.IsEmpty) then
+  begin
+    // If it's a collection, we own the TList/TObjectList created in LoadValue
+    FValue.AsObject.Free;
+  end;
+  inherited;
+end;
+
+function TLazyLoader.GetDbContext: IDbContext;
 begin
   Result := IDbContext(FContextPtr);
 end;
 
-procedure TLazyInvokeHandler.OnInvoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
+function TLazyLoader.GetIsValueCreated: Boolean;
 begin
-  Invoke(Method, Args, Result);
+  Result := FLoaded;
 end;
 
-procedure TLazyInvokeHandler.Invoke(Method: TRttiMethod; const Args: TArray<TValue>; out Result: TValue);
+function TLazyLoader.GetValue: TValue;
+begin
+  if not FLoaded then
+    LoadValue;
+  Result := FValue;
+end;
+
+procedure TLazyLoader.LoadValue;
 var
   Ctx: TRttiContext;
   Prop: TRttiProperty;
@@ -326,135 +261,126 @@ var
   IntVal: Integer;
   ExpectedClass: TClass;
 begin
-  if Method.Name = 'GetIsValueCreated' then
-  begin
-    Result := FLoaded;
-    Exit;
-  end;
-  
-  if (Method.Name = 'GetValue') or (Method.Name = 'GetValueT') then
-  begin
-    if not FLoaded then
+  try
+    Ctx := TRttiContext.Create;
+    
+    if FIsCollection then
     begin
-      try
-        Ctx := TRttiContext.Create;
-        
-        if FIsCollection then
+        // Load Collection
+        Prop := Ctx.GetType(FEntity.ClassType).GetProperty(FPropName);
+        FKName := '';
+        if Prop <> nil then
         begin
-            // Load Collection
-            Prop := Ctx.GetType(FEntity.ClassType).GetProperty(FPropName);
-            FKName := '';
-            if Prop <> nil then
-            begin
-               for Attr in Prop.GetAttributes do
-                 if Attr is ForeignKeyAttribute then
-                 begin
-                   FKName := ForeignKeyAttribute(Attr).ColumnName;
-                   Break;
-                 end;
-            end;
+           for Attr in Prop.GetAttributes do
+             if Attr is ForeignKeyAttribute then
+             begin
+               FKName := ForeignKeyAttribute(Attr).ColumnName;
+               Break;
+             end;
+        end;
+        
+        TypeName := Prop.PropertyType.Name;
+        StartPos := Pos('<', TypeName);
+        EndPos := Pos('>', TypeName);
+        
+        if (StartPos > 0) and (EndPos > StartPos) then
+        begin
+            ItemTypeName := Copy(TypeName, StartPos + 1, EndPos - StartPos - 1);
+            ItemType := Ctx.FindType(ItemTypeName);
             
-            TypeName := Method.ReturnType.Name;
-            StartPos := Pos('<', TypeName);
-            EndPos := Pos('>', TypeName);
-            
-            if (StartPos > 0) and (EndPos > StartPos) then
+            if ItemType <> nil then
             begin
-                ItemTypeName := Copy(TypeName, StartPos + 1, EndPos - StartPos - 1);
-                ItemType := Ctx.FindType(ItemTypeName);
+                ChildSet := GetDbContext.DataSet(ItemType.Handle);
                 
-                if ItemType <> nil then
+                ParentName := FEntity.ClassName;
+                if ParentName.StartsWith('T') then Delete(ParentName, 1, 1);
+                
+                FKPropName := ParentName + 'Id'; 
+                
+                P := ItemType.GetProperty(FKPropName);
+                if P <> nil then
                 begin
-                    ChildSet := GetDbContext.DataSet(ItemType.Handle);
+                    PKVal := GetDbContext.DataSet(FEntity.ClassInfo).GetEntityId(FEntity);
                     
-                    ParentName := FEntity.ClassName;
-                    if ParentName.StartsWith('T') then Delete(ParentName, 1, 1);
+                    PropHelper := TPropExpression.Create(FKPropName);
                     
-                    FKPropName := ParentName + 'Id'; 
-                    
-                    P := ItemType.GetProperty(FKPropName);
-                    if P <> nil then
-                    begin
-                        PKVal := GetDbContext.DataSet(FEntity.ClassInfo).GetEntityId(FEntity);
+                    // Try to convert PK to Integer if possible, as most FKs are ints
+                    if TryStrToInt(PKVal, IntVal) then
+                       Expr := PropHelper = IntVal
+                    else
+                       Expr := PropHelper = PKVal;
+                       
+                    ResList := ChildSet.ListObjects(Expr);
+                    try
+                      // Check if it's TObjectList to pass OwnsObjects=True
+                      if TypeName.Contains('TObjectList<') then
+                        ListObj := TActivator.CreateInstance(Prop.PropertyType.AsInstance.MetaclassType, [True])
+                      else
+                        ListObj := TActivator.CreateInstance(Prop.PropertyType.AsInstance.MetaclassType, []);
+
+                      if ListObj = nil then
+                        Exit;
                         
-                        PropHelper := TPropExpression.Create(FKPropName);
-                        
-                        // Try to convert PK to Integer if possible, as most FKs are ints
-                        if TryStrToInt(PKVal, IntVal) then
-                           Expr := PropHelper = IntVal
-                        else
-                           Expr := PropHelper = PKVal;
+                      AddMethod := Prop.PropertyType.GetMethod('Add');
+                      if AddMethod = nil then
+                        Exit;
+                      
+                      for Obj in ResList do
+                      begin
+                           if Obj = nil then 
+                             Continue;
                            
-                        ResList := ChildSet.ListObjects(Expr);
-                        try
-                          ListObj := TActivator.CreateInstance(Method.ReturnType.AsInstance.MetaclassType, []);
-                          if ListObj = nil then
-                            Exit;
+                           try
+                            // Check if object is instance of expected type
+                            if ItemType.AsInstance <> nil then
+                            begin
+                              ExpectedClass := ItemType.AsInstance.MetaclassType;
+                              if not (Obj is ExpectedClass) then
+                                Continue;
+                            end;
                             
-                          AddMethod := Method.ReturnType.GetMethod('Add');
-                          if AddMethod = nil then
-                            Exit;
-                          
-                          for Obj in ResList do
-                          begin
-                               if Obj = nil then 
-                                 Continue;
-                               
-                               try
-                                // Check if object is instance of expected type
-                                if ItemType.AsInstance <> nil then
-                                begin
-                                  ExpectedClass := ItemType.AsInstance.MetaclassType;
-                                  if not (Obj is ExpectedClass) then
-                                    Continue;
-                                end;
-                                
-                                AddMethod.Invoke(ListObj, [Obj]);
-                              except
-                                // Ignore errors adding individual items
-                              end;
+                            AddMethod.Invoke(ListObj, [Obj]);
+                          except
+                            // Ignore errors adding individual items
                           end;
-                          
-                          FValue := TValue.From(ListObj); // Correctly wrap the object
-                        finally
-                          ResList.Free;
-                        end;
+                      end;
+                      
+                      FValue := TValue.From(ListObj); // Correctly wrap the object
+                    finally
+                      ResList.Free;
                     end;
                 end;
             end;
-        end
-        else
+        end;
+    end
+    else
+    begin
+        // Load Reference
+        FKPropName := FPropName + 'Id';
+        FKProp := Ctx.GetType(FEntity.ClassType).GetProperty(FKPropName);
+        if FKProp <> nil then
         begin
-            // Load Reference
-            FKPropName := FPropName + 'Id';
-            FKProp := Ctx.GetType(FEntity.ClassType).GetProperty(FKPropName);
-            if FKProp <> nil then
+            FKVal := FKProp.GetValue(FEntity);
+            
+            // Unwrap Nullable<T> and validate FK value
+            if TryUnwrapAndValidateFK(FKVal, Ctx) then
             begin
-                FKVal := FKProp.GetValue(FEntity);
+                Prop := Ctx.GetType(FEntity.ClassType).GetProperty(FPropName);
+                TargetType := Prop.PropertyType.Handle;
                 
-                // Unwrap Nullable<T> and validate FK value
-                if TryUnwrapAndValidateFK(FKVal, Ctx) then
-                begin
-                    Prop := Ctx.GetType(FEntity.ClassType).GetProperty(FPropName);
-                    TargetType := Prop.PropertyType.Handle;
-                    
-                    TargetSet := GetDbContext.DataSet(TargetType);
-                    LoadedObj := TargetSet.FindObject(FKVal.AsVariant);
-                    
-                    FValue := TValue.From(LoadedObj);
-                end;
+                TargetSet := GetDbContext.DataSet(TargetType);
+                LoadedObj := TargetSet.FindObject(FKVal.AsVariant);
+                
+                FValue := TValue.From(LoadedObj);
             end;
         end;
-        
-        FLoaded := True;
-      except
-        // If loading fails, we just mark as loaded to avoid infinite loops/retries
-        // and let the value be default (nil/empty)
-        FLoaded := True;
-      end;
     end;
     
-    Result := FValue;
+    FLoaded := True;
+  except
+    // If loading fails, we just mark as loaded to avoid infinite loops/retries
+    // and let the value be default (nil/empty)
+    FLoaded := True;
   end;
 end;
 

@@ -40,7 +40,7 @@ type
   /// </summary>
   TGroupByIterator<TKey, T> = class(TQueryIterator<IGrouping<TKey, T>>)
   private
-    FSource: TEnumerable<T>;
+    FSource: TFluentQuery<T>;
     FKeySelector: TFunc<T, TKey>;
     FGroups: TList<IGrouping<TKey, T>>;
     FIndex: Integer;
@@ -48,7 +48,7 @@ type
   protected
     function MoveNextCore: Boolean; override;
   public
-    constructor Create(const ASource: TEnumerable<T>; const AKeySelector: TFunc<T, TKey>);
+    constructor Create(const ASource: TFluentQuery<T>; const AKeySelector: TFunc<T, TKey>);
     destructor Destroy; override;
   end;
 
@@ -97,7 +97,7 @@ end;
 
 { TGroupByIterator<TKey, T> }
 
-constructor TGroupByIterator<TKey, T>.Create(const ASource: TEnumerable<T>; const AKeySelector: TFunc<T, TKey>);
+constructor TGroupByIterator<TKey, T>.Create(const ASource: TFluentQuery<T>; const AKeySelector: TFunc<T, TKey>);
 begin
   inherited Create;
   FSource := ASource;
@@ -119,22 +119,29 @@ var
   Item: T;
   Key: TKey;
   ConcreteGroup: TGrouping<TKey, T>;
+  Enumerator: TEnumerator<T>;
 begin
   if not FExecuted then
   begin
     FGroups := TList<IGrouping<TKey, T>>.Create; // Owns interfaces by ref counting
     Dict := TDictionary<TKey, TGrouping<TKey, T>>.Create;
     try
-      for Item in FSource do
-      begin
-        Key := FKeySelector(Item);
-        if not Dict.TryGetValue(Key, ConcreteGroup) then
+      Enumerator := FSource.GetEnumerator;
+      try
+        while Enumerator.MoveNext do
         begin
-          ConcreteGroup := TGrouping<TKey, T>.Create(Key);
-          Dict.Add(Key, ConcreteGroup);
-          FGroups.Add(ConcreteGroup);
+          Item := Enumerator.Current;
+          Key := FKeySelector(Item);
+          if not Dict.TryGetValue(Key, ConcreteGroup) then
+          begin
+            ConcreteGroup := TGrouping<TKey, T>.Create(Key);
+            Dict.Add(Key, ConcreteGroup);
+            FGroups.Add(ConcreteGroup);
+          end;
+          ConcreteGroup.Add(Item);
         end;
-        ConcreteGroup.Add(Item);
+      finally
+        Enumerator.Free;
       end;
     finally
       Dict.Free;
@@ -155,15 +162,14 @@ end;
 
 class function TQuery.GroupBy<T, TKey>(const Source: TFluentQuery<T>; const KeySelector: TFunc<T, TKey>): TFluentQuery<IGrouping<TKey, T>>;
 var
-  LSource: TEnumerable<T>;
+  LSource: TFluentQuery<T>;
 begin
   LSource := Source;
   Result := TFluentQuery<IGrouping<TKey, T>>.Create(
     function: TQueryIterator<IGrouping<TKey, T>>
     begin
       Result := TGroupByIterator<TKey, T>.Create(LSource, KeySelector);
-    end,
-    Source);
+    end);
 end;
 
 end.

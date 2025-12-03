@@ -23,6 +23,7 @@ type
   public
     constructor Create; virtual;
     destructor Destroy; override;
+    class function NewInstance: TObject; override;
 
     [PK, AutoInc]
     property Id: Integer read FId write FId;
@@ -61,6 +62,8 @@ type
 
     [ForeignKey('AddressId', caCascade), NotMapped]  // CASCADE on delete
     property Address: TAddress read GetAddress write SetAddress;
+    
+    destructor Destroy; override;
   end;
 
   [Table('order_items')]
@@ -125,6 +128,7 @@ implementation
 constructor TAddress.Create;
 begin
   inherited Create;
+  WriteLn('DEBUG: TAddress.Create');
   // FUsers is initialized as empty Lazy (default record)
   // For new objects created by user, use CreateFrom with AOwnsValue=True so Lazy<T> frees the list.
   FUsers := Lazy<TList<TUser>>.CreateFrom(TList<TUser>.Create, True);
@@ -132,10 +136,17 @@ end;
 
 destructor TAddress.Destroy;
 begin
+  WriteLn('DEBUG: TAddress.Destroy ' + FStreet);
   // FUsers.Value is now freed by Lazy<T> if it owns it.
   // if FUsers.IsValueCreated then
   //   FUsers.Value.Free;
   inherited;
+end;
+
+class function TAddress.NewInstance: TObject;
+begin
+  Result := inherited NewInstance;
+  WriteLn('DEBUG: TAddress.NewInstance');
 end;
 
 function TAddress.GetUsers: TList<TUser>;
@@ -154,6 +165,12 @@ procedure TUser.SetAddress(const Value: TAddress);
 begin
   // When setting manually, we wrap it in a Lazy that is already created
   FAddress := Lazy<TAddress>.CreateFrom(Value);
+end;
+
+destructor TUser.Destroy;
+begin
+  WriteLn('DEBUG: TUser.Destroy ' + FName);
+  inherited;
 end;
 
 { UserEntity }

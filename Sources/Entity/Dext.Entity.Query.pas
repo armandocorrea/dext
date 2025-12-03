@@ -51,7 +51,7 @@ type
     function GetHasPreviousPage: Boolean;
   end;
 
-  TFluentQuery<T> = class;
+
 
   /// <summary>
   ///   Base iterator for lazy query execution.
@@ -71,24 +71,23 @@ type
   ///   Concrete class for fluent queries.
   ///   Inherits from TEnumerable<T> to support for..in loops and standard collection behavior.
   /// </summary>
-  TFluentQuery<T> = class(TEnumerable<T>)
+  /// <summary>
+  ///   Concrete type for fluent queries.
+  ///   Implemented as a record for automatic lifecycle management.
+  /// </summary>
+  TFluentQuery<T> = record
   private
     FIteratorFactory: TFunc<TQueryIterator<T>>;
-    FParent: TObject; // Reference to parent query for memory management
-  protected
-    function DoGetEnumerator: TEnumerator<T>; override;
   public
     /// <summary>
     ///   Creates a new fluent query.
-    ///   @param AParent Optional parent query that this query depends on. 
-    ///                  If provided, this query takes ownership and will free the parent when destroyed.
     /// </summary>
-    constructor Create(const AIteratorFactory: TFunc<TQueryIterator<T>>; AParent: TObject = nil); overload;
-    destructor Destroy; override;
+    constructor Create(const AIteratorFactory: TFunc<TQueryIterator<T>>);
+    
+    function GetEnumerator: TEnumerator<T>;
     
     /// <summary>
     ///   Projects each element of a sequence into a new form.
-    ///   This is a generic method on a class, which is supported by Delphi.
     /// </summary>
     function Select<TResult>(const ASelector: TFunc<T, TResult>): TFluentQuery<TResult>; overload;
     function Select<TResult>(const APropertyName: string): TFluentQuery<TResult>; overload;
@@ -128,8 +127,6 @@ type
       const AResultSelector: TFunc<T, TInner, TResult>
     ): TFluentQuery<TResult>; overload;
     
-
-
     // Aggregations
     function Count: Integer; overload;
     function Count(const APredicate: TPredicate<T>): Integer; overload;
@@ -143,18 +140,14 @@ type
     function Sum(const ASelector: TFunc<T, Double>): Double; overload;
     function Sum(const APropertyName: string): Double; overload;
 
-    
     function Average(const ASelector: TFunc<T, Double>): Double; overload;
     function Average(const APropertyName: string): Double; overload;
-
     
     function Min(const ASelector: TFunc<T, Double>): Double; overload;
     function Min(const APropertyName: string): Double; overload;
-
     
     function Max(const ASelector: TFunc<T, Double>): Double; overload;
     function Max(const APropertyName: string): Double; overload;
-
 
     /// <summary>
     /// </summary>
@@ -180,13 +173,13 @@ type
 
   TProjectingIterator<TSource, TResult> = class(TQueryIterator<TResult>)
   private
-    FSource: TEnumerable<TSource>;
+    FSource: TFluentQuery<TSource>;
     FSelector: TFunc<TSource, TResult>;
     FEnumerator: TEnumerator<TSource>;
   protected
     function MoveNextCore: Boolean; override;
   public
-    constructor Create(const ASource: TEnumerable<TSource>; const ASelector: TFunc<TSource, TResult>);
+    constructor Create(const ASource: TFluentQuery<TSource>; const ASelector: TFunc<TSource, TResult>);
     destructor Destroy; override;
   end;
 
@@ -195,13 +188,13 @@ type
   /// </summary>
   TFilteringIterator<T> = class(TQueryIterator<T>)
   private
-    FSource: TEnumerable<T>;
+    FSource: TFluentQuery<T>;
     FPredicate: TPredicate<T>;
     FEnumerator: TEnumerator<T>;
   protected
     function MoveNextCore: Boolean; override;
   public
-    constructor Create(const ASource: TEnumerable<T>; const APredicate: TPredicate<T>);
+    constructor Create(const ASource: TFluentQuery<T>; const APredicate: TPredicate<T>);
     destructor Destroy; override;
   end;
 
@@ -210,14 +203,14 @@ type
   /// </summary>
   TSkipIterator<T> = class(TQueryIterator<T>)
   private
-    FSource: TEnumerable<T>;
+    FSource: TFluentQuery<T>;
     FCount: Integer;
     FEnumerator: TEnumerator<T>;
     FIndex: Integer;
   protected
     function MoveNextCore: Boolean; override;
   public
-    constructor Create(const ASource: TEnumerable<T>; const ACount: Integer);
+    constructor Create(const ASource: TFluentQuery<T>; const ACount: Integer);
     destructor Destroy; override;
   end;
 
@@ -226,36 +219,39 @@ type
   /// </summary>
   TTakeIterator<T> = class(TQueryIterator<T>)
   private
-    FSource: TEnumerable<T>;
+    FSource: TFluentQuery<T>;
     FCount: Integer;
     FEnumerator: TEnumerator<T>;
     FIndex: Integer;
   protected
     function MoveNextCore: Boolean; override;
   public
-    constructor Create(const ASource: TEnumerable<T>; const ACount: Integer);
+    constructor Create(const ASource: TFluentQuery<T>; const ACount: Integer);
     destructor Destroy; override;
   end;
 
   /// <summary>
   ///   Iterator that returns distinct elements.
   /// </summary>
-
-
-  
+  /// <summary>
+  ///   Iterator that returns distinct elements.
+  /// </summary>
   TDistinctIterator<T> = class(TQueryIterator<T>)
   private
-    FSource: TEnumerable<T>;
+    FSource: TFluentQuery<T>;
     FEnumerator: TEnumerator<T>;
     FSeen: TDictionary<T, Byte>;
   protected
     function MoveNextCore: Boolean; override;
   public
-    constructor Create(const ASource: TEnumerable<T>);
+    constructor Create(const ASource: TFluentQuery<T>);
     destructor Destroy; override;
   end;
 
-
+  TEmptyIterator<T> = class(TQueryIterator<T>)
+  protected
+    function MoveNextCore: Boolean; override;
+  end;
 
 implementation
 
@@ -265,6 +261,13 @@ uses
   System.Variants,
   Dext.Specifications.Evaluator,
   Dext.Entity.Joining;
+
+{ TEmptyIterator<T> }
+
+function TEmptyIterator<T>.MoveNextCore: Boolean;
+begin
+  Result := False;
+end;
 
 { TPagedResult<T> }
 
@@ -338,41 +341,34 @@ end;
 
 { TFluentQuery<T> }
 
-constructor TFluentQuery<T>.Create(const AIteratorFactory: TFunc<TQueryIterator<T>>; AParent: TObject = nil);
+constructor TFluentQuery<T>.Create(const AIteratorFactory: TFunc<TQueryIterator<T>>);
 begin
-  inherited Create;
   FIteratorFactory := AIteratorFactory;
-  FParent := AParent;
 end;
 
-destructor TFluentQuery<T>.Destroy;
+function TFluentQuery<T>.GetEnumerator: TEnumerator<T>;
 begin
-  FParent.Free;
-  inherited;
-end;
-
-function TFluentQuery<T>.DoGetEnumerator: TEnumerator<T>;
-begin
-  // Create a new iterator instance for each enumeration
-  Result := FIteratorFactory();
+  if Assigned(FIteratorFactory) then
+    Result := FIteratorFactory()
+  else
+    Result := TEmptyIterator<T>.Create; // Empty iterator if not initialized
 end;
 
 function TFluentQuery<T>.Select<TResult>(const ASelector: TFunc<T, TResult>): TFluentQuery<TResult>;
 var
-  LSource: TEnumerable<T>;
+  LSource: TFluentQuery<T>;
 begin
   LSource := Self;
   Result := TFluentQuery<TResult>.Create(
     function: TQueryIterator<TResult>
     begin
       Result := TProjectingIterator<T, TResult>.Create(LSource, ASelector);
-    end,
-    TObject(Self)); // Pass Self as parent
+    end);
 end;
 
 function TFluentQuery<T>.Select<TResult>(const APropertyName: string): TFluentQuery<TResult>;
 var
-  LSource: TEnumerable<T>;
+  LSource: TFluentQuery<T>;
   Selector: TFunc<T, TResult>;
 begin
   LSource := Self;
@@ -400,16 +396,13 @@ begin
     function: TQueryIterator<TResult>
     begin
       Result := TProjectingIterator<T, TResult>.Create(LSource, Selector);
-    end,
-    TObject(Self));
+    end);
 end;
-
-
 
 function TFluentQuery<T>.Select(const AProperties: array of string): TFluentQuery<T>;
 var
   LProperties: TArray<string>;
-  LSource: TEnumerable<T>;
+  LSource: TFluentQuery<T>;
 begin
   SetLength(LProperties, Length(AProperties));
   if Length(AProperties) > 0 then
@@ -455,70 +448,63 @@ begin
           else
             raise Exception.Create('Select with properties only supports classes');
         end));
-    end,
-    TObject(Self));
+    end);
 end;
 
 function TFluentQuery<T>.Where(const APredicate: TPredicate<T>): TFluentQuery<T>;
 var
-  LSource: TEnumerable<T>;
+  LSource: TFluentQuery<T>;
 begin
   LSource := Self;
   Result := TFluentQuery<T>.Create(
     function: TQueryIterator<T>
     begin
       Result := TFilteringIterator<T>.Create(LSource, APredicate);
-    end,
-    TObject(Self)); // Pass Self as parent
+    end);
 end;
-
-
 
 function TFluentQuery<T>.Where(const AExpression: IExpression): TFluentQuery<T>;
 begin
   Result := Where(AExpression);
 end;
 
-
-
-
-
 function TFluentQuery<T>.Skip(const ACount: Integer): TFluentQuery<T>;
 var
-  Iterator: TQueryIterator<T>;
+  LSource: TFluentQuery<T>;
 begin
-  // Create iterator directly without closure to avoid activation record leak
-  Iterator := TSkipIterator<T>.Create(Self, ACount);
+  LSource := Self;
   Result := TFluentQuery<T>.Create(
     function: TQueryIterator<T>
     begin
-      Result := Iterator;
-    end,
-    nil); // No parent ownership needed
+      Result := TSkipIterator<T>.Create(LSource, ACount);
+    end);
 end;
 
 function TFluentQuery<T>.Take(const ACount: Integer): TFluentQuery<T>;
 var
-  Iterator: TQueryIterator<T>;
+  LSource: TFluentQuery<T>;
 begin
-  // Create iterator directly without closure to avoid activation record leak
-  Iterator := TTakeIterator<T>.Create(Self, ACount);
+  LSource := Self;
   Result := TFluentQuery<T>.Create(
     function: TQueryIterator<T>
     begin
-      Result := Iterator;
-    end,
-    nil); // No parent ownership needed
+      Result := TTakeIterator<T>.Create(LSource, ACount);
+    end);
 end;
 
 function TFluentQuery<T>.ToList: TList<T>;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
   Result := TList<T>.Create;
   try
-    for Item in Self do
-      Result.Add(Item);
+    Enumerator := GetEnumerator;
+    try
+      while Enumerator.MoveNext do
+        Result.Add(Enumerator.Current);
+    finally
+      Enumerator.Free;
+    end;
   except
     Result.Free;
     raise;
@@ -527,15 +513,14 @@ end;
 
 function TFluentQuery<T>.Distinct: TFluentQuery<T>;
 var
-  LSource: TEnumerable<T>;
+  LSource: TFluentQuery<T>;
 begin
   LSource := Self;
   Result := TFluentQuery<T>.Create(
     function: TQueryIterator<T>
     begin
       Result := TDistinctIterator<T>.Create(LSource);
-    end,
-    TObject(Self));
+    end);
 end;
 
 function TFluentQuery<T>.Join<TInner, TKey, TResult>(
@@ -582,21 +567,31 @@ end;
 
 function TFluentQuery<T>.Count: Integer;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
   Result := 0;
-  for Item in Self do
-    Inc(Result);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+      Inc(Result);
+  finally
+    Enumerator.Free;
+  end;
 end;
 
 function TFluentQuery<T>.Count(const APredicate: TPredicate<T>): Integer;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
   Result := 0;
-  for Item in Self do
-    if APredicate(Item) then
-      Inc(Result);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+      if APredicate(Enumerator.Current) then
+        Inc(Result);
+  finally
+    Enumerator.Free;
+  end;
 end;
 
 function TFluentQuery<T>.Any: Boolean;
@@ -613,12 +608,20 @@ end;
 
 function TFluentQuery<T>.Any(const APredicate: TPredicate<T>): Boolean;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
   Result := False;
-  for Item in Self do
-    if APredicate(Item) then
-      Exit(True);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+      if APredicate(Enumerator.Current) then
+      begin
+        Result := True;
+        Break;
+      end;
+  finally
+    Enumerator.Free;
+  end;
 end;
 
 function TFluentQuery<T>.First: T;
@@ -638,11 +641,16 @@ end;
 
 function TFluentQuery<T>.First(const APredicate: TPredicate<T>): T;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
-  for Item in Self do
-    if APredicate(Item) then
-      Exit(Item);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+      if APredicate(Enumerator.Current) then
+        Exit(Enumerator.Current);
+  finally
+    Enumerator.Free;
+  end;
   raise Exception.Create('Sequence contains no matching element');
 end;
 
@@ -663,26 +671,36 @@ end;
 
 function TFluentQuery<T>.FirstOrDefault(const APredicate: TPredicate<T>): T;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
-  for Item in Self do
-    if APredicate(Item) then
-      Exit(Item);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+      if APredicate(Enumerator.Current) then
+        Exit(Enumerator.Current);
+  finally
+    Enumerator.Free;
+  end;
   Result := Default(T);
 end;
 
 function TFluentQuery<T>.Sum(const ASelector: TFunc<T, Double>): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
 begin
   Result := 0;
-  for Item in Self do
-    Result := Result + ASelector(Item);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+      Result := Result + ASelector(Enumerator.Current);
+  finally
+    Enumerator.Free;
+  end;
 end;
 
 function TFluentQuery<T>.Sum(const APropertyName: string): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   Val: Double;
   Ctx: TRttiContext;
   Obj: TObject;
@@ -690,34 +708,42 @@ var
 begin
   Result := 0;
   Ctx := TRttiContext.Create;
-  for Item in Self do
-  begin
-    Obj := TValue.From<T>(Item).AsObject;
-    if Obj = nil then raise Exception.Create('Item is not an object');
-    
-    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
-    if Prop = nil then
-      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+    begin
+      Obj := TValue.From<T>(Enumerator.Current).AsObject;
+      if Obj = nil then raise Exception.Create('Item is not an object');
       
-    Val := Prop.GetValue(Obj).AsType<Double>;
-    Result := Result + Val;
+      Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+        
+      Val := Prop.GetValue(Obj).AsType<Double>;
+      Result := Result + Val;
+    end;
+  finally
+    Enumerator.Free;
   end;
 end;
 
-
-
 function TFluentQuery<T>.Average(const ASelector: TFunc<T, Double>): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   SumVal: Double;
   CountVal: Integer;
 begin
   SumVal := 0;
   CountVal := 0;
-  for Item in Self do
-  begin
-    SumVal := SumVal + ASelector(Item);
-    Inc(CountVal);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+    begin
+      SumVal := SumVal + ASelector(Enumerator.Current);
+      Inc(CountVal);
+    end;
+  finally
+    Enumerator.Free;
   end;
   
   if CountVal = 0 then
@@ -728,7 +754,7 @@ end;
 
 function TFluentQuery<T>.Average(const APropertyName: string): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   Val: Double;
   SumVal: Double;
   CountVal: Integer;
@@ -739,19 +765,23 @@ begin
   SumVal := 0;
   CountVal := 0;
   Ctx := TRttiContext.Create;
-  
-  for Item in Self do
-  begin
-    Obj := TValue.From<T>(Item).AsObject;
-    if Obj = nil then raise Exception.Create('Item is not an object');
-    
-    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
-    if Prop = nil then
-      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
+    begin
+      Obj := TValue.From<T>(Enumerator.Current).AsObject;
+      if Obj = nil then raise Exception.Create('Item is not an object');
       
-    Val := Prop.GetValue(Obj).AsType<Double>;
-    SumVal := SumVal + Val;
-    Inc(CountVal);
+      Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+        
+      Val := Prop.GetValue(Obj).AsType<Double>;
+      SumVal := SumVal + Val;
+      Inc(CountVal);
+    end;
+  finally
+    Enumerator.Free;
   end;
   
   if CountVal = 0 then
@@ -760,27 +790,29 @@ begin
   Result := SumVal / CountVal;
 end;
 
-
-
 function TFluentQuery<T>.Min(const ASelector: TFunc<T, Double>): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   Val: Double;
   HasValue: Boolean;
 begin
   HasValue := False;
   Result := 0; // Suppress warning
-  
-  for Item in Self do
-  begin
-    Val := ASelector(Item);
-    if not HasValue then
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
     begin
-      Result := Val;
-      HasValue := True;
-    end
-    else if Val < Result then
-      Result := Val;
+      Val := ASelector(Enumerator.Current);
+      if not HasValue then
+      begin
+        Result := Val;
+        HasValue := True;
+      end
+      else if Val < Result then
+        Result := Val;
+    end;
+  finally
+    Enumerator.Free;
   end;
   
   if not HasValue then
@@ -789,7 +821,7 @@ end;
 
 function TFluentQuery<T>.Min(const APropertyName: string): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   Val: Double;
   HasValue: Boolean;
   Ctx: TRttiContext;
@@ -799,52 +831,58 @@ begin
   HasValue := False;
   Result := 0;
   Ctx := TRttiContext.Create;
-  
-  for Item in Self do
-  begin
-    Obj := TValue.From<T>(Item).AsObject;
-    if Obj = nil then raise Exception.Create('Item is not an object');
-    
-    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
-    if Prop = nil then
-      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
-      
-    Val := Prop.GetValue(Obj).AsType<Double>;
-    
-    if not HasValue then
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
     begin
-      Result := Val;
-      HasValue := True;
-    end
-    else if Val < Result then
-      Result := Val;
+      Obj := TValue.From<T>(Enumerator.Current).AsObject;
+      if Obj = nil then raise Exception.Create('Item is not an object');
+      
+      Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+        
+      Val := Prop.GetValue(Obj).AsType<Double>;
+      
+      if not HasValue then
+      begin
+        Result := Val;
+        HasValue := True;
+      end
+      else if Val < Result then
+        Result := Val;
+    end;
+  finally
+    Enumerator.Free;
   end;
   
   if not HasValue then
     raise Exception.Create('Sequence contains no elements');
 end;
 
-
-
 function TFluentQuery<T>.Max(const ASelector: TFunc<T, Double>): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   Val: Double;
   HasValue: Boolean;
 begin
   HasValue := False;
   Result := 0; // Suppress warning
-  
-  for Item in Self do
-  begin
-    Val := ASelector(Item);
-    if not HasValue then
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
     begin
-      Result := Val;
-      HasValue := True;
-    end
-    else if Val > Result then
-      Result := Val;
+      Val := ASelector(Enumerator.Current);
+      if not HasValue then
+      begin
+        Result := Val;
+        HasValue := True;
+      end
+      else if Val > Result then
+        Result := Val;
+    end;
+  finally
+    Enumerator.Free;
   end;
   
   if not HasValue then
@@ -853,7 +891,7 @@ end;
 
 function TFluentQuery<T>.Max(const APropertyName: string): Double;
 var
-  Item: T;
+  Enumerator: TEnumerator<T>;
   Val: Double;
   HasValue: Boolean;
   Ctx: TRttiContext;
@@ -863,25 +901,29 @@ begin
   HasValue := False;
   Result := 0;
   Ctx := TRttiContext.Create;
-  
-  for Item in Self do
-  begin
-    Obj := TValue.From<T>(Item).AsObject;
-    if Obj = nil then raise Exception.Create('Item is not an object');
-    
-    Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
-    if Prop = nil then
-      raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
-      
-    Val := Prop.GetValue(Obj).AsType<Double>;
-    
-    if not HasValue then
+  Enumerator := GetEnumerator;
+  try
+    while Enumerator.MoveNext do
     begin
-      Result := Val;
-      HasValue := True;
-    end
-    else if Val > Result then
-      Result := Val;
+      Obj := TValue.From<T>(Enumerator.Current).AsObject;
+      if Obj = nil then raise Exception.Create('Item is not an object');
+      
+      Prop := Ctx.GetType(Obj.ClassType).GetProperty(APropertyName);
+      if Prop = nil then
+        raise Exception.CreateFmt('Property "%s" not found on class "%s"', [APropertyName, Obj.ClassName]);
+        
+      Val := Prop.GetValue(Obj).AsType<Double>;
+      
+      if not HasValue then
+      begin
+        Result := Val;
+        HasValue := True;
+      end
+      else if Val > Result then
+        Result := Val;
+    end;
+  finally
+    Enumerator.Free;
   end;
   
   if not HasValue then
@@ -907,16 +949,8 @@ begin
   // Take returns a new TFluentQuery<T> (TakenQuery)
   
   SkippedQuery := Self.Skip((APageNumber - 1) * APageSize);
-  try
-    TakenQuery := SkippedQuery.Take(APageSize);
-    try
-      Items := TakenQuery.ToList;
-    finally
-      TakenQuery.Free;
-    end;
-  finally
-    SkippedQuery.Free;
-  end;
+  TakenQuery := SkippedQuery.Take(APageSize);
+  Items := TakenQuery.ToList;
   
   Result := TPagedResult<T>.Create(Items, Total, APageNumber, APageSize);
 end;
@@ -961,7 +995,7 @@ end;
 
 { TProjectingIterator<TSource, TResult> }
 
-constructor TProjectingIterator<TSource, TResult>.Create(const ASource: TEnumerable<TSource>; const ASelector: TFunc<TSource, TResult>);
+constructor TProjectingIterator<TSource, TResult>.Create(const ASource: TFluentQuery<TSource>; const ASelector: TFunc<TSource, TResult>);
 begin
   inherited Create;
   FSource := ASource;
@@ -988,7 +1022,7 @@ end;
 
 { TFilteringIterator<T> }
 
-constructor TFilteringIterator<T>.Create(const ASource: TEnumerable<T>; const APredicate: TPredicate<T>);
+constructor TFilteringIterator<T>.Create(const ASource: TFluentQuery<T>; const APredicate: TPredicate<T>);
 begin
   inherited Create;
   FSource := ASource;
@@ -1021,7 +1055,7 @@ end;
 
 { TSkipIterator<T> }
 
-constructor TSkipIterator<T>.Create(const ASource: TEnumerable<T>; const ACount: Integer);
+constructor TSkipIterator<T>.Create(const ASource: TFluentQuery<T>; const ACount: Integer);
 begin
   inherited Create;
   FSource := ASource;
@@ -1054,7 +1088,7 @@ end;
 
 { TTakeIterator<T> }
 
-constructor TTakeIterator<T>.Create(const ASource: TEnumerable<T>; const ACount: Integer);
+constructor TTakeIterator<T>.Create(const ASource: TFluentQuery<T>; const ACount: Integer);
 begin
   inherited Create;
   FSource := ASource;
@@ -1088,7 +1122,7 @@ end;
 
 { TDistinctIterator<T> }
 
-constructor TDistinctIterator<T>.Create(const ASource: TEnumerable<T>);
+constructor TDistinctIterator<T>.Create(const ASource: TFluentQuery<T>);
 begin
   inherited Create;
   FSource := ASource;

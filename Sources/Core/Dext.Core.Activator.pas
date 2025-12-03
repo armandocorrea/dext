@@ -44,6 +44,9 @@ var
   I: Integer;
   Matched: Boolean;
 begin
+  if AClass.ClassName.Contains('TAddress') then
+    WriteLn('DEBUG: TActivator.CreateInstance(' + AClass.ClassName + ')');
+
   Context := TRttiContext.Create;
   try
     TypeObj := Context.GetType(AClass);

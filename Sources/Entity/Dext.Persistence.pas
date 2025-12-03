@@ -52,7 +52,7 @@ type
 
   Lazy<T> = record
   private
-    FInstance: ILazy<T>;
+    FInstance: ILazy;
     function GetIsValueCreated: Boolean;
     function GetValue: T;
   public
@@ -67,6 +67,8 @@ type
     property IsValueCreated: Boolean read GetIsValueCreated;
     property Value: T read GetValue;
   end;
+
+
 
   /// <summary>
   ///   Helper record to build expressions fluently.
@@ -116,7 +118,7 @@ end;
 function Lazy<T>.GetValue: T;
 begin
   if FInstance <> nil then
-    Result := FInstance.Value
+    Result := FInstance.Value.AsType<T>
   else
     Result := Default(T);
 end;

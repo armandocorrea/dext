@@ -46,7 +46,7 @@ begin
   RunTest(TCompositeKeyTest);
   // 5. Explicit Loading Tests
   RunTest(TExplicitLoadingTest);
-  // 6. Lazy Loading Tests - AV
+  // 6. Lazy Loading Tests -
   RunTest(TLazyLoadingTest);
   // 7. Fluent API Tests
   RunTest(TFluentAPITest);
@@ -101,10 +101,6 @@ begin
     on E: Exception do
       Writeln('❌ Critical Error: ', E.ClassName, ': ', E.Message);
   end;
-  
-  // Ensure FireDAC Manager is closed to release resources
-  if FDManager <> nil then 
-    FDManager.Close;
 
   ReadLn;
 end.

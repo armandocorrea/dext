@@ -115,8 +115,8 @@ begin
   
   var LazyEnum := FContext.Entities<TUser>.Query(UserEntity.Age >= 18);
   LogSuccess('✓ Query() created (deferred execution)');
-  Log(Format('  → Execution happens when we enumerate it (Query object: %p)', [Pointer(LazyEnum)]));
-  LazyEnum.Free; // Free it since we are not enumerating it fully or transferring ownership
+  Log(Format('  → Execution happens when we enumerate it (Query object: %p)', [Pointer(@LazyEnum)]));
+  // LazyEnum.Free; // Free it since we are not enumerating it fully or transferring ownership
   Log('');
   
   // Test 6: Projections (Select)
@@ -138,6 +138,7 @@ begin
     Inc(Count);
     LogSuccess(Format('  Found Name: %s', [Name]));
   end;
+  //NamesQuery.Free;
   
   AssertTrue(Count = 2, 
     Format('Found %d names', [Count]), 

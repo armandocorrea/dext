@@ -123,6 +123,7 @@ end;
 
 destructor TDbSet<T>.Destroy;
 begin
+  WriteLn('DEBUG: TDbSet<' + T.ClassName + '>.Destroy');
   FRttiContext.Free;
   FIdentityMap.Free;
   FProps.Free;
@@ -372,8 +373,14 @@ begin
       for i := 0 to Reader.GetColumnCount - 1 do
       begin
         ColName := Reader.GetColumnName(i);
-         if FPKColumns.Contains(ColName) then
-            PKValues.Add(ColName, Reader.GetValue(i).ToString);
+        for var PKCol in FPKColumns do
+        begin
+          if SameText(PKCol, ColName) then
+          begin
+             PKValues.Add(PKCol, Reader.GetValue(i).ToString); // Use canonical PKCol as key
+             Break;
+          end;
+        end;
       end;
 
       // Construct PK String
@@ -889,28 +896,32 @@ var
   Cmd: IDbCommand;
   Reader: IDbReader;
 begin
-  Result := TList<T>.Create;
   Generator := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
   try
-    Sql := Generator.GenerateSelect(ASpec);
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Result := TList<T>.Create;
+    try
+      Sql := Generator.GenerateSelect(ASpec);
+      Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
 
-    // Bind Params from Generator
-    for var Pair in Generator.Params do
-    begin
-      Cmd.AddParam(Pair.Key, Pair.Value);
+      // Bind Params from Generator
+      for var Pair in Generator.Params do
+      begin
+        Cmd.AddParam(Pair.Key, Pair.Value);
+      end;
+
+      Reader := Cmd.ExecuteQuery;
+      while Reader.Next do
+      begin
+        Result.Add(Hydrate(Reader));
+      end;
+
+      // Load Includes
+      if Length(ASpec.GetIncludes) > 0 then
+        DoLoadIncludes(Result, ASpec.GetIncludes);
+    except
+      Result.Free;
+      raise;
     end;
-
-    Reader := Cmd.ExecuteQuery;
-    while Reader.Next do
-    begin
-      Result.Add(Hydrate(Reader));
-    end;
-
-    // Load Includes
-    if Length(ASpec.GetIncludes) > 0 then
-      DoLoadIncludes(Result, ASpec.GetIncludes);
-
   finally
     Generator.Free;
   end;
@@ -939,11 +950,7 @@ begin
   Spec := TSpecification<T>.Create(AExpression);
   Spec.Take(1);
   var Q := Query(Spec);
-  try
-    Result := Q.FirstOrDefault;
-  finally
-    Q.Free;
-  end;
+  Result := Q.FirstOrDefault;
 end;
 
 function TDbSet<T>.Any(const AExpression: IExpression): Boolean;
@@ -954,11 +961,7 @@ begin
   Spec := TSpecification<T>.Create(AExpression);
   Spec.Take(1);
   var Q := Query(Spec);
-  try
-    Result := Q.Any;
-  finally
-    Q.Free;
-  end;
+  Result := Q.Any;
 end;
 
 function TDbSet<T>.Count(const AExpression: IExpression): Integer;
@@ -967,11 +970,7 @@ var
 begin
   Spec := TSpecification<T>.Create(AExpression);
   var Q := Query(Spec);
-  try
-    Result := Q.Count;
-  finally
-    Q.Free;
-  end;
+  Result := Q.Count;
 end;
 
 function TDbSet<T>.Query(const ASpec: ISpecification<T>): TFluentQuery<T>;
