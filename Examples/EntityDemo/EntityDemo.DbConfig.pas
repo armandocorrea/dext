@@ -273,12 +273,14 @@ end;
 
 class procedure TDbConfig.ConfigureSQLite(const AFileName: string);
 begin
+  TDbConfig.SetProvider(dpSQLite);
   FSQLiteFile := AFileName;
   WriteLn('✅ SQLite configured: ' + AFileName);
 end;
 
 class procedure TDbConfig.ConfigureSQLiteMemory;
 begin
+  TDbConfig.SetProvider(dpSQLite);
   FSQLiteFile := ':memory:';
   WriteLn('✅ SQLite configured: In-Memory');
 end;
@@ -291,6 +293,7 @@ class procedure TDbConfig.ConfigurePostgreSQL(
   const APassword: string
 );
 begin
+  TDbConfig.SetProvider(dpPostgreSQL);
   FPostgreSQLHost := AHost;
   FPostgreSQLPort := APort;
   FPostgreSQLDatabase := ADatabase;
@@ -305,6 +308,7 @@ class procedure TDbConfig.ConfigureFirebird(
   const APassword: string
 );
 begin
+  TDbConfig.SetProvider(dpFirebird);
   FFirebirdFile := AFileName;
   FFirebirdUsername := AUsername;
   FFirebirdPassword := APassword;
@@ -318,6 +322,7 @@ class procedure TDbConfig.ConfigureSQLServer(
   const APassword: string
 );
 begin
+  TDbConfig.SetProvider(dpSQLServer);
   FSQLServerHost := AHost;
   FSQLServerDatabase := ADatabase;
   FSQLServerUsername := AUsername;
@@ -330,6 +335,7 @@ class procedure TDbConfig.ConfigureSQLServerWindowsAuth(
   const ADatabase: string
 );
 begin
+  TDbConfig.SetProvider(dpSQLServer);
   FSQLServerHost := AHost;
   FSQLServerDatabase := ADatabase;
   FSQLServerUsername := '';  // Empty username triggers Windows Authentication

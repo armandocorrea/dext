@@ -63,6 +63,7 @@ type
   private
     function SQLTypeToDelphiType(const ASQLType: string; AScale: Integer): string;
     function CleanName(const AName: string): string;
+    function CleanMappingName(const AName: string): string;
   public
     function GenerateUnit(const AUnitName: string; const ATables: TArray<TMetaTable>; AMappingStyle: TMappingStyle = msAttributes): string;
   end;
@@ -99,6 +100,16 @@ begin
   List := TStringList.Create;
   try
     FDConn.GetTableNames('', '', '', List, [osMy], [tkTable], True);
+
+    // Filter out system tables
+    for var i := List.Count - 1 downto 0 do
+    begin
+       if List[i].StartsWith('pg_catalog.', True) or 
+          List[i].StartsWith('information_schema.', True) or
+          List[i].StartsWith('sys.', True) then
+          List.Delete(i);
+    end;
+
     Result := List.ToStringArray;
   finally
     List.Free;
@@ -344,10 +355,23 @@ function TDelphiEntityGenerator.CleanName(const AName: string): string;
 var
   Parts: TArray<string>;
   S: string;
+  CleanedName: string;
 begin
   Result := '';
+  // Remove quotes and brackets
+  CleanedName := AName.Replace('"', '').Replace('''', '').Replace('[', '').Replace(']', '');
+  
+  // Handle dot notation (Catalog.Schema.Table or Schema.Table)
+  // Take the last part as the table name
+  if CleanedName.Contains('.') then
+  begin
+    Parts := CleanedName.Split(['.']);
+    if Length(Parts) > 0 then
+      CleanedName := Parts[High(Parts)];
+  end;
+  
   // Split by common delimiters
-  Parts := AName.Split(['_', '-', ' '], TStringSplitOptions.ExcludeEmpty);
+  Parts := CleanedName.Split(['_', '-', ' '], TStringSplitOptions.ExcludeEmpty);
   for S in Parts do
   begin
     if S.Length > 0 then
@@ -375,6 +399,13 @@ begin
   else if S.Contains('BLOB') or S.Contains('BINARY') or S.Contains('IMAGE') or S.Contains('VARBINARY') then Result := 'TBytes'
   else if S.Contains('GUID') or S.Contains('UUID') then Result := 'TGUID'
   else Result := 'string'; // Default
+end;
+
+
+
+function TDelphiEntityGenerator.CleanMappingName(const AName: string): string;
+begin
+  Result := AName.Replace('"', '').Replace('''', '').Replace('[', '').Replace(']', '').Replace('..', '.');
 end;
 
 function TDelphiEntityGenerator.GenerateUnit(const AUnitName: string; const ATables: TArray<TMetaTable>; AMappingStyle: TMappingStyle = msAttributes): string;
@@ -413,12 +444,16 @@ begin
     end;
     SB.AppendLine('');
 
+    // Clean table name for mapping (remove quotes/brackets)
+
+
     for Table in ATables do
     begin
       ClassName := 'T' + CleanName(Table.Name);
+      var MappingName := CleanMappingName(Table.Name);
       
       if AMappingStyle = msAttributes then
-         SB.AppendLine('  [Table(''' + Table.Name + ''')]');
+         SB.AppendLine('  [Table(''' + MappingName + ''')]');
          
       SB.AppendLine('  ' + ClassName + ' = class');
       SB.AppendLine('  private');
@@ -608,8 +643,10 @@ begin
        for Table in ATables do
        begin
           ClassName := 'T' + CleanName(Table.Name);
+          var MappingName := CleanMappingName(Table.Name);
+          
           SB.AppendLine('  ModelBuilder.Entity<' + ClassName + '>');
-          SB.AppendLine('    .Table(''' + Table.Name + ''')');
+          SB.AppendLine('    .Table(''' + MappingName + ''')');
           
           for Col in Table.Columns do
           begin

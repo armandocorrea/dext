@@ -150,7 +150,15 @@ Melhorar como os dados relacionados são carregados e gerenciar ciclo de vida da
 - [x] **External Mapping (Fluent Mapping)**: Configuração de mapeamento via código (Startup) para evitar Attributes nas entidades.
 - [x] **ID Retrieval Fixes**: Correção crítica na recuperação de IDs em inserts (Single/Bulk) para garantir integridade referencial (FKs).
 - [ ] **CLI Tools**: Comandos para gerar migrations e atualizar banco.
-- [ ] **Scaffolding**: Gerar classes de entidade a partir de banco existente (Db-First).
+- [x] **Scaffolding**: Gerar classes de entidade a partir de banco existente (Db-First).
+
+### 🚧 Fase 6: Migrations (Em Progresso)
+Sistema completo de evolução de esquema Code-First.
+- [ ] **Schema Builder**: API fluente para definição de DDL (`CreateTable`, `AddColumn`).
+- [ ] **Model Diff**: Algoritmo para comparar Modelo Atual vs Snapshot Anterior.
+- [ ] **Migration Generator**: Gerar classes Pascal com os passos `Up`/`Down`.
+- [ ] **Migration Runner**: Aplicar migrações pendentes no banco e gerenciar tabela de histórico.
+- [ ] **CLI Integration**: Comandos para criar e rodar migrações.
 
 ### 🚀 Fase 5: Performance & Observability (Novo)
 Foco em otimização extrema, gerenciamento de memória e observabilidade.
@@ -196,6 +204,14 @@ Funcionalidades essenciais para sistemas corporativos complexos.
 Integração transparente de operações assíncronas.
 - [ ] **Fluent Tasks API**: API fluente para orquestração de tasks.
 - [ ] **Web & ORM Integration**: Suporte nativo em Controllers e DbContext.
+
+### 🛠️ Fase 6: Tooling & Ecosystem
+Ferramentas para aumentar a produtividade e extensibilidade.
+
+- [ ] **Scaffolding com Templates**: Sistema flexível de geração de código.
+  - Suporte a templates (ex: Mustache) para customizar a saída do scaffolding.
+  - Metadados em JSON intermediários para permitir ferramentas externas (Transformer).
+  - Permitir que a comunidade crie seus próprios templates de entidade/DTOs.
 
 ---
 

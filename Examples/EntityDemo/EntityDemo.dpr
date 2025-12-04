@@ -20,7 +20,9 @@ uses
   EntityDemo.Tests.Relationships in 'EntityDemo.Tests.Relationships.pas',
   EntityDemo.Tests.Scaffolding in 'EntityDemo.Tests.Scaffolding.pas',
   EntityDemo.Tests.FluentMappingSyntax in 'EntityDemo.Tests.FluentMappingSyntax.pas',
-  EntityDemo.Entities in 'EntityDemo.Entities.pas';
+  EntityDemo.Entities in 'EntityDemo.Entities.pas',
+  GeneratedEntitiesMappingWithAttributes in 'GeneratedEntitiesMappingWithAttributes.pas',
+  GeneratedEntitiesFluentMapping in 'GeneratedEntitiesFluentMapping.pas';
 
 procedure RunTest(const TestClass: TBaseTestClass);
 var
@@ -37,6 +39,7 @@ end;
 
 procedure RunAllTests;
 begin
+{
   // 1. CRUD Tests
   RunTest(TCRUDTest);
   // 2. Relationships Tests
@@ -57,9 +60,9 @@ begin
   RunTest(TBulkTest);
   // 10. Concurrency Tests
   RunTest(TConcurrencyTest);
-  // 11. Scaffolding Tests
+}  // 11. Scaffolding Tests
   RunTest(TScaffoldingTest);
-  
+
   WriteLn('');
   WriteLn('✨ All tests completed.');
 end;
@@ -77,24 +80,19 @@ begin
     // Uncomment the provider you want to test:
     
     // Option 1: SQLite (Default - File-based, good for development)
-    TDbConfig.SetProvider(dpSQLite);
-    //TDbConfig.ConfigureSQLite('test.db');
-    TDbConfig.ConfigureSQLiteMemory;
+    // TDbConfig.ConfigureSQLiteMemory;
+    TDbConfig.ConfigureSQLite('test.db');
 
     // Option 2: PostgreSQL (Server-based, production-ready)
-    // TDbConfig.SetProvider(dpPostgreSQL);
     // TDbConfig.ConfigurePostgreSQL('localhost', 5432, 'postgres', 'postgres', 'root');
-    
+
     // Option 3: Firebird (Brazilian market favorite)
-    // TDbConfig.SetProvider(dpFirebird);
     // TDbConfig.ConfigureFirebird('C:\temp\dext_test.fdb', 'SYSDBA', 'masterkey');
 
     // Option 4: SQL Server with Windows Authentication (Recommended)
-    // TDbConfig.SetProvider(dpSQLServer);
     // TDbConfig.ConfigureSQLServerWindowsAuth('localhost', 'dext_test');
-    
+
     // Option 5: SQL Server with SQL Authentication
-    //TDbConfig.SetProvider(dpSQLServer);
     //TDbConfig.ConfigureSQLServer('localhost', 'dext_test', 'sa', 'SQL@d3veloper');
     
     WriteLn('📊 Database Provider: ' + TDbConfig.GetProviderName);

@@ -44,6 +44,7 @@ Um "Object Inspector" para código-fonte.
 
 ### 4. Markdown & Diagrams
 - [ ] **Markdown Viewer**: Visualizador de MD com suporte a **Mermaid.js** para renderizar diagramas de arquitetura direto na IDE.
+- [ ] **Markdown Editor**: Editor com syntax highlighting e preview em tempo real.
 
 ### 5. DevOps Integration
 - [ ] **CI/CD Generator**: Wizard para gerar pipelines de CI/CD (GitHub Actions, GitLab CI, Azure Pipelines).

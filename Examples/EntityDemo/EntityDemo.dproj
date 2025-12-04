@@ -152,6 +152,8 @@
         <DCCReference Include="EntityDemo.Tests.Scaffolding.pas"/>
         <DCCReference Include="EntityDemo.Tests.FluentMappingSyntax.pas"/>
         <DCCReference Include="EntityDemo.Entities.pas"/>
+        <DCCReference Include="GeneratedEntitiesMappingWithAttributes.pas"/>
+        <DCCReference Include="GeneratedEntitiesFluentMapping.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

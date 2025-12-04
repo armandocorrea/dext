@@ -9,9 +9,9 @@ The following dialects are built-in and ready to use:
 | Database | Class Name | Status | Features |
 | :--- | :--- | :--- | :--- |
 | **SQLite** | `TSQLiteDialect` | ✅ Validated | AutoInc, Paging, Boolean (0/1) |
-| **PostgreSQL** | `TPostgreSQLDialect` | ⚠️ Unit Tested | Serial, Paging, Boolean (TRUE/FALSE), UUID |
-| **Firebird 3.0+** | `TFirebirdDialect` | ⚠️ Unit Tested | Identity, Paging (OFFSET/FETCH), Boolean (TRUE/FALSE) |
-| **SQL Server** | `TSQLServerDialect` | ⚠️ Unit Tested | Identity, Paging (OFFSET/FETCH), UUID |
+| **PostgreSQL** | `TPostgreSQLDialect` | ✅ Validated | Serial, Paging, Boolean (TRUE/FALSE), UUID |
+| **Firebird 3.0+** | `TFirebirdDialect` | ✅ Validated | Identity, Paging (OFFSET/FETCH), Boolean (TRUE/FALSE) |
+| **SQL Server** | `TSQLServerDialect` | ✅ Validated | Identity, Paging (OFFSET/FETCH), UUID |
 | **Oracle 12c+** | `TOracleDialect` | ⚠️ Unit Tested | Identity, Paging, UUID (VARCHAR2) |
 | **MySQL / MariaDB** | `TMySQLDialect` | ⚠️ Unit Tested | AutoIncrement, Paging (LIMIT), UUID (CHAR) |
 

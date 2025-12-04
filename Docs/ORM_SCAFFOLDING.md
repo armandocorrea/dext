@@ -166,7 +166,10 @@ These allow you to write queries like:
 
 Currently, the Scaffolding tool relies on FireDAC's metadata capabilities (`TFDMetaInfoQuery`). It has been tested with:
 - SQLite
-- (Planned) SQL Server, PostgreSQL, Firebird, MySQL, Oracle
+- PostgreSQL
+- Firebird
+- SQL Server
+- (Planned) MySQL, Oracle
 
 ## Troubleshooting
 
