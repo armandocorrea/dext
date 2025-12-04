@@ -68,7 +68,8 @@ begin
 
   // Select only Name
   Builder := Specification.All<TUser>;
-  Spec := Builder.Select(UserEntity.Name.Name);
+  // Usa class operator TPropExpression.Implicit(const Value: TPropExpression): string
+  Spec := Builder.Select(UserEntity.Name);
 
   Users := FContext.Entities<TUser>.List(Spec);
   try

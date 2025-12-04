@@ -150,6 +150,7 @@
         <DCCReference Include="EntityDemo.Tests.LazyLoading.pas"/>
         <DCCReference Include="EntityDemo.Tests.Relationships.pas"/>
         <DCCReference Include="EntityDemo.Tests.Scaffolding.pas"/>
+        <DCCReference Include="EntityDemo.Tests.FluentMappingSyntax.pas"/>
         <DCCReference Include="EntityDemo.Entities.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

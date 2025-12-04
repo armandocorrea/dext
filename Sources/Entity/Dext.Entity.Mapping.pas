@@ -51,6 +51,7 @@ type
   public
     PropertyName: string;
     ColumnName: string;
+    ForeignKeyColumn: string; // Added for FK support
     IsPK: Boolean;
     IsAutoInc: Boolean;
     IsRequired: Boolean;
@@ -78,7 +79,36 @@ type
   end;
 
   // ---------------------------------------------------------------------------
-  // Concrete Builders
+  // Fluent API Records
+  // ---------------------------------------------------------------------------
+
+  TEntityBuilder<T: class> = record
+  private
+    FMap: TEntityMap;
+    FCurrentProp: TPropertyMap;
+    function GetCurrentProp: TPropertyMap;
+  public
+    constructor Create(AMap: TEntityMap);
+    
+    // Entity Configuration
+    function Table(const AName: string): TEntityBuilder<T>;
+    function HasKey(const APropertyName: string): TEntityBuilder<T>; overload;
+    function HasKey(const APropertyNames: array of string): TEntityBuilder<T>; overload;
+    
+    // Property Selection
+    function Prop(const APropertyName: string): TEntityBuilder<T>;
+    
+    // Property Configuration (Applied to current property)
+    function Column(const AName: string): TEntityBuilder<T>;
+    function HasForeignKey(const AColumnName: string): TEntityBuilder<T>;
+    function IsRequired(AValue: Boolean = True): TEntityBuilder<T>;
+    function IsAutoInc(AValue: Boolean = True): TEntityBuilder<T>;
+    function MaxLength(ALength: Integer): TEntityBuilder<T>;
+    function Ignore: TEntityBuilder<T>;
+  end;
+
+  // ---------------------------------------------------------------------------
+  // Concrete Builders (Legacy / Interface based)
   // ---------------------------------------------------------------------------
 
   TEntityTypeBuilder<T: class> = class(TInterfacedObject, IEntityTypeBuilder<T>)
@@ -123,6 +153,7 @@ type
     destructor Destroy; override;
     
     procedure ApplyConfiguration<T: class>(const AConfig: IEntityTypeConfiguration<T>);
+    function Entity<T: class>: TEntityBuilder<T>;
     
     function GetMap(AType: PTypeInfo): TEntityMap;
     function HasMap(AType: PTypeInfo): Boolean;
@@ -161,11 +192,96 @@ constructor TPropertyMap.Create(const APropName: string);
 begin
   PropertyName := APropName;
   ColumnName := APropName; // Default
+  ForeignKeyColumn := '';
   IsPK := False;
   IsAutoInc := False;
   IsRequired := False;
   MaxLength := 0;
   IsIgnored := False;
+end;
+
+{ TEntityBuilder<T> }
+
+constructor TEntityBuilder<T>.Create(AMap: TEntityMap);
+begin
+  FMap := AMap;
+  FCurrentProp := nil;
+end;
+
+function TEntityBuilder<T>.GetCurrentProp: TPropertyMap;
+begin
+  if FCurrentProp = nil then
+    raise Exception.Create('No property selected. Call Property() first.');
+  Result := FCurrentProp;
+end;
+
+function TEntityBuilder<T>.Table(const AName: string): TEntityBuilder<T>;
+begin
+  FMap.TableName := AName;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.HasKey(const APropertyName: string): TEntityBuilder<T>;
+begin
+  FMap.Keys.Clear;
+  FMap.Keys.Add(APropertyName);
+  FMap.GetOrAddProperty(APropertyName).IsPK := True;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.HasKey(const APropertyNames: array of string): TEntityBuilder<T>;
+var
+  Prop: string;
+begin
+  FMap.Keys.Clear;
+  for Prop in APropertyNames do
+  begin
+    FMap.Keys.Add(Prop);
+    FMap.GetOrAddProperty(Prop).IsPK := True;
+  end;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.Prop(const APropertyName: string): TEntityBuilder<T>;
+begin
+  FCurrentProp := FMap.GetOrAddProperty(APropertyName);
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.Column(const AName: string): TEntityBuilder<T>;
+begin
+  GetCurrentProp.ColumnName := AName;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.HasForeignKey(const AColumnName: string): TEntityBuilder<T>;
+begin
+  GetCurrentProp.ForeignKeyColumn := AColumnName;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.IsRequired(AValue: Boolean): TEntityBuilder<T>;
+begin
+  GetCurrentProp.IsRequired := AValue;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.IsAutoInc(AValue: Boolean): TEntityBuilder<T>;
+begin
+  GetCurrentProp.IsAutoInc := AValue;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.MaxLength(ALength: Integer): TEntityBuilder<T>;
+begin
+  GetCurrentProp.MaxLength := ALength;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.Ignore: TEntityBuilder<T>;
+begin
+  GetCurrentProp.IsIgnored := True;
+  Result := Self;
 end;
 
 { TEntityTypeBuilder<T> }
@@ -272,6 +388,19 @@ begin
   
   Builder := TEntityTypeBuilder<T>.Create(Map);
   AConfig.Configure(Builder);
+end;
+
+function TModelBuilder.Entity<T>: TEntityBuilder<T>;
+var
+  Map: TEntityMap;
+begin
+  if not FMaps.TryGetValue(TypeInfo(T), Map) then
+  begin
+    Map := TEntityMap.Create(TypeInfo(T));
+    FMaps.Add(TypeInfo(T), Map);
+  end;
+  
+  Result := TEntityBuilder<T>.Create(Map);
 end;
 
 function TModelBuilder.GetMap(AType: PTypeInfo): TEntityMap;

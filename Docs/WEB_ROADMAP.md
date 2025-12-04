@@ -42,7 +42,7 @@ Suporte a comunicação bidirecional em tempo real.
   - Fallback automático (Long Polling / SSE).
 - [ ] **Server-Sent Events (SSE)**: Suporte nativo para streaming de eventos unidirecional.
 
-### 4. UI & Frontend Strategy
+### 5. UI & Frontend Strategy
 Estratégia para construção de interfaces modernas, focando em produtividade e simplicidade (Server-Driven UI).
 
 #### A. Modern Server-Side UI (HTMX)
@@ -58,6 +58,20 @@ Estratégia para construção de interfaces modernas, focando em produtividade e
 #### C. Future: Dext Blazor / WASM
 - [ ] **Server-Side Rendering**: Modelo de componentes stateful no servidor (via WebSocket/SignalR), similar ao Blazor Server.
 - [ ] **WebAssembly Compiler**: (Long Term) Investigação sobre compilação de Delphi para WASM para rodar lógica no cliente.
+
+---
+
+### 6. Security & Identity
+Modernização da stack de autenticação para padrões de mercado (OAuth2/OIDC).
+
+#### A. Authentication Handlers
+- [ ] **OAuth2 & OpenID Connect (OIDC)**: Client genérico para autenticação com qualquer provedor compatível (Auth0, Keycloak, Azure AD).
+- [ ] **Social Providers**: Configurações pré-definidas para Google, Facebook, GitHub, Microsoft.
+- [ ] **Enterprise SSO**: Suporte a Single Sign-On via SAML 2.0 ou OIDC para integração corporativa.
+
+#### B. Authorization & Policy
+- [ ] **Policy-Based Authorization**: Sistema flexível de políticas (`[Authorize('MustBeAdmin')]`) além de simples Roles.
+- [ ] **Resource-Based Auth**: Autorização baseada no recurso sendo acessado (ex: "Usuário pode editar ESTE documento?").
 
 ---
 

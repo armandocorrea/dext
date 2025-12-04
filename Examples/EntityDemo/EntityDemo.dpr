@@ -11,7 +11,7 @@ uses
   EntityDemo.Tests.Base in 'EntityDemo.Tests.Base.pas',
   EntityDemo.Tests.Bulk in 'EntityDemo.Tests.Bulk.pas',
   EntityDemo.Tests.CompositeKeys in 'EntityDemo.Tests.CompositeKeys.pas',
-  EntityDemo.Tests.Concurrency   in 'EntityDemo.Tests.Concurrency.pas',
+  EntityDemo.Tests.Concurrency in 'EntityDemo.Tests.Concurrency.pas',
   EntityDemo.Tests.CRUD in 'EntityDemo.Tests.CRUD.pas',
   EntityDemo.Tests.ExplicitLoading in 'EntityDemo.Tests.ExplicitLoading.pas',
   EntityDemo.Tests.FluentAPI in 'EntityDemo.Tests.FluentAPI.pas',
@@ -19,6 +19,7 @@ uses
   EntityDemo.Tests.LazyLoading in 'EntityDemo.Tests.LazyLoading.pas',
   EntityDemo.Tests.Relationships in 'EntityDemo.Tests.Relationships.pas',
   EntityDemo.Tests.Scaffolding in 'EntityDemo.Tests.Scaffolding.pas',
+  EntityDemo.Tests.FluentMappingSyntax in 'EntityDemo.Tests.FluentMappingSyntax.pas',
   EntityDemo.Entities in 'EntityDemo.Entities.pas';
 
 procedure RunTest(const TestClass: TBaseTestClass);
@@ -56,9 +57,8 @@ begin
   RunTest(TBulkTest);
   // 10. Concurrency Tests
   RunTest(TConcurrencyTest);
-  
   // 11. Scaffolding Tests
-  //RunTest(TScaffoldingTest);
+  RunTest(TScaffoldingTest);
   
   WriteLn('');
   WriteLn('✨ All tests completed.');

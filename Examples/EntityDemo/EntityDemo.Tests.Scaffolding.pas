@@ -30,7 +30,7 @@ begin
   Log('🏗️ Running Scaffolding Tests...');
   
   // Ensure database exists and has schema
-  Setup;
+  // Setup; // Already called by TBaseTest.Create
   
   // 1. Test Schema Provider
   Provider := TFireDACSchemaProvider.Create(FContext.Connection);
@@ -61,18 +61,32 @@ begin
       Log(Format('       %s -> %s.%s', [FK.ColumnName, FK.ReferencedTable, FK.ReferencedColumn]));
   end;
   
-  // 2. Test Generator
+  // 2. Test Generator (Attributes)
   Generator := TDelphiEntityGenerator.Create;
-  Code := Generator.GenerateUnit('GeneratedEntities', MetaList);
+  Code := Generator.GenerateUnit('GeneratedEntitiesMappingWithAttributes', MetaList, msAttributes);
   
-  Log('   Generated Code Preview (First 500 chars):');
-  Log(Copy(Code, 1, 500));
+  Log('   Generated Code Preview (Attributes) - First 200 chars:');
+  Log(Copy(Code, 1, 200));
   
-  // Save to file for inspection
-  var FileName := 'GeneratedEntities.pas';
+  var FileName := TPath.GetFullPath('GeneratedEntitiesMappingWithAttributes.pas');
   TFile.WriteAllText(FileName, Code);
   Log('   Saved to ' + FileName);
   
+  // 3. Test Generator (Fluent)
+  Code := Generator.GenerateUnit('GeneratedEntitiesFluentMapping', MetaList, msFluent);
+  
+  Log('   Generated Code Preview (Fluent) - First 200 chars:');
+  Log(Copy(Code, 1, 200));
+  
+  FileName := TPath.GetFullPath('GeneratedEntitiesFluentMapping.pas');
+  TFile.WriteAllText(FileName, Code);
+  Log('   Saved to ' + FileName);
+  
+  if TFile.Exists(FileName) then
+    Log('   ✅ Fluent Mapping File successfully created!')
+  else
+    Log('   ❌ Fluent Mapping File NOT created!');
+    
   Log('');
 end;
 
