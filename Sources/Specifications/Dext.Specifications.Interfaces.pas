@@ -39,10 +39,14 @@ type
     function GetTake: Integer;
     function IsPagingEnabled: Boolean;
     function GetSelectedColumns: TArray<string>;
+    function IsTrackingEnabled: Boolean;
     
     // Fluent methods
     procedure Take(const ACount: Integer);
     procedure Skip(const ACount: Integer);
+    
+    procedure EnableTracking(const AValue: Boolean);
+    procedure AsNoTracking;
   end;
 
   /// <summary>

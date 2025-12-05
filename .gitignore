@@ -14,3 +14,5 @@ __recovery
 FastMM_FullDebugMode.dll
 *.map
 *.drc
+*.bat
+*.db

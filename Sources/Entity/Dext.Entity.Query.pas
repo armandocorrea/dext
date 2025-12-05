@@ -12,6 +12,7 @@ uses
   System.Generics.Collections,
   System.Generics.Defaults,
   Dext.Collections,
+  Dext.Specifications.Base, // Added for TSpecification cast
   Dext.Specifications.Interfaces;
 
 type
@@ -73,11 +74,14 @@ type
   TFluentQuery<T> = record
   private
     FIteratorFactory: TFunc<TQueryIterator<T>>;
+    FSpecification: ISpecification<T>; // Optional reference to the underlying spec
+    procedure AssignSpecTracking(const AEnable: Boolean);
   public
     /// <summary>
     ///   Creates a new fluent query.
     /// </summary>
-    constructor Create(const AIteratorFactory: TFunc<TQueryIterator<T>>);
+    constructor Create(const AIteratorFactory: TFunc<TQueryIterator<T>>); overload;
+    constructor Create(const AIteratorFactory: TFunc<TQueryIterator<T>>; const ASpec: ISpecification<T>); overload;
     
     function GetEnumerator: TEnumerator<T>;
     
@@ -113,6 +117,12 @@ type
     ///   Returns distinct elements from a sequence.
     /// </summary>
     function Distinct: TFluentQuery<T>;
+
+    /// <summary>
+    ///   Configures the query to not track entities in the IdentityMap.
+    ///   Useful for read-only scenarios to improve performance and avoid memory overhead.
+    /// </summary>
+    function AsNoTracking: TFluentQuery<T>;
 
     // Join
     function Join<TInner, TKey, TResult>(
@@ -152,7 +162,7 @@ type
   /// <summary>
   ///   Iterator that executes a specification-based query.
   /// </summary>
-  TSpecificationQueryIterator<T: class> = class(TQueryIterator<T>)
+  TSpecificationQueryIterator<T> = class(TQueryIterator<T>)
   private
     FGetList: TFunc<IList<T>>;
     FList: IList<T>;
@@ -164,6 +174,9 @@ type
     constructor Create(const AGetList: TFunc<IList<T>>);
     destructor Destroy; override;
     function Clone: TQueryIterator<T>;
+    
+    // Allows TFluentQuery to grab the underlying list for optimization
+    function GetList: IList<T>;
   end;
 
   TProjectingIterator<TSource, TResult> = class(TQueryIterator<TResult>)
@@ -335,6 +348,13 @@ end;
 constructor TFluentQuery<T>.Create(const AIteratorFactory: TFunc<TQueryIterator<T>>);
 begin
   FIteratorFactory := AIteratorFactory;
+  FSpecification := nil;
+end;
+
+constructor TFluentQuery<T>.Create(const AIteratorFactory: TFunc<TQueryIterator<T>>; const ASpec: ISpecification<T>);
+begin
+  FIteratorFactory := AIteratorFactory;
+  FSpecification := ASpec;
 end;
 
 function TFluentQuery<T>.GetEnumerator: TEnumerator<T>;
@@ -343,6 +363,27 @@ begin
      Result := FIteratorFactory()
   else
      Result := TEmptyIterator<T>.Create;
+end;
+
+procedure TFluentQuery<T>.AssignSpecTracking(const AEnable: Boolean);
+begin
+  if FSpecification <> nil then
+  begin
+    if AEnable then 
+      FSpecification.EnableTracking(True)
+    else 
+      FSpecification.AsNoTracking;
+  end;
+end;
+
+function TFluentQuery<T>.AsNoTracking: TFluentQuery<T>;
+begin
+  // Set the flag on the specification if available
+  AssignSpecTracking(False);
+  
+  // Return self (record copy) with the modified state
+  // Since Specification is a reference type (interface/object), the change persists
+  Result := Self;
 end;
 
 function TFluentQuery<T>.Select<TResult>(const ASelector: TFunc<T, TResult>): TFluentQuery<TResult>;
@@ -485,21 +526,43 @@ end;
 function TFluentQuery<T>.ToList: IList<T>;
 var
   Enumerator: TEnumerator<T>;
+  OwnsObjects: Boolean;
 begin
-  // Create Smart List
-  // Objects are owned by IdentityMap, not by this list
-  Result := TCollections.CreateList<T>(False);
-    
+  // DEFAULT BEHAVIOR:
+  // Usually, objects are owned by IdentityMap (Tracking=True), so List should NOT own them (OwnsObjects=False).
+  // IF AsNoTracking is enabled, entities are NOT in IdentityMap.
+  // Therefore, the List MUST own them to avoid memory leaks.
+  
+  // Checking implicit ownership requirement
+  OwnsObjects := False;
+  if (FSpecification <> nil) and (not FSpecification.IsTrackingEnabled) then
+    OwnsObjects := True;
+
+  // Optimization: If the iterator is a TSpecificationQueryIterator, 
+  // we can just steal the list it produced (which already has correct ownership settings).
+  // This avoids a copy AND solves the double-free issue where iterator frees the list which frees objects.
+  Enumerator := GetEnumerator;
   try
-    Enumerator := GetEnumerator;
+    if Enumerator is TSpecificationQueryIterator<T> then
+    begin
+      Result := TSpecificationQueryIterator<T>(Enumerator).GetList;
+      Exit;
+    end;
+    
+    // Fallback for filtered/projected queries
+    Result := TCollections.CreateList<T>(OwnsObjects);
     try
       while Enumerator.MoveNext do
         Result.Add(Enumerator.Current);
-    finally
-      Enumerator.Free;
+    except
+      // If exception happens, result list is freed. 
+      // If OwnsObjects=True, it frees *its copy* of references. 
+      // The Enumerator also holds references. Lifecycle is complex here but standard exception handling applies.
+      Result := nil;
+      raise;
     end;
-  except
-    raise;
+  finally
+    Enumerator.Free;
   end;
 end;
 
@@ -955,13 +1018,23 @@ begin
   Result := TSpecificationQueryIterator<T>.Create(FGetList);
 end;
 
-function TSpecificationQueryIterator<T>.MoveNextCore: Boolean;
+function TSpecificationQueryIterator<T>.GetList: IList<T>;
 begin
   if not FExecuted then
   begin
     FList := FGetList();
     FExecuted := True;
     FIndex := -1;
+  end;
+  Result := FList;
+end;
+
+function TSpecificationQueryIterator<T>.MoveNextCore: Boolean;
+begin
+  if not FExecuted then
+  begin
+    // Trigger execution
+    GetList;
   end;
   
   Inc(FIndex);

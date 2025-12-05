@@ -129,7 +129,8 @@ end;
 
 class function Specification.All<T>: TSpecificationBuilder<T>;
 begin
-  // Returns empty builder (all records)
+  // Initialize FSpec explicitly to avoid lazy init in Implicit operator (const record)
+  Result.FSpec := TSpecification<T>.Create;
 end;
 
 end.

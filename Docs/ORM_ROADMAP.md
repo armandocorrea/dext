@@ -209,13 +209,14 @@ Resolução definitiva para memory leaks e gerenciamento de ciclo de vida.
   - Gerenciamento automático de memória (ref-counted ou scope-based).
   - Substituição de `TObjectList<T>` crua nas APIs públicas (`Entities`, `Query.List`).
 - [x] **Expression Support**: Suporte a expressions diretamente nas listas (`List.Where(x => x.Age > 18)`).
-- [ ] **No Tracking Queries** 🔥 **PRIORITÁRIO**: Queries sem tracking para APIs read-only.
+- [x] **No Tracking Queries** 🔥 **PRIORITÁRIO**: Queries sem tracking para APIs read-only.
   - **API**: `Context.Entities<TUser>.AsNoTracking.List` 
   - **Ownership**: Listas com `OwnsObjects=True` (objetos não vão para IdentityMap)
   - **Performance**: Sem overhead de ChangeTracker e IdentityMap
   - **Use Cases**: APIs REST, relatórios, bulk reads
   - **Memory**: Objetos liberados quando lista sai de escopo
   - **Detach Alternative**: Substituir uso de `Detach()` por queries no-tracking
+  - *Status*: ✅ **Implementado e Validado**
 
 #### 3. Framework Garbage Collector
 Sistema de limpeza de objetos em background para alta performance em servidores HTTP.

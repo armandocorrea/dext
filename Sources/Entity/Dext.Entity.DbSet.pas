@@ -96,6 +96,12 @@ type
     function Query(const ASpec: ISpecification<T>): TFluentQuery<T>; overload;
     function Query(const AExpression: IExpression): TFluentQuery<T>; overload;
     function QueryAll: TFluentQuery<T>;
+    
+    /// <summary>
+    ///   Returns a query configured to not track entities (read-only).
+    ///   Shortcut for QueryAll.AsNoTracking.
+    /// </summary>
+    function AsNoTracking: TFluentQuery<T>;
   end;
 
 implementation
@@ -744,7 +750,17 @@ var
   Tracking: Boolean;
 begin
   IsProjection := (ASpec <> nil) and (Length(ASpec.GetSelectedColumns) > 0);
-  Tracking := not IsProjection;
+  
+  // Tracking defaults to True
+  // If Spec is provided, respect its setting
+  if ASpec <> nil then
+    Tracking := ASpec.IsTrackingEnabled
+  else
+    Tracking := True;
+
+  // Projections FORCE tracking off regardless of Spec setting
+  if IsProjection then
+    Tracking := False;
 
   if PTypeInfo(TypeInfo(T)).Kind = tkClass then
     Result := TCollections.CreateObjectList<T>(not Tracking)
@@ -983,7 +999,8 @@ begin
         begin
           Result := LSelf.List(LSpec);
         end);
-    end);
+    end,
+    LSpec); // Pass the spec reference to allow mutation via Fluent API
 end;
 
 function TDbSet<T>.Query(const AExpression: IExpression): TFluentQuery<T>;
@@ -995,8 +1012,17 @@ begin
 end;
 
 function TDbSet<T>.QueryAll: TFluentQuery<T>;
+var
+  Spec: ISpecification<T>;
 begin
-  Result := Query(ISpecification<T>(nil));
+  // Create spec explicitly and assign to interface variable to ensure correct ref counting
+  Spec := TSpecification<T>.Create;
+  Result := Query(Spec);
+end;
+
+function TDbSet<T>.AsNoTracking: TFluentQuery<T>;
+begin
+  Result := QueryAll.AsNoTracking;
 end;
 
 function TDbSet<T>.FirstOrDefault(const AExpression: IExpression): T;

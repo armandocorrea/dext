@@ -106,6 +106,11 @@ type
     function Query(const ASpec: ISpecification<T>): TFluentQuery<T>; overload;
     function Query(const AExpression: IExpression): TFluentQuery<T>; overload;
     function QueryAll: TFluentQuery<T>;
+    
+    /// <summary>
+    ///   Returns a query configured to not track entities (read-only).
+    /// </summary>
+    function AsNoTracking: TFluentQuery<T>;
   end;
 
   ICollectionEntry = interface

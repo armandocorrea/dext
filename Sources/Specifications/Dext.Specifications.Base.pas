@@ -20,6 +20,7 @@ type
     FSkip: Integer;
     FTake: Integer;
     FIsPagingEnabled: Boolean;
+    FIsTracking: Boolean;
     
     FSelectedColumns: TList<string>;
     
@@ -30,6 +31,7 @@ type
     function GetSkip: Integer;
     function GetTake: Integer;
     function IsPagingEnabled: Boolean;
+    function IsTrackingEnabled: Boolean;
     function GetSelectedColumns: TArray<string>;
   public
     constructor Create; overload; virtual;
@@ -47,6 +49,9 @@ type
     // Fluent Helpers
     procedure Take(const ACount: Integer);
     procedure Skip(const ACount: Integer);
+    
+    procedure EnableTracking(const AValue: Boolean);
+    procedure AsNoTracking;
   end;
 
 implementation
@@ -60,6 +65,7 @@ begin
   FSelectedColumns := TList<string>.Create;
   FOrderBy := TList<IOrderBy>.Create;
   FExpression := nil; // Empty expression matches all
+  FIsTracking := True; // Tracking enabled by default
 end;
 
 constructor TSpecification<T>.Create(const AExpression: IExpression);
@@ -157,6 +163,21 @@ procedure TSpecification<T>.Skip(const ACount: Integer);
 begin
   FSkip := ACount;
   FIsPagingEnabled := True;
+end;
+
+function TSpecification<T>.IsTrackingEnabled: Boolean;
+begin
+  Result := FIsTracking;
+end;
+
+procedure TSpecification<T>.EnableTracking(const AValue: Boolean);
+begin
+  FIsTracking := AValue;
+end;
+
+procedure TSpecification<T>.AsNoTracking;
+begin
+  FIsTracking := False;
 end;
 
 end.

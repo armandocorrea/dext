@@ -4,7 +4,7 @@ program EntityDemo;
 {$APPTYPE CONSOLE}
 
 uses
-  // FastMM5,
+  FastMM5,
   System.SysUtils,
   FireDAC.Comp.Client,
   EntityDemo.DbConfig in 'EntityDemo.DbConfig.pas',
@@ -23,7 +23,8 @@ uses
   EntityDemo.Tests.FluentMappingSyntax in 'EntityDemo.Tests.FluentMappingSyntax.pas',
   EntityDemo.Entities in 'EntityDemo.Entities.pas',
   EntityDemo.Tests.Migrations in 'EntityDemo.Tests.Migrations.pas',
-  EntityDemo.Tests.Collections in 'EntityDemo.Tests.Collections.pas';
+  EntityDemo.Tests.Collections in 'EntityDemo.Tests.Collections.pas',
+  EntityDemo.Tests.NoTracking in 'EntityDemo.Tests.NoTracking.pas';
 
 procedure ConfigureDatabase(Provider: TDatabaseProvider);
 begin
@@ -102,6 +103,8 @@ begin
   RunTest(TMigrationsTest);
   // 13. Collections Tests
   RunTest(TCollectionsTest);
+  // 14. No Tracking Tests
+  RunTest(TNoTrackingTest);
 
   WriteLn('');
   WriteLn('✨ All tests completed.');
