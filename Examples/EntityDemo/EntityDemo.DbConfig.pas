@@ -19,10 +19,12 @@ type
   ///   Database provider enumeration
   /// </summary>
   TDatabaseProvider = (
+    dpSQLiteMemory,
     dpSQLite,
     dpPostgreSQL,
     dpFirebird,
     dpMySQL,
+    dpSQLServerWindowsAuthetication,
     dpSQLServer,
     dpOracle
   );

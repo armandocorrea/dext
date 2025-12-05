@@ -13,3 +13,4 @@ __recovery
 /Examples/EntityDemo/test.db
 FastMM_FullDebugMode.dll
 *.map
+*.drc

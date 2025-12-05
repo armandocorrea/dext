@@ -159,6 +159,7 @@ Sistema completo de evolução de esquema Code-First.
 - [x] **Migration Generator**: Gerar classes Pascal com os passos `Up`/`Down`.
 - [x] **Migration Runner**: Aplicar migrações pendentes no banco e gerenciar tabela de histórico.
 - [ ] **CLI Integration**: Comandos para criar e rodar migrações.
+  - Implementar `Dext.Hosting.CLI` para processar comandos (`migrate add`, `migrate up`) no próprio executável.
 
 ### 🚀 Fase 5: Performance & Observability (Novo)
 Foco em otimização extrema, gerenciamento de memória e observabilidade.

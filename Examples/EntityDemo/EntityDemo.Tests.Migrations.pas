@@ -15,6 +15,7 @@ uses
   Dext.Entity.Migrations.Generator,
   Dext.Entity.Migrations,
   Dext.Entity.Migrations.Runner,
+  Dext.Hosting.CLI,
   System.Math,
   Dext.Entity.Dialects,
   Dext.Entity.Core,
@@ -360,6 +361,39 @@ begin
     RunnerContext.Free;
     RunnerDialect := nil;
     RunnerConn.Free;
+  end;
+
+  // --- CLI Test ---
+  Log('💻 Running CLI Tests...');
+  
+  // Create a factory for the context
+  var ContextFactory: TFunc<IDbContext> := function: IDbContext
+  begin
+    var C := TFDConnection.Create(nil);
+    C.DriverName := 'SQLite';
+    C.Params.Values['Database'] := 'runner_test.db';
+    Result := TDbContext.Create(TFireDACConnection.Create(C, True), TSQLiteDialect.Create);
+  end;
+  
+  var CLI := TDextCLI.Create(ContextFactory);
+  try
+    // Mock command line args? 
+    // TDextCLI reads ParamStr. We can't easily mock ParamStr in a running app.
+    // However, we can test the Command classes directly or overload Run to accept args.
+    // For now, let's just instantiate the commands manually to verify they compile and run logic.
+    
+    Log('   Testing migrate:list command logic...');
+    var ListCmd := TMigrateListCommand.Create(ContextFactory);
+    ListCmd.Execute([]);
+    Log('   ✅ migrate:list executed.');
+    
+    Log('   Testing migrate:up command logic...');
+    var UpCmd := TMigrateUpCommand.Create(ContextFactory);
+    UpCmd.Execute([]);
+    Log('   ✅ migrate:up executed.');
+    
+  finally
+    CLI.Free;
   end;
 
   Log('');

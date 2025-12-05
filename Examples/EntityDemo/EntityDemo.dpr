@@ -23,6 +23,37 @@ uses
   EntityDemo.Entities in 'EntityDemo.Entities.pas',
   EntityDemo.Tests.Migrations in 'EntityDemo.Tests.Migrations.pas';
 
+procedure ConfigureDatabase(Provider: TDatabaseProvider);
+begin
+  // ========================================
+  // Database Configuration
+  // ========================================
+  // Uncomment the provider you want to test:
+
+  case Provider of
+    // Option 1: SQLite (Default - Memory, good for development)
+    dpSQLiteMemory: TDbConfig.ConfigureSQLiteMemory;
+    // Option 2: SQLite (File-based, good for development)
+    dpSQLite: TDbConfig.ConfigureSQLite('test.db');
+    // Option 2: PostgreSQL (Server-based, production-ready)
+    dpPostgreSQL: TDbConfig.ConfigurePostgreSQL('localhost', 5432, 'postgres', 'postgres', 'root');
+    // Option 3: Firebird
+    dpFirebird: TDbConfig.ConfigureFirebird('C:\temp\dext_test.fdb', 'SYSDBA', 'masterkey');
+    // Option 4: SQL Server with Windows Authentication (Recommended)
+    dpSQLServerWindowsAuthetication: TDbConfig.ConfigureSQLServerWindowsAuth('localhost', 'dext_test');
+    // Option 5: SQL Server with SQL Authentication
+    dpSQLServer: TDbConfig.ConfigureSQLServer('localhost', 'dext_test', 'sa', 'SQL@d3veloper');
+  else
+    raise Exception.Create('Database not supported');
+// TODO:
+//    dpMySQL:
+//    dpOracle:
+  end;
+
+  WriteLn('📊 Database Provider: ' + TDbConfig.GetProviderName);
+  WriteLn('');
+end;
+
 procedure RunTest(const TestClass: TBaseTestClass);
 var
   Test: TBaseTest;
@@ -73,32 +104,7 @@ begin
     WriteLn('🚀 Dext Entity ORM Demo Suite');
     WriteLn('=============================');
     WriteLn('');
-    
-    // ========================================
-    // Database Configuration
-    // ========================================
-    // Uncomment the provider you want to test:
-    
-    // Option 1: SQLite (Default - File-based, good for development)
-    // TDbConfig.ConfigureSQLiteMemory;
-    TDbConfig.ConfigureSQLite('test.db');
-
-    // Option 2: PostgreSQL (Server-based, production-ready)
-    // TDbConfig.ConfigurePostgreSQL('localhost', 5432, 'postgres', 'postgres', 'root');
-
-    // Option 3: Firebird (Brazilian market favorite)
-    // TDbConfig.ConfigureFirebird('C:\temp\dext_test.fdb', 'SYSDBA', 'masterkey');
-
-    // Option 4: SQL Server with Windows Authentication (Recommended)
-    // TDbConfig.ConfigureSQLServerWindowsAuth('localhost', 'dext_test');
-
-    // Option 5: SQL Server with SQL Authentication
-    //TDbConfig.ConfigureSQLServer('localhost', 'dext_test', 'sa', 'SQL@d3veloper');
-    
-    WriteLn('📊 Database Provider: ' + TDbConfig.GetProviderName);
-    WriteLn('');
-    
-    // Run all tests
+    ConfigureDatabase(dpSQLiteMemory);
     RunAllTests;
   except
     on E: Exception do

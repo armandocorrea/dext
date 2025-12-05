@@ -27,7 +27,7 @@ var
   Ops: TObjectList<TMigrationOperation>;
   CurrTable, PrevTable: TSnapshotTable;
   CurrCol, PrevCol: TSnapshotColumn;
-  CurrFK, PrevFK: TSnapshotForeignKey;
+  CurrFK: TSnapshotForeignKey;
   
   // Helper to convert Snapshot Column to Operation Column Definition
   function ToDef(C: TSnapshotColumn): TColumnDefinition;
