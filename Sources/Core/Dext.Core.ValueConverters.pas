@@ -87,6 +87,16 @@ type
     function Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue; override;
   end;
 
+  // Variant -> TBytes (BLOB support)
+  TVariantToBytesConverter = class(TBaseConverter)
+    function Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue; override;
+  end;
+
+  // String -> TBytes (for text-based BLOB storage)
+  TStringToBytesConverter = class(TBaseConverter)
+    function Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue; override;
+  end;
+
   // Class -> Class (handles object pointers and inheritance)
   TClassToClassConverter = class(TBaseConverter)
     function Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue; override;
@@ -125,6 +135,10 @@ begin
   
   // String -> GUID
   RegisterConverter(TypeInfo(string), TypeInfo(TGUID), TStringToGuidConverter.Create);
+  
+  // TBytes (BLOB) support
+  RegisterConverter(TypeInfo(Variant), TypeInfo(TBytes), TVariantToBytesConverter.Create);
+  RegisterConverter(TypeInfo(string), TypeInfo(TBytes), TStringToBytesConverter.Create);
   
   // Class -> Class (for object references and inheritance)
   RegisterConverter(tkClass, tkClass, TClassToClassConverter.Create);
@@ -472,6 +486,72 @@ begin
     raise EConvertError.CreateFmt('Cannot convert %s to %s (incompatible types)', 
       [SourceObj.ClassName, TargetClass.ClassName]);
   end;
+end;
+
+{ TVariantToBytesConverter }
+
+function TVariantToBytesConverter.Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue;
+var
+  V: Variant;
+  Bytes: TBytes;
+  Str: string;
+  i: Integer;
+begin
+  // Convert Variant to TBytes
+  // This handles BLOB fields from database (usually come as Variant)
+  
+  V := AValue.AsVariant;
+  
+  // Check if null/empty
+  if VarIsNull(V) or VarIsEmpty(V) then
+  begin
+    SetLength(Bytes, 0);
+    Exit(TValue.From<TBytes>(Bytes));
+  end;
+  
+  // Check if it's already a byte array
+  if VarIsArray(V) then
+  begin
+    // Variant array of bytes
+    SetLength(Bytes, VarArrayHighBound(V, 1) - VarArrayLowBound(V, 1) + 1);
+    for i := VarArrayLowBound(V, 1) to VarArrayHighBound(V, 1) do
+      Bytes[i - VarArrayLowBound(V, 1)] := Byte(V[i]);
+    Result := TValue.From<TBytes>(Bytes);
+  end
+  else if VarIsStr(V) then
+  begin
+    // String -> TBytes (UTF-8 encoding)
+    Str := VarToStr(V);
+    Bytes := TEncoding.UTF8.GetBytes(Str);
+    Result := TValue.From<TBytes>(Bytes);
+  end
+  else
+  begin
+    // Try to convert to string first, then to bytes
+    Str := VarToStr(V);
+    Bytes := TEncoding.UTF8.GetBytes(Str);
+    Result := TValue.From<TBytes>(Bytes);
+  end;
+end;
+
+{ TStringToBytesConverter }
+
+function TStringToBytesConverter.Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue;
+var
+  Str: string;
+  Bytes: TBytes;
+begin
+  // Convert String to TBytes using UTF-8 encoding
+  Str := AValue.AsString;
+  
+  if Str = '' then
+  begin
+    SetLength(Bytes, 0);
+    Exit(TValue.From<TBytes>(Bytes));
+  end;
+  
+  Bytes := TEncoding.UTF8.GetBytes(Str);
+  Result := TValue.From<TBytes>(Bytes);
 end;
 
 end.

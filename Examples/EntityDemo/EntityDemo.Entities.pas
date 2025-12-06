@@ -118,6 +118,136 @@ type
     property Value: string read FValue write FValue;
   end;
 
+  // 🔬 Lazy Loading Test Entities
+
+  /// <summary>
+  ///   Entity for testing lazy loading of BLOB data (TBytes)
+  ///   Use case: PDFs, images, binary files
+  /// </summary>
+  [Table('documents')]
+  TDocument = class
+  private
+    FId: Integer;
+    FTitle: string;
+    FContentType: string;
+    FContent: TBytes;
+    FFileSize: Integer;
+  public
+    [PK, AutoInc]
+    property Id: Integer read FId write FId;
+    
+    property Title: string read FTitle write FTitle;
+    
+    [Column('content_type')]
+    property ContentType: string read FContentType write FContentType;
+    
+    /// <summary>
+    ///   BLOB field - lazy loaded to avoid loading large data unnecessarily
+    /// </summary>
+    property Content: TBytes read FContent write FContent;
+    
+    [Column('file_size')]
+    property FileSize: Integer read FFileSize write FFileSize;
+  end;
+
+  /// <summary>
+  ///   Entity for testing lazy loading of large text (TEXT/CLOB)
+  ///   Use case: Articles, descriptions, HTML content
+  /// </summary>
+  [Table('articles')]
+  TArticle = class
+  private
+    FId: Integer;
+    FTitle: string;
+    FSummary: string;
+    FBody: string;
+    FWordCount: Integer;
+  public
+    [PK, AutoInc]
+    property Id: Integer read FId write FId;
+    
+    property Title: string read FTitle write FTitle;
+    
+    /// <summary>
+    ///   Short summary - always loaded
+    /// </summary>
+    property Summary: string read FSummary write FSummary;
+    
+    /// <summary>
+    ///   Large text field - should be lazy loaded
+    /// </summary>
+    property Body: string read FBody write FBody;
+    
+    [Column('word_count')]
+    property WordCount: Integer read FWordCount write FWordCount;
+  end;
+
+  /// <summary>
+  ///   Entity with lazy-loaded reference (1:1)
+  ///   Use case: User profile with optional detailed info
+  /// </summary>
+  [Table('user_profiles')]
+  TUserProfile = class
+  private
+    FId: Integer;
+    FUserId: Integer;
+    FBio: string;
+    FAvatar: TBytes;
+    FPreferences: string; // JSON
+  public
+    [PK, AutoInc]
+    property Id: Integer read FId write FId;
+    
+    [Column('user_id')]
+    property UserId: Integer read FUserId write FUserId;
+    
+    /// <summary>
+    ///   Short bio text
+    /// </summary>
+    property Bio: string read FBio write FBio;
+    
+    /// <summary>
+    ///   Avatar image - BLOB, lazy loaded
+    /// </summary>
+    property Avatar: TBytes read FAvatar write FAvatar;
+    
+    /// <summary>
+    ///   User preferences as JSON string
+    /// </summary>
+    property Preferences: string read FPreferences write FPreferences;
+  end;
+
+  /// <summary>
+  ///   Extended User entity with lazy-loaded profile
+  /// </summary>
+  [Table('users_with_profile')]
+  TUserWithProfile = class
+  private
+    FId: Integer;
+    FName: string;
+    FEmail: string;
+    FProfileId: Nullable<Integer>;
+    FProfile: Lazy<TUserProfile>;
+    function GetProfile: TUserProfile;
+    procedure SetProfile(const Value: TUserProfile);
+  public
+    [PK, AutoInc]
+    property Id: Integer read FId write FId;
+    
+    property Name: string read FName write FName;
+    property Email: string read FEmail write FEmail;
+    
+    [Column('profile_id')]
+    property ProfileId: Nullable<Integer> read FProfileId write FProfileId;
+    
+    /// <summary>
+    ///   Lazy-loaded profile reference (1:1)
+    /// </summary>
+    [ForeignKey('ProfileId'), NotMapped]
+    property Profile: TUserProfile read GetProfile write SetProfile;
+  end;
+
+
   // 🧬 Metadata Implementation (TypeOf)
   UserEntity = class
   public
@@ -208,6 +338,18 @@ constructor TAdultUsersSpec.Create;
 begin
   inherited Create;
   Where(UserEntity.Age >= 18);
+end;
+
+{ TUserWithProfile }
+
+function TUserWithProfile.GetProfile: TUserProfile;
+begin
+  Result := FProfile.Value;
+end;
+
+procedure TUserWithProfile.SetProfile(const Value: TUserProfile);
+begin
+  FProfile := Lazy<TUserProfile>.CreateFrom(Value);
 end;
 
 end.

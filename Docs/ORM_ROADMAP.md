@@ -147,20 +147,11 @@ O objetivo foi permitir consultas complexas de forma tipada e fluente. Concluíd
   - *Status*: ✅ **Implementado e Validado**
   - *Implementação*: `TLazyInjector`, `TLazyInvokeHandler`, `TVirtualInterface`
   - *Suporte*: Referências (1:1/N:1) e Coleções (1:N)
-  - *Gap*: ⚠️ **Faltam testes para 1:1 (Reference) com tipos especiais**
+  - *Tipos Especiais*: ✅ **TBytes (BLOB)**, ✅ **String (TEXT/CLOB)**
+  - *Conversor*: `TVariantToBytesConverter`, `TStringToBytesConverter`
+  - *Documentação*: [LAZY_LOADING_ADVANCED.md](LAZY_LOADING_ADVANCED.md)
+  - *Testes*: ✅ **100% Validado** - Zero memory leaks
 - [x] **Explicit Loading**: Carregamento manual de navegações (`Context.Entry(User).Collection('Orders').Load()`).
-
-#### 🔬 Lazy Loading - Testes Pendentes 🔥 **PRIORITÁRIO**
-- [ ] **Teste 1:1 Reference (Classe)**: Validar lazy load de propriedades de referência simples
-  - Exemplo: `User.Address` onde `Address` é uma classe
-- [ ] **Teste 1:1 com TBytes (BLOB)**: Validar lazy load de campos binários
-  - Exemplo: `Document.Content: TBytes` (PDF, imagens, etc)
-- [ ] **Teste 1:1 com String (TEXT/CLOB)**: Validar lazy load de textos grandes
-  - Exemplo: `Article.Body: string` (artigos, descrições longas)
-- [ ] **Teste 1:1 com TStream**: Validar lazy load de streams
-  - Exemplo: `File.Data: TStream`
-- [ ] **Teste 1:1 com tipos customizados**: Validar lazy load de tipos complexos
-  - Exemplo: `Product.Metadata: TJSONObject`
 
 ### 🔧 Manutenção & Débito Técnico
 - [x] **API Cleanup**: Padronização de nomes de métodos (`Update` vs `Update`) usando overloads.

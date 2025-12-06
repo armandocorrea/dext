@@ -159,6 +159,11 @@ begin
   DropTableIfExists('products');
   DropTableIfExists('users');
   DropTableIfExists('addresses');
+  DropTableIfExists('mixed_keys');
+  DropTableIfExists('users_with_profile');
+  DropTableIfExists('user_profiles');
+  DropTableIfExists('documents');
+  DropTableIfExists('articles');
 
   // 2. Initialize Context
   FContext := TDbContext.Create(DbConnection, Dialect);
@@ -170,6 +175,10 @@ begin
   FContext.Entities<TOrderItem>;
   FContext.Entities<TProduct>;
   FContext.Entities<TMixedKeyEntity>;
+  FContext.Entities<TDocument>;
+  FContext.Entities<TArticle>;
+  FContext.Entities<TUserProfile>;
+  FContext.Entities<TUserWithProfile>;
   
   WriteLn('🏗️  Creating schema...');
   FContext.EnsureCreated;

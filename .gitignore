@@ -16,3 +16,5 @@ FastMM_FullDebugMode.dll
 *.drc
 *.bat
 *.db
+GeneratedEntitiesFluentMapping.pas
+GeneratedEntitiesMappingWithAttributes.pas

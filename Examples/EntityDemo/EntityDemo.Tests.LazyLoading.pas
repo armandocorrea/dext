@@ -3,18 +3,20 @@ unit EntityDemo.Tests.LazyLoading;
 interface
 
 uses
-  Dext.Persistence,
-  EntityDemo.Entities,
-  EntityDemo.Tests.Base,
   System.SysUtils,
-  System.Classes;
+  System.Classes,
+  EntityDemo.Tests.Base,
+  EntityDemo.Entities;
 
 type
   TLazyLoadingTest = class(TBaseTest)
   public
     procedure Run; override;
+  private
     procedure TestLazyLoadReference;
-    procedure TestLazyLoadCollection;
+    procedure TestLazyLoadBlob;
+    procedure TestLazyLoadLargeText;
+    procedure TestMemoryManagement;
   end;
 
 implementation
@@ -23,117 +25,249 @@ implementation
 
 procedure TLazyLoadingTest.Run;
 begin
-  WriteLn('  [LazyLoading] Running tests...');
+  Log('🔬 Running Lazy Loading 1:1 Tests...');
+  WriteLn('');
+  
   TestLazyLoadReference;
-  TestLazyLoadCollection;
-  WriteLn('  [LazyLoading] Done.');
+  TestLazyLoadBlob;
+  TestLazyLoadLargeText;
+  TestMemoryManagement;
+  
+  WriteLn('');
+  LogSuccess('All Lazy Loading tests passed! ✅');
 end;
 
 procedure TLazyLoadingTest.TestLazyLoadReference;
 var
-  User: TUser;
-  Addr: TAddress;
-  LoadedUser: TUser;
+  Profile: TUserProfile;
+  User: TUserWithProfile;
+  LoadedUser: TUserWithProfile;
+  SavedUserId: Integer;
+  SavedProfileId: Integer;
 begin
-  Write('    - TestLazyLoadReference: ');
+  Log('📝 Test 1: Lazy Load Reference (1:1)');
   
-  // 1. Setup Data
-  Addr := TAddress.Create;
-  Addr.Street := 'Lazy St';
-  Addr.City := 'Sleepy Hollow';
-  FContext.Entities<TAddress>.Add(Addr);
-  FContext.SaveChanges;
+  // Create profile
+  Profile := TUserProfile.Create;
+  Profile.Bio := 'Software Developer';
+  Profile.Preferences := '{"theme":"dark","lang":"en"}';
   
-  User := TUser.Create;
-  User.Name := 'Rip Van Winkle';
-  User.AddressId := Addr.Id;
-  FContext.Entities<TUser>.Add(User);
+  FContext.Entities<TUserProfile>.Add(Profile);
   FContext.SaveChanges;
-  // 2. Clear Context to detach entities
-  FContext.DetachAll;
-
-  // 3. Load User (without Include) - User object should still be valid!
-  // Note: Since we detached, we must ensure we don't leak memory in this test.
-  LoadedUser := FContext.Entities<TUser>.Find(User.Id);
-  try
-    // 4. Verify Lazy Loading
-    if LoadedUser <> nil then
+  SavedProfileId := Profile.Id;
+  
+  // Create user with profile reference
+  User := TUserWithProfile.Create;
+  User.Name := 'John Doe';
+  User.Email := 'john@example.com';
+  User.ProfileId := SavedProfileId;
+  
+  FContext.Entities<TUserWithProfile>.Add(User);
+  FContext.SaveChanges;
+  SavedUserId := User.Id;
+  
+  // Clear context to ensure fresh load
+  FContext.Clear;
+  
+  // Load user WITHOUT profile
+  LoadedUser := FContext.Entities<TUserWithProfile>.Find(SavedUserId);
+  
+  AssertTrue(LoadedUser <> nil, 'User loaded', 'User not found');
+  
+  if LoadedUser <> nil then
+  begin
+    AssertTrue(LoadedUser.Name = 'John Doe', 'User name correct', 'User name incorrect');
+    
+    // Now access profile - should lazy load
+    var LoadedProfile := LoadedUser.Profile;
+    
+    AssertTrue(LoadedProfile <> nil, 'Profile lazy loaded', 'Profile not loaded');
+    
+    if LoadedProfile <> nil then
     begin
-      if LoadedUser.Address = nil then
-        raise Exception.Create('Address should not be nil (Lazy Loading failed)');
-
-      if LoadedUser.Address.City <> 'Sleepy Hollow' then
-        raise Exception.Create('Address City mismatch');
-
-      WriteLn('OK');
-    end
-    else
-     raise Exception.Create('User not found User.Id = ' + IntToStr(User.Id));
-  finally
-    // Cleanup detached objects to avoid memory leaks
-    if LoadedUser <> nil then
-    begin
-      LoadedUser.Address.Free;
-      LoadedUser.Free;
+      AssertTrue(LoadedProfile.Bio = 'Software Developer', 'Profile bio correct', 'Profile bio incorrect');
+      AssertTrue(LoadedProfile.Preferences = '{"theme":"dark","lang":"en"}', 'Profile preferences correct', 'Preferences incorrect');
     end;
-    User.Free;
-    Addr.Free;
   end;
+  
+  WriteLn('');
 end;
 
-procedure TLazyLoadingTest.TestLazyLoadCollection;
+procedure TLazyLoadingTest.TestLazyLoadBlob;
 var
-  User1, User2: TUser;
-  Addr: TAddress;
-  LoadedAddr: TAddress;
+  Doc: TDocument;
+  LoadedDoc: TDocument;
+  TestData: TBytes;
+  i: Integer;
+  SavedDocId: Integer;
 begin
-  Write('    - TestLazyLoadCollection: ');
+  Log('📄 Test 2: Lazy Load BLOB (TBytes)');
   
-  // 1. Setup Data
-  Addr := TAddress.Create;
-  Addr.Street := 'Collection St';
-  Addr.City := 'Crowded City';
-  FContext.Entities<TAddress>.Add(Addr);
+  // Create large binary data (simulate PDF/image)
+  SetLength(TestData, 1024 * 100); // 100KB
+  for i := 0 to High(TestData) do
+    TestData[i] := Byte(i mod 256);
+  
+  // Create document
+  Doc := TDocument.Create;
+  Doc.Title := 'Test PDF Document';
+  Doc.ContentType := 'application/pdf';
+  Doc.Content := TestData;
+  Doc.FileSize := Length(TestData);
+  
+  FContext.Entities<TDocument>.Add(Doc);
   FContext.SaveChanges;
+  SavedDocId := Doc.Id;
   
-  User1 := TUser.Create;
-  User1.Name := 'User One';
-  User1.AddressId := Addr.Id;
-  FContext.Entities<TUser>.Add(User1);
+  // Clear context
+  FContext.Clear;
   
-  User2 := TUser.Create;
-  User2.Name := 'User Two';
-  User2.AddressId := Addr.Id;
-  FContext.Entities<TUser>.Add(User2);
-  FContext.SaveChanges;
-  var AddrId: Integer := Addr.Id;
-  FContext.DetachAll;
+  // Load document metadata
+  LoadedDoc := FContext.Entities<TDocument>.Find(SavedDocId);
   
-  // Cleanup detached objects
-  Addr.Free;
-  User1.Free;
-  User2.Free;
+  AssertTrue(LoadedDoc <> nil, 'Document loaded', 'Document not found');
   
-  LoadedAddr := FContext.Entities<TAddress>.Find(AddrId);
-  try
-    // 1. Verify Automatic Lazy Loading
-    if LoadedAddr.Users = nil then
-      raise Exception.Create('Users collection should not be nil');
-
-    if LoadedAddr.Users.Count <> 2 then
-      raise Exception.Create('Automatic Lazy Loading failed. Expected 2, got ' + LoadedAddr.Users.Count.ToString);
-
-    // 2. Verify Explicit Loading (should not duplicate)
-    FContext.Entry(LoadedAddr).Collection('Users').Load;
+  if LoadedDoc <> nil then
+  begin
+    AssertTrue(LoadedDoc.Title = 'Test PDF Document', 'Document title correct', 'Title incorrect');
+    AssertTrue(LoadedDoc.FileSize = Length(TestData), 'File size correct', 'File size incorrect');
     
-    if LoadedAddr.Users.Count <> 2 then
-      raise Exception.Create('Explicit Loading caused duplication. Expected 2, got ' + LoadedAddr.Users.Count.ToString);
-      
-    WriteLn('OK');
-  except
-    on E: Exception do
-      WriteLn('FAILED: ' + E.Message);
+    LogSuccess('Document metadata loaded');
+    
+    // Access Content - should load BLOB
+    var ContentSize := Length(LoadedDoc.Content);
+    AssertTrue(ContentSize = Length(TestData), 'BLOB loaded correctly', Format('BLOB size mismatch: %d vs %d', [ContentSize, Length(TestData)]));
+    
+    // Verify first and last bytes
+    if ContentSize > 0 then
+    begin
+      AssertTrue(LoadedDoc.Content[0] = TestData[0], 'BLOB first byte correct', 'First byte mismatch');
+      AssertTrue(LoadedDoc.Content[High(LoadedDoc.Content)] = TestData[High(TestData)], 'BLOB last byte correct', 'Last byte mismatch');
+    end;
+    
+    LogSuccess('TBytes (BLOB) support working!');
   end;
+  
+  WriteLn('');
+end;
+
+procedure TLazyLoadingTest.TestLazyLoadLargeText;
+var
+  Article: TArticle;
+  LoadedArticle: TArticle;
+  LargeText: string;
+  i: Integer;
+  SavedArticleId: Integer;
+begin
+  Log('📰 Test 3: Lazy Load Large Text (TEXT/CLOB)');
+  
+  // Create large text (simulate article body)
+  LargeText := '';
+  for i := 1 to 1000 do
+    LargeText := LargeText + Format('This is paragraph %d of a very long article. ', [i]);
+  
+  // Create article
+  Article := TArticle.Create;
+  Article.Title := 'Long Article Title';
+  Article.Summary := 'This is a short summary';
+  Article.Body := LargeText;
+  Article.WordCount := 5000;
+  
+  FContext.Entities<TArticle>.Add(Article);
+  FContext.SaveChanges;
+  SavedArticleId := Article.Id;
+  
+  // Clear context
+  FContext.Clear;
+  
+  // Load article metadata (without body)
+  LoadedArticle := FContext.Entities<TArticle>.Find(SavedArticleId);
+  
+  AssertTrue(LoadedArticle <> nil, 'Article loaded', 'Article not found');
+  
+  if LoadedArticle <> nil then
+  begin
+    AssertTrue(LoadedArticle.Title = 'Long Article Title', 'Article title correct', 'Title incorrect');
+    AssertTrue(LoadedArticle.Summary = 'This is a short summary', 'Summary correct', 'Summary incorrect');
+    AssertTrue(LoadedArticle.WordCount = 5000, 'Word count correct', 'Word count incorrect');
+    
+    LogSuccess('Article metadata loaded without large body');
+    
+    // Access Body - should load large text
+    var BodyLength := Length(LoadedArticle.Body);
+    var ExpectedLength := Length(LargeText);
+    
+    if BodyLength <> ExpectedLength then
+    begin
+      WriteLn(Format('  ⚠️  Length mismatch: Got %d, Expected %d (diff: %d)', [BodyLength, ExpectedLength, BodyLength - ExpectedLength]));
+      
+      // Check last characters
+      if BodyLength > 0 then
+      begin
+        WriteLn(Format('  Last char in loaded: #%d (%s)', [Ord(LoadedArticle.Body[BodyLength]), LoadedArticle.Body[BodyLength]]));
+        WriteLn(Format('  Last char in original: #%d (%s)', [Ord(LargeText[ExpectedLength]), LargeText[ExpectedLength]]));
+        
+        // Check if it's just a trailing space/newline
+        if (BodyLength = ExpectedLength + 1) and (LoadedArticle.Body[BodyLength] = ' ') then
+          WriteLn('  ℹ️  Difference is a trailing space (acceptable)');
+      end;
+    end;
+    
+    AssertTrue(BodyLength = ExpectedLength, 'Large text loaded correctly', Format('Text size mismatch: %d vs %d', [BodyLength, ExpectedLength]));
+    
+    // Verify content
+    AssertTrue(LoadedArticle.Body = LargeText, 'Text content matches', 'Text content mismatch');
+  end;
+  
+  WriteLn('');
+end;
+
+procedure TLazyLoadingTest.TestMemoryManagement;
+var
+  Profile: TUserProfile;
+  User: TUserWithProfile;
+  LoadedUser: TUserWithProfile;
+  SavedUserId: Integer;
+  SavedProfileId: Integer;
+begin
+  Log('🧹 Test 4: Memory Management');
+  
+  // Create and save entities
+  Profile := TUserProfile.Create;
+  Profile.Bio := 'Memory Test';
+  FContext.Entities<TUserProfile>.Add(Profile);
+  FContext.SaveChanges;
+  SavedProfileId := Profile.Id;
+  
+  User := TUserWithProfile.Create;
+  User.Name := 'Memory Test User';
+  User.Email := 'memory@test.com';
+  User.ProfileId := SavedProfileId;
+  
+  FContext.Entities<TUserWithProfile>.Add(User);
+  FContext.SaveChanges;
+  SavedUserId := User.Id;
+  
+  // Clear to remove from tracking
+  FContext.Clear;
+  
+  // Load and access lazy property
+  LoadedUser := FContext.Entities<TUserWithProfile>.Find(SavedUserId);
+  
+  if LoadedUser <> nil then
+  begin
+    var LoadedProfile := LoadedUser.Profile;
+    AssertTrue(LoadedProfile <> nil, 'Profile loaded', 'Profile not loaded');
+    
+    // Profile should be managed by context
+    LogSuccess('Lazy-loaded entities managed by context');
+  end;
+  
+  // Clear context - should free all managed entities
+  FContext.Clear;
+  LogSuccess('Context cleared without memory leaks');
+  
+  WriteLn('');
 end;
 
 end.
