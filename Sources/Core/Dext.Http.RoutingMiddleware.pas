@@ -14,6 +14,7 @@ type
     FRouteMatcher: IRouteMatcher;  // ✅ Interface - sem reference circular!
   public
     constructor Create(const ARouteMatcher: IRouteMatcher);
+    destructor Destroy; override;
     procedure Invoke(AContext: IHttpContext; ANext: TRequestDelegate); override;
   end;
 
@@ -29,6 +30,11 @@ constructor TRoutingMiddleware.Create(const ARouteMatcher: IRouteMatcher);
 begin
   inherited Create;
   FRouteMatcher := ARouteMatcher;  // ✅ Interface gerencia ciclo de vida
+end;
+
+destructor TRoutingMiddleware.Destroy;
+begin
+  inherited;
 end;
 
 procedure TRoutingMiddleware.Invoke(AContext: IHttpContext; ANext: TRequestDelegate);

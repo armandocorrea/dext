@@ -1,4 +1,4 @@
-﻿// Dext.Http.Core.pas - Versão Corrigida
+﻿ // Dext.Http.Core.pas - Versão Corrigida
 unit Dext.Http.Core;
 
 interface
@@ -381,9 +381,60 @@ begin
   );
 end;
 
+// ---------------------------------------------------------------------------
+// Helper Class to avoid Anonymous Method ActRec leaks
+type
+  IRoutingHandlerHelper = interface
+    ['{19A95C1C-5C7F-4B8E-9C3E-8F3E5C7F4B8E}']
+    procedure Invoke(Ctx: IHttpContext);
+  end;
+
+  TRoutingHandlerHelper = class(TInterfacedObject, IRoutingHandlerHelper)
+  private
+    FMw: IMiddleware;
+    FNext: TRequestDelegate;
+  public
+    constructor Create(const Mw: IMiddleware; const Next: TRequestDelegate);
+    destructor Destroy; override;
+    procedure Invoke(Ctx: IHttpContext);
+  end;
+
+constructor TRoutingHandlerHelper.Create(const Mw: IMiddleware; const Next: TRequestDelegate);
+begin
+  inherited Create;
+  FMw := Mw;
+  FNext := Next;
+end;
+
+destructor TRoutingHandlerHelper.Destroy;
+begin
+  inherited;
+end;
+
+procedure TRoutingHandlerHelper.Invoke(Ctx: IHttpContext);
+begin
+  FMw.Invoke(Ctx, FNext);
+end;
+
+// Helper function to isolate capture scope and avoid ActRec cycles
+function CreateRoutingDelegate(const Mw: IMiddleware; const Next: TRequestDelegate): TRequestDelegate;
+var
+  Helper: IRoutingHandlerHelper;
+begin
+  Helper := TRoutingHandlerHelper.Create(Mw, Next);
+  Result := 
+    procedure(Ctx: IHttpContext)
+    begin
+      Helper.Invoke(Ctx);
+    end;
+end;
+
 function TApplicationBuilder.Build: TRequestDelegate;
 var
   FinalPipeline: TRequestDelegate;
+  RoutingMiddleware: IMiddleware;
+  RouteMatcher: IRouteMatcher;
+  RoutingHandler: TRequestDelegate;
 begin
   // Pipeline final - retorna 404
   FinalPipeline :=
@@ -394,17 +445,14 @@ begin
     end;
 
   // ✅ CRIAR RouteMatcher (interface - auto-gerenciável)
-  var RouteMatcher: IRouteMatcher :=
-    TRouteMatcher.Create(FRoutes); // Pass list of definitions
+  RouteMatcher := TRouteMatcher.Create(FRoutes);
 
   // ✅ CRIAR RoutingMiddleware com a interface
-  var RoutingMiddleware := TRoutingMiddleware.Create(RouteMatcher);
+  RoutingMiddleware := TRoutingMiddleware.Create(RouteMatcher);
 
-  var RoutingHandler: TRequestDelegate :=
-    procedure(Ctx: IHttpContext)
-    begin
-      RoutingMiddleware.Invoke(Ctx, FinalPipeline);
-    end;
+  // ✅ USAR FUNÇÃO ISOLADA para criar o delegate
+  // Isso impede que o delegate capture variáveis locais deste método Build (como ActRec)
+  RoutingHandler := CreateRoutingDelegate(RoutingMiddleware, FinalPipeline);
 
   // Construir pipeline: outros middlewares → roteamento → 404
   for var I := FMiddlewares.Count - 1 downto 0 do

@@ -3,6 +3,7 @@
 {$APPTYPE CONSOLE}
 
 uses
+  FastMM5,
   System.SysUtils,
   WebFrameworkTests.Tests.Base in 'WebFrameworkTests.Tests.Base.pas',
   WebFrameworkTests.Tests.Routing in 'WebFrameworkTests.Tests.Routing.pas',

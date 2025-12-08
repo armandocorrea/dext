@@ -16,6 +16,7 @@ type
     FPort: Integer;
     FClient: THttpClient;
     FHost: IWebHost;
+    FServerThread: TThread; // Explicit thread management
     
     procedure Log(const Msg: string);
     procedure LogSuccess(const Msg: string);
@@ -60,24 +61,35 @@ begin
 end;
 
 procedure TBaseTest.Setup;
+var
+  Builder: IWebHostBuilder;
+  HostRef: IWebHost; // Explicitly capture FHost for thread safety
 begin
   WriteLn('🔧 Setting up test...');
-  var Builder := TDextWebHost.CreateDefaultBuilder
+  Builder := TDextWebHost.CreateDefaultBuilder
     .UseUrls('http://localhost:' + FPort.ToString);
     
   ConfigureHost(Builder);
   
   FHost := Builder.Build;
   
+  Builder := nil; // Force release
+  
   // Run the server in a background thread because Run() is blocking
-  TThread.CreateAnonymousThread(procedure
+  FServerThread := TThread.CreateAnonymousThread(procedure
     begin
       try
-        FHost.Run;
+        // Keep a reference to prevent premature destruction if FHost is cleared elsewhere
+        HostRef := FHost; 
+        if HostRef <> nil then
+          HostRef.Run;
       except
         // Ignore errors during shutdown or startup in background
       end;
-    end).Start;
+    end);
+    
+  FServerThread.FreeOnTerminate := False; // We will manage lifecycle
+  FServerThread.Start;
   
   // Give it a moment to start
   Sleep(200);
@@ -93,8 +105,15 @@ begin
   if Assigned(FHost) then
   begin
     FHost.Stop;
-    FHost := nil;
   end;
+  
+  if Assigned(FServerThread) then
+  begin
+    FServerThread.WaitFor;
+    FreeAndNil(FServerThread);
+  end;
+  
+  FHost := nil;
 end;
 
 function TBaseTest.GetBaseUrl: string;

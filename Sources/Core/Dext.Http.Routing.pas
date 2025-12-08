@@ -193,6 +193,7 @@ end;
 
 destructor TRouteMatcher.Destroy;
 begin
+  FRoutes.Clear; // Force clear
   FRoutes.Free;
   inherited;
 end;

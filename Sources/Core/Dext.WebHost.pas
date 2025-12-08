@@ -24,6 +24,7 @@ type
     function Configure(AConfigurator: TProc<IApplicationBuilder>): IWebHostBuilder;
     function UseUrls(const AUrls: string): IWebHostBuilder;
     function Build: IWebHost;
+    destructor Destroy; override;
   end;
 
 implementation
@@ -79,6 +80,12 @@ begin
       
     Result := StrToIntDef(PortStr, 8080);
   end;
+end;
+
+destructor TWebHostBuilder.Destroy;
+begin
+  FAppConfig := nil; // Clear reference
+  inherited;
 end;
 
 function TWebHostBuilder.Build: IWebHost;
