@@ -99,6 +99,8 @@ A fundação do framework, utilizável em qualquer tipo de aplicação.
    git clone https://github.com/dext-framework/dext.git
    ```
 
+   > 📦 **Nota sobre Pacotes**: Atualmente o projeto é distribuído como código-fonte monolítico para facilitar o desenvolvimento da v1.0. Futuramente, será modularizado em pacotes Delphi (`.bpl`/`.dcp`) específicos (ex: `Dext.Core`, `Dext.Web`, `Dext.Entity`) para otimizar a compilação e distribuição.
+
 2. **Configure o Library Path no Delphi:**
    Adicione os seguintes caminhos ao seu projeto ou IDE:
    - `\Sources\Core`

@@ -1,3 +1,28 @@
+﻿{***************************************************************************}
+{                                                                           }
+{           Dext Framework                                                  }
+{                                                                           }
+{           Copyright (C) 2025 Cesar Romero & Dext Contributors             }
+{                                                                           }
+{           Licensed under the Apache License, Version 2.0 (the "License"); }
+{           you may not use this file except in compliance with the License.}
+{           You may obtain a copy of the License at                         }
+{                                                                           }
+{               http://www.apache.org/licenses/LICENSE-2.0                  }
+{                                                                           }
+{           Unless required by applicable law or agreed to in writing,      }
+{           software distributed under the License is distributed on an     }
+{           "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,    }
+{           either express or implied. See the License for the specific     }
+{           language governing permissions and limitations under the        }
+{           License.                                                        }
+{                                                                           }
+{***************************************************************************}
+{                                                                           }
+{  Author:  Cesar Romero                                                    }
+{  Created: 2025-12-08                                                      }
+{                                                                           }
+{***************************************************************************}
 unit Dext.Hosting.BackgroundService;
 
 interface
@@ -7,7 +32,7 @@ uses
   System.Classes,
   System.Generics.Collections,
   Dext.DI.Interfaces,
-  Dext.Core.CancellationToken; // ✅ Added
+  Dext.Core.CancellationToken; // âœ… Added
 
 type
   IHostedService = interface
@@ -87,7 +112,7 @@ begin
     FService.Execute(FToken);
   except
     on E: Exception do
-      WriteLn(Format('❌ Error in BackgroundService thread: %s', [E.Message]));
+      WriteLn(Format('âŒ Error in BackgroundService thread: %s', [E.Message]));
   end;
 end;
 
@@ -147,15 +172,15 @@ procedure THostedServiceManager.StartAsync;
 var
   Service: IHostedService;
 begin
-  WriteLn('🚀 Starting Hosted Services...');
+  WriteLn('ðŸš€ Starting Hosted Services...');
   for Service in FServices do
   begin
     try
       Service.Start;
-      WriteLn(Format('  ✅ Started %s', [(Service as TObject).ClassName]));
+      WriteLn(Format('  âœ… Started %s', [(Service as TObject).ClassName]));
     except
       on E: Exception do
-        WriteLn(Format('  ❌ Failed to start %s: %s', [(Service as TObject).ClassName, E.Message]));
+        WriteLn(Format('  âŒ Failed to start %s: %s', [(Service as TObject).ClassName, E.Message]));
     end;
   end;
 end;
@@ -164,15 +189,15 @@ procedure THostedServiceManager.StopAsync;
 var
   Service: IHostedService;
 begin
-  WriteLn('🛑 Stopping Hosted Services...');
+  WriteLn('ðŸ›‘ Stopping Hosted Services...');
   for Service in FServices do
   begin
     try
       Service.Stop;
-      WriteLn(Format('  ✅ Stopped %s', [(Service as TObject).ClassName]));
+      WriteLn(Format('  âœ… Stopped %s', [(Service as TObject).ClassName]));
     except
       on E: Exception do
-        WriteLn(Format('  ❌ Failed to stop %s: %s', [(Service as TObject).ClassName, E.Message]));
+        WriteLn(Format('  âŒ Failed to stop %s: %s', [(Service as TObject).ClassName, E.Message]));
     end;
   end;
 end;
@@ -231,3 +256,4 @@ begin
 end;
 
 end.
+
