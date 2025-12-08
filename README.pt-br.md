@@ -172,9 +172,9 @@ O Dext ORM permite consultas expressivas e fortemente tipadas, eliminando SQL st
 // O: TOrder (Alias/Proxy)
 var Orders := DbContext.Orders
   .Where((O.Status = TOrderStatus.Paid) and (O.Total > 1000))
-  .Include('Customer')       // Eager Loading
+  .Include('Customer')
   .Include('Items')
-  .OrderByDescending('Date')
+  .OrderBy(O.Date.Desc)
   .Take(50)
   .ToList;
 
@@ -182,7 +182,6 @@ var Orders := DbContext.Orders
 DbContext.Products
   .Where(P.Category = 'Outdated') // P: TProduct
   .Update                         // Inicia update em massa
-  .Set('Active', False)           // Define campos
   .Execute;
 ```
 
@@ -195,10 +194,10 @@ Esqueça a complexidade de `TThread`. Use uma API moderna baseada em Promises/Ta
 var Task := TAsyncTask.Run<TUserProfile>(
   function: TUserProfile
   begin
-    // Executa em background thread
+    // Executa em background
     Result := ExternalApi.GetUserProfile(UserId);
   end)
-  .ThenBy<Boolean>( // Transforma o resultado (Map)
+  .ThenBy<Boolean>(
     function(Profile: TUserProfile): Boolean
     begin
       Result := Profile.IsVerified and Profile.HasCredit;
@@ -214,7 +213,7 @@ var Task := TAsyncTask.Run<TUserProfile>(
   .Start; // Inicia a execução
 
 // Controle de Timeout e Cancelamento
-var CTS := TCancellationSource.Create(5000); // 5s Timeout
+var CTS := TCancellationTokenSource.Create;
 
 TAsyncTask.Run<TReport>(
   function: TReport
