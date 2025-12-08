@@ -143,7 +143,6 @@ begin
     end);
 
   App.Run(8080);
-  App.Run(8080);
 end.
 ```
 
@@ -185,7 +184,6 @@ var Orders := DbContext.Orders
 DbContext.Products
   .Where(P.Category = 'Outdated') // P: TProduct
   .Update                         // Starts bulk update
-  .Set('Active', False)           // Set fields
   .Execute;
 ```
 
