@@ -73,9 +73,8 @@ type
   THostedServiceManager = class
   private
     FServices: TList<IHostedService>;
-    FServiceProvider: IServiceProvider;
   public
-    constructor Create(AServiceProvider: IServiceProvider);
+    constructor Create;
     destructor Destroy; override;
     
     procedure RegisterService(Service: IHostedService);
@@ -150,10 +149,9 @@ end;
 
 { THostedServiceManager }
 
-constructor THostedServiceManager.Create(AServiceProvider: IServiceProvider);
+constructor THostedServiceManager.Create;
 begin
   inherited Create;
-  FServiceProvider := AServiceProvider;
   FServices := TList<IHostedService>.Create;
 end;
 
@@ -241,7 +239,7 @@ begin
       ServiceObj: TObject;
       HostedService: IHostedService;
     begin
-      Manager := THostedServiceManager.Create(Provider);
+      Manager := THostedServiceManager.Create;
       
       for ServiceClass in CapturedServices do
       begin
@@ -253,6 +251,7 @@ begin
       Result := Manager;
     end
   );
+  Self.Free;
 end;
 
 end.

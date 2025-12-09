@@ -90,13 +90,8 @@ begin
 end;
 
 destructor TSwaggerMiddleware.Destroy;
-var
-  Server: TOpenAPIServer;
 begin
-  // Free servers in Options (as they are owned by this middleware instance now)
-  for Server in FOptions.Servers do
-    Server.Free;
-    
+  WriteLn('🗑️ TSwaggerMiddleware.Destroying...');
   FGenerator.Free;
   inherited;
 end;

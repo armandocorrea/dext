@@ -3,6 +3,7 @@
 {$APPTYPE CONSOLE}
 
 uses
+  FastMM5,
   System.SysUtils,
   Dext.DI.Interfaces,
   Dext.DI.Extensions,
@@ -84,6 +85,7 @@ begin
 end;
 
 begin
+  ReportMemoryLeaksOnShutdown := True;
   try
     Writeln('🚀 Starting Dext Swagger Example...');
     Writeln('');

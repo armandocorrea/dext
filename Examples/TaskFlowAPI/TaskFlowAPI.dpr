@@ -1,7 +1,7 @@
 ﻿program TaskFlowAPI;
 
 uses
-  // FastMM5,
+  FastMM5,
   Dext.Core.WebApplication,
   Dext.DI.Extensions,
   Dext.Core.Routing,

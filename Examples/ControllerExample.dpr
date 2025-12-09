@@ -6,8 +6,9 @@ uses
   FastMM5,
   System.SysUtils,
   System.Rtti,
-  Dext, // ✅ The only core unit needed!
+  Dext, // ✅ All-in-one framework unit
   Dext.Web.Extensions,
+  Dext.Http.Middleware.Logging, // Added logging middleware
   ControllerExample.Controller in 'ControllerExample.Controller.pas',
   ControllerExample.Services in 'ControllerExample.Services.pas';
 
@@ -16,6 +17,9 @@ begin
   try
     WriteLn('🚀 Starting Dext Controller Example...');
     var App: IWebApplication := TDextApplication.Create;
+
+    // Add Logging Middleware FIRST
+    App.UseMiddleware(TRequestLoggingMiddleware);
 
     // 1. Register Configuration (IOptions)
     App.Services.Configure<TMySettings>(

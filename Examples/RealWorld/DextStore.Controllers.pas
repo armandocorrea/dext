@@ -174,7 +174,7 @@ begin
     Json := Json + Format('{"productId": %d, "name": "%s", "quantity": %d, "unitPrice": %f, "total": %f}',
       [Items[I].ProductId, Items[I].ProductName, Items[I].Quantity, Items[I].UnitPrice, Items[I].Total]);
   end;
-  Json := Json + Format('], "totalAmount": %f}', [Total]);
+  Json := Json + Format('], "totalAmount": %f, "userId": "%s"}', [Total, UserId]);
   
   Ctx.Response.Json(Json);
 end;

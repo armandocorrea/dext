@@ -139,6 +139,7 @@ type
     
     function GetRoutes: TArray<TEndpointMetadata>; // ✅ Introspection
     procedure UpdateLastRouteMetadata(const AMetadata: TEndpointMetadata); // ✅ For fluent API
+    procedure SetServiceProvider(const AProvider: IServiceProvider); // ✅ Update Provider before Build
   end;
 
   IWebHost = interface

@@ -4,8 +4,10 @@ program TestDbSet;
 
 
 uses
+  FastMM5,
   TestUnit in 'TestUnit.pas';
 
 begin
+  ReportMemoryLeaksOnShutdown := True;
   RunTest;
 end.

@@ -3,6 +3,7 @@
 {$APPTYPE CONSOLE}
 
 uses
+  FastMM5,
   System.SysUtils,
   Dext.Core.WebApplication,
   Dext,

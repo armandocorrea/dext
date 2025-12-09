@@ -6,7 +6,7 @@ Bem-vindo ao documento oficial de roadmap do **Project Dext**. Este documento se
 
 ---
 
-## 📊 Status Atual do Projeto: **Beta 0.95** 🚀
+## 📊 Status Atual do Projeto: **Beta 0.96** 🚀
 
 O framework possui todas as funcionalidades core implementadas e testadas. Estamos na fase final de polimento, documentação e preparação para v1.0.
 

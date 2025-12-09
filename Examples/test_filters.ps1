@@ -1,63 +1,76 @@
+# Filters Test Script
 $baseUrl = "http://localhost:8080"
+$token = ""
 
-function Invoke-Curl {
-    param([string]$CmdArgs)
-    Write-Host "`n> curl $CmdArgs" -ForegroundColor Yellow
-    # Execute curl.exe explicitly using Invoke-Expression to handle quotes correctly
-    Invoke-Expression "curl.exe $CmdArgs"
+Write-Host "[TEST] Filters Test Suite" -ForegroundColor Cyan
+Write-Host "=========================" -ForegroundColor Cyan
+
+# Helper function
+function Test-Endpoint {
+    param($Method = "GET", $Url, $Body = $null, $Headers = @{}, $ExpectedStatus = 200, $Description = "")
+    
+    $displayUrl = if ($Description) { "$Description ($Url)" } else { $Url }
+    Write-Host "Testing $displayUrl..." -NoNewline -ForegroundColor Yellow
+    
+    try {
+        if ($Body) {
+            $jsonBody = if ($Body -is [string]) { $Body } else { $Body | ConvertTo-Json }
+            $response = Invoke-RestMethod -Method $Method -Uri $Url -Body $jsonBody -ContentType "application/json" -Headers $Headers -ErrorAction Stop
+        }
+        else {
+            $response = Invoke-RestMethod -Method $Method -Uri $Url -Headers $Headers -ErrorAction Stop
+        }
+        Write-Host " [OK]" -ForegroundColor Green
+        return $response
+    }
+    catch {
+        if ($_.Exception.Response.StatusCode.value__ -eq $ExpectedStatus) {
+            Write-Host " [OK] (Expected $ExpectedStatus)" -ForegroundColor Green
+        }
+        else {
+            Write-Host " [FAILED] Status: $($_.Exception.Response.StatusCode.value__)" -ForegroundColor Red
+            
+            # Print Body if available
+            $stream = $_.Exception.Response.GetResponseStream()
+            if ($stream) {
+                $reader = New-Object System.IO.StreamReader($stream)
+                $body = $reader.ReadToEnd()
+                if ($body) { Write-Host "Response Body: $body" -ForegroundColor DarkRed }
+            }
+        }
+        return $null
+    }
 }
-
-Write-Host "--- TESTANDO ACTION FILTERS ---" -ForegroundColor Cyan
 
 # 1. Simple Endpoint
-# Expected: 200 OK, Log message in server console
-Invoke-Curl "-i $baseUrl/api/filters/simple"
+Test-Endpoint "GET" "$baseUrl/api/filters/simple" -Description "Simple Endpoint"
 
 # 2. Cached Endpoint
-# Expected: 200 OK, Cache-Control header, X-Custom-Header
-Invoke-Curl "-i $baseUrl/api/filters/cached"
+Test-Endpoint "GET" "$baseUrl/api/filters/cached" -Description "Cached Endpoint"
 
 # 3. Secure Endpoint (Header Validation)
-# Expected: 200 OK with valid key
-Invoke-Curl ('-i -X POST -H "X-API-Key: secret" ' + "$baseUrl/api/filters/secure")
+Test-Endpoint "POST" "$baseUrl/api/filters/secure" -Method "POST" -Headers @{ "X-API-Key" = "secret" } -Description "Secure Endpoint (Valid Key)"
 
 # 3.1 Secure Endpoint (Missing Key)
-# Expected: 400 Bad Request (or whatever the filter returns, likely 400 or 401)
-Invoke-Curl "-i -X POST $baseUrl/api/filters/secure"
+Test-Endpoint "POST" "$baseUrl/api/filters/secure" -Method "POST" -ExpectedStatus 401 -Description "Secure Endpoint (Missing Key)"
 
-# 4. Login to get Admin Token
-Write-Host "`n> Autenticando para obter Token Admin..." -ForegroundColor Cyan
-
-# Create a temporary file for the JSON payload to avoid shell escaping issues
-$jsonFile = [System.IO.Path]::GetTempFileName()
-Set-Content -Path $jsonFile -Value '{"username":"admin", "password":"admin"}'
-
-$loginUrl = "$baseUrl/api/auth/login"
-$loginCmd = "-s -X POST -H ""Content-Type: application/json"" -d @$jsonFile $loginUrl"
-
-Write-Host "> curl ... -d @$jsonFile ..." -ForegroundColor Yellow
-$tokenJson = & curl.exe -s -X POST -H "Content-Type: application/json" -d "@$jsonFile" "$loginUrl"
-
-# Clean up temp file
-Remove-Item $jsonFile
-
-try {
-    $token = ($tokenJson | ConvertFrom-Json).token
-    if ([string]::IsNullOrWhiteSpace($token)) { throw "Token is empty" }
-    Write-Host "Token obtido com sucesso." -ForegroundColor Green
+# 4. Auth
+$loginResponse = Test-Endpoint "POST" "$baseUrl/api/auth/login" -Body @{ username = "admin"; password = "admin" } -Description "Login"
+if ($loginResponse) {
+    $token = $loginResponse.token
+    Write-Host "Token obtained." -ForegroundColor Gray
 }
-catch {
-    Write-Host "Erro ao obter token. Resposta do servidor:" -ForegroundColor Red
-    Write-Host $tokenJson
+else {
+    Write-Host "Login Failed. Aborting." -ForegroundColor Red
     exit
 }
 
-# 5. Admin Endpoint (Requires Token + Admin Role)
-# Expected: 200 OK
-Invoke-Curl "-i -H ""Authorization: Bearer $token"" $baseUrl/api/filters/admin"
+$GlobalHeaders = @{ "Authorization" = "Bearer $token" }
 
-# 6. Protected Endpoint (Short-circuit check)
-# Expected: 200 OK
-Invoke-Curl "-i -H ""Authorization: Bearer $token"" $baseUrl/api/filters/protected"
+# 5. Admin Endpoint
+Test-Endpoint "GET" "$baseUrl/api/filters/admin" -Headers $GlobalHeaders -Description "Admin Endpoint"
 
-Write-Host "`n--- TESTES CONCLUIDOS ---" -ForegroundColor Cyan
+# 6. Protected Endpoint
+Test-Endpoint "GET" "$baseUrl/api/filters/protected" -Headers $GlobalHeaders -Description "Protected Endpoint"
+
+Write-Host "`n[DONE] Test Suite Completed!" -ForegroundColor Green

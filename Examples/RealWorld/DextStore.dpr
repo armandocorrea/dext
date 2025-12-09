@@ -3,6 +3,7 @@
 {$APPTYPE CONSOLE}
 
 uses
+  FastMM5,
   System.SysUtils,
   Dext,
   DextStore.Models in 'DextStore.Models.pas',
@@ -10,6 +11,7 @@ uses
   DextStore.Controllers in 'DextStore.Controllers.pas';
 
 begin
+  ReportMemoryLeaksOnShutdown := True;
   try
     WriteLn('🛒 Starting DextStore API...');
     

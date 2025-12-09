@@ -88,24 +88,15 @@ end;
 
 class procedure TWebDIHelpers.AddContentNegotiation(Services: IServiceCollection);
 begin
-  // Register Registry
-  var Registry := TOutputFormatterRegistry.Create;
-  // Add Default JSON Formatter
-  Registry.Add(TJsonOutputFormatter.Create);
-  
-  // Register as Singleton Instance
-  // Note: We are capturing 'Registry' variable in anonymous method.
-  // Registry (Interface or Object?)
-  // TOutputFormatterRegistry is TInterfacedObject.
-  // Registry is TOutputFormatterRegistry (Object).
-  // Be careful with refcounting if we mix object/interface.
-  // Better: Register TOutputFormatterRegistry as Singleton implementation, and use a factory that configures it
-  // OR just assume Singleton holds it.
-  
+  // Register Registry & Default Formatter
   Services.AddSingleton(TServiceType.FromInterface(TypeInfo(IOutputFormatterRegistry)), TOutputFormatterRegistry, 
     function(P: IServiceProvider): TObject
+    var
+      Reg: TOutputFormatterRegistry;
     begin
-       Result := Registry;
+       Reg := TOutputFormatterRegistry.Create;
+       Reg.Add(TJsonOutputFormatter.Create); // Add default JSON
+       Result := Reg;
     end
   );
 

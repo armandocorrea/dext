@@ -53,6 +53,7 @@ uses
   Dext.Http.Core,
   Dext.Http.Cors,
   Dext.Http.Interfaces,
+  Dext.Http.Middleware,
   Dext.Http.Results,
   Dext.Http.StaticFiles,
   Dext.OpenAPI.Attributes,
@@ -93,6 +94,17 @@ type
 
   // Middleware
   THealthCheckMiddleware = Dext.HealthChecks.THealthCheckMiddleware;
+  TExceptionHandlerMiddleware = Dext.Http.Middleware.TExceptionHandlerMiddleware;
+  TExceptionHandlerOptions = Dext.Http.Middleware.TExceptionHandlerOptions;
+  THttpLoggingMiddleware = Dext.Http.Middleware.THttpLoggingMiddleware;
+  THttpLoggingOptions = Dext.Http.Middleware.THttpLoggingOptions;
+
+  // Exceptions
+  EHttpException = Dext.Http.Middleware.EHttpException;
+  ENotFoundException = Dext.Http.Middleware.ENotFoundException;
+  EUnauthorizedException = Dext.Http.Middleware.EUnauthorizedException;
+  EForbiddenException = Dext.Http.Middleware.EForbiddenException;
+  EValidationException = Dext.Http.Middleware.EValidationException;
   
   // CORS
   TCorsOptions = Dext.Http.Cors.TCorsOptions;

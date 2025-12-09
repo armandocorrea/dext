@@ -182,10 +182,10 @@ function TOpenAPIOptions.WithServer(const AUrl, ADescription: string): TOpenAPIO
 var
   NewLength: Integer;
 begin
-  Result := Self; // Now Self works because it's an instance function
+  Result := Self;
   NewLength := Length(Result.Servers) + 1;
   SetLength(Result.Servers, NewLength);
-  Result.Servers[NewLength - 1] := TOpenAPIServer.Create;
+  // TOpenAPIServer is now a record, so no Create needed
   Result.Servers[NewLength - 1].Url := AUrl;
   Result.Servers[NewLength - 1].Description := ADescription;
 end;
@@ -725,12 +725,13 @@ var
   Operation: TOpenAPIOperation;
 begin
   Result := TOpenAPIDocument.Create;
+  if Result.Info <> nil then Result.Info.Free; // Free default instance to avoid leak
   Result.Info := CreateInfoSection;
   
   // Add servers from options
   for var Srv in FOptions.Servers do
   begin
-    var Server := TOpenAPIServer.Create;
+    var Server: TOpenAPIServer; // Record
     Server.Url := Srv.Url;
     Server.Description := Srv.Description;
     Result.Servers.Add(Server);

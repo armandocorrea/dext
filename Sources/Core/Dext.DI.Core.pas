@@ -182,7 +182,9 @@ begin
   // Root provider creates its own independent list of descriptors
   FDescriptors := TObjectList<TServiceDescriptor>.Create(True);
   for Desc in ADescriptors do
+  begin
     FDescriptors.Add(Desc.Clone);
+  end;
 
   FSingletons := TDictionary<string, TObject>.Create;
   FSingletonInterfaces  := TDictionary<string, IInterface>.Create;
@@ -191,6 +193,9 @@ begin
   FLock := TCriticalSection.Create;
   FIsRootProvider := True;
   FParentProvider := nil;
+
+  // Self-registration is handled dynamically to avoid circular references (ARC)
+  // FSingletonInterfaces.Add(TServiceType.FromInterface(IServiceProvider).ToString, Self);
 end;
 
 constructor TDextServiceProvider.CreateScoped(AParent: IServiceProvider; const ADescriptors: TObjectList<TServiceDescriptor>);
@@ -204,6 +209,9 @@ begin
   FLock := TCriticalSection.Create;
   FIsRootProvider := False;
   FParentProvider := AParent;
+  
+  // Self-registration is handled dynamically to avoid circular references (ARC)
+  // FScopedInterfaces.Add(TServiceType.FromInterface(IServiceProvider).ToString, Self);
 end;
 
 destructor TDextServiceProvider.Destroy;
@@ -337,6 +345,10 @@ var
   Intf: IInterface;
   Obj: TObject;
 begin
+  // Special handling for IServiceProvider to return Self without dictionary cycle
+  if AServiceType.IsInterface and IsEqualGUID(AServiceType.AsInterface, IServiceProvider) then
+    Exit(Self);
+
   Descriptor := FindDescriptor(AServiceType);
   if not Assigned(Descriptor) then
     Exit(nil);

@@ -219,8 +219,11 @@ begin
     if BestMethod <> nil then
       Result := BestMethod.Invoke(AClass, BestArgs).AsObject
     else
-      // Fallback: Try parameterless constructor if no DI constructor matched
-      Result := AClass.Create;
+    begin
+      // ERROR: No suitable constructor found (or dependencies missing)
+      // Do NOT fallback to TObject.Create arbitrarily.
+      raise EArgumentException.CreateFmt('TActivator: No satisfiable constructor found for %s. Check if all dependencies are registered.', [AClass.ClassName]);
+    end;
   finally
     Context.Free;
   end;

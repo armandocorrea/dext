@@ -58,6 +58,7 @@ type
 
   // Controller Class (Instance-based with DI)
   [DextController('/api/greet')]
+  // TODO : Rename Attribute
   [SwaggerAuthorize('Bearer')] // ✅ Protect entire controller
   TGreetingController = class
   private
@@ -74,7 +75,7 @@ type
     [AllowAnonymous]
     procedure GetNegotiated(Ctx: IHttpContext); virtual;
 
-    [DextPost('/')]
+    [DextPost('')]
     procedure CreateGreeting(Ctx: IHttpContext; const Request: TGreetingRequest); virtual;
 
     [DextGet('/search')]

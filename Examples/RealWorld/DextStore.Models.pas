@@ -55,6 +55,8 @@ type
     property TotalAmount: Currency read FTotalAmount write FTotalAmount;
     property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
     property Status: string read FStatus write FStatus;
+
+    destructor Destroy; override;
   end;
 
   // ===========================================================================
@@ -104,6 +106,16 @@ implementation
 function TCartItem.Total: Currency;
 begin
   Result := FQuantity * FUnitPrice;
+end;
+
+{ TOrder }
+
+destructor TOrder.Destroy;
+begin
+  for var Item in FItems do
+    if Assigned(Item) then
+      Item.Free;
+  inherited;
 end;
 
 end.

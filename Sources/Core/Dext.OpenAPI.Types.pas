@@ -178,13 +178,9 @@ type
   /// <summary>
   ///   Represents server information in OpenAPI.
   /// </summary>
-  TOpenAPIServer = class
-  private
-    FUrl: string;
-    FDescription: string;
-  public
-    property Url: string read FUrl write FUrl;
-    property Description: string read FDescription write FDescription;
+  TOpenAPIServer = record
+    Url: string;
+    Description: string;
   end;
 
   /// <summary>
@@ -271,7 +267,7 @@ type
   private
     FOpenAPI: string;
     FInfo: TOpenAPIInfo;
-    FServers: TObjectList<TOpenAPIServer>;
+    FServers: TList<TOpenAPIServer>;
     FPaths: TDictionary<string, TOpenAPIPathItem>;
     FSchemas: TDictionary<string, TOpenAPISchema>;
     FSecuritySchemes: TDictionary<string, TOpenAPISecurityScheme>;
@@ -281,7 +277,7 @@ type
     
     property OpenAPI: string read FOpenAPI write FOpenAPI;
     property Info: TOpenAPIInfo read FInfo write FInfo;
-    property Servers: TObjectList<TOpenAPIServer> read FServers;
+    property Servers: TList<TOpenAPIServer> read FServers;
     property Paths: TDictionary<string, TOpenAPIPathItem> read FPaths;
     property Schemas: TDictionary<string, TOpenAPISchema> read FSchemas;
     property SecuritySchemes: TDictionary<string, TOpenAPISecurityScheme> read FSecuritySchemes;
@@ -421,7 +417,7 @@ begin
   inherited;
   FOpenAPI := '3.0.0';
   FInfo := TOpenAPIInfo.Create;
-  FServers := TObjectList<TOpenAPIServer>.Create(True);
+  FServers := TList<TOpenAPIServer>.Create;
   FPaths := TDictionary<string, TOpenAPIPathItem>.Create;
   FSchemas := TDictionary<string, TOpenAPISchema>.Create;
   FSecuritySchemes := TDictionary<string, TOpenAPISecurityScheme>.Create;

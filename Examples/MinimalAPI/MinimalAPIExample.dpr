@@ -6,6 +6,7 @@ program MinimalAPIExample;
 {$R *.res}
 
 uses
+  FastMM5,
   System.DateUtils,
   System.SysUtils,
   Dext.WebHost,
@@ -36,6 +37,7 @@ var
   Host: IWebHost;
 
 begin
+  ReportMemoryLeaksOnShutdown := True;
   Builder := TDextWebHost.CreateDefaultBuilder;
 
   Builder.ConfigureServices(

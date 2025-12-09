@@ -498,6 +498,9 @@ begin
           finally
             Invoker.Free;
             Binder := nil;
+            // Transient controllers MUST be freed by the invoker
+            if ControllerInstance <> nil then
+              ControllerInstance.Free;
           end;
         end
         else

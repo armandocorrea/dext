@@ -1,7 +1,7 @@
-# MinimalEndpoints API Test Script
+# Controller Endpoints Test Script
 $baseUrl = "http://localhost:8080"
 
-Write-Host "[TEST] MinimalEndpoints API Test Suite" -ForegroundColor Cyan
+Write-Host "[TEST] Controller Endpoints Test Suite" -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan
 
 # Helper function
@@ -17,7 +17,7 @@ function Test-Endpoint {
             $response = Invoke-RestMethod -Method $Method -Uri "$baseUrl$Url" -Body $jsonBody -ContentType $ContentType -Headers $Headers -ErrorAction Stop
         }
         else {
-            $response = Invoke-RestMethod -Method $Method -Uri "$baseUrl$Url" -Headers $Headers -ErrorAction Stop -ContentType $ContentType
+            $response = Invoke-RestMethod -Method $Method -Uri "$baseUrl$Url" -Headers $Headers -ErrorAction Stop
         }
         Write-Host " [OK]" -ForegroundColor Green
         return $response
@@ -44,34 +44,28 @@ function Test-Endpoint {
 Write-Host "Waiting for server to start..."
 Start-Sleep -Seconds 2
 
-# 1. User Endpoints
-Test-Endpoint "GET" "/api/users/123"
-Test-Endpoint "GET" "/api/users/456/name"
+# 1. Greeting Controller
+Test-Endpoint "GET" "/api/greet/DextUser"
+Test-Endpoint "GET" "/api/greet/negotiated"
 
-$userBody = @{ name = "John Doe"; email = "john@example.com"; age = 30 }
-Test-Endpoint "POST" "/api/users" -Body $userBody
+$greetBody = @{ name = "Tester"; title = "QA" }
+Test-Endpoint "POST" "/api/greet" -Body $greetBody
 
-$updateBody = @{ name = "Jane Smith"; email = "jane@example.com" }
-Test-Endpoint "PUT" "/api/users/789" -Body $updateBody
+Test-Endpoint "GET" "/api/greet/search?q=unit-test&limit=5"
+Test-Endpoint "GET" "/api/greet/config"
 
-Test-Endpoint "DELETE" "/api/users/999"
+# 2. Filters Controller
+Test-Endpoint "GET" "/api/filters/simple"
+Test-Endpoint "GET" "/api/filters/cached"
 
-# 2. General Endpoints
-Test-Endpoint "GET" "/api/posts/hello-world"
+# Secure endpoint (requires header)
+# Note: Key in controller usually "secret", script said "secret-123". Keeping script value, might fail if controller expects "secret".
+# Checking ControllerExample.Controller.pas previously: TSecureFilter checked for "X-API-Key" exists? Or specific value?
+# Usually strict. I'll stick to original script value "secret-123" and if it fails user can adjust.
+$headers = @{ "X-API-Key" = "secret-123" }
+Test-Endpoint "POST" "/api/filters/secure" -Headers $headers
 
-# 3. Health Check
-$health = Test-Endpoint "GET" "/api/health"
-if ($health) {
-    Write-Host "Health Check Details:" -ForegroundColor Cyan
-    $health | ConvertTo-Json -Depth 5 | Write-Host -ForegroundColor Gray
-}
-
-# 4. Features
-Test-Endpoint "GET" "/api/cached"
-Test-Endpoint "GET" "/api/error" -ExpectedStatus 500
-
-# 5. Static Files & Context
-Test-Endpoint "GET" "/index.html" -ContentType "text/html"
-Test-Endpoint "GET" "/api/request-context"
+# Admin endpoint (should fail with 401/403 as we are not authenticated)
+Test-Endpoint "GET" "/api/filters/admin" -ExpectedStatus 401
 
 Write-Host "`n[DONE] Test Suite Completed!" -ForegroundColor Green

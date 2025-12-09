@@ -42,7 +42,8 @@ type
   // Type to identify services (can be TClass or TGUID for interfaces)
   TServiceType = record
   private
-    FTypeInfo: Pointer; // Used for Class TypeInfo
+    FTypeInfo: Pointer; // Used for Interface TypeInfo (or legacy)
+    FClass: TClass;     // Explicitly store class reference
     FGuid: TGUID;       // Used for Interface GUID
     FIsInterface: Boolean;
   public
@@ -130,10 +131,13 @@ implementation
 
 { TServiceType }
 
+{ TServiceType }
+
 class function TServiceType.FromClass(AClass: TClass): TServiceType;
 begin
   Result.FIsInterface := False;
-  Result.FTypeInfo := AClass.ClassInfo;
+  Result.FClass := AClass;
+  Result.FTypeInfo := AClass.ClassInfo; // Keep it if available, but optional
 end;
 
 class function TServiceType.FromClass(ATypeInfo: PTypeInfo): TServiceType;
@@ -142,6 +146,7 @@ begin
     raise EDextDIException.Create('TypeInfo must be for a class');
 
   Result.FIsInterface := False;
+  Result.FClass := GetTypeData(ATypeInfo)^.ClassType;
   Result.FTypeInfo := ATypeInfo;
 end;
 
@@ -149,6 +154,7 @@ class function TServiceType.FromInterface(const AGuid: TGUID): TServiceType;
 begin
   Result.FGuid := AGuid;
   Result.FTypeInfo := nil;
+  Result.FClass := nil;
   Result.FIsInterface := True;
 end;
 
@@ -161,7 +167,8 @@ begin
 
   LTypeData := GetTypeData(ATypeInfo);
   Result.FGuid := LTypeData.Guid;
-  Result.FTypeInfo := nil;
+  Result.FTypeInfo := ATypeInfo;
+  Result.FClass := nil;
   Result.FIsInterface := True;
 end;
 
@@ -179,8 +186,11 @@ function TServiceType.AsClass: TClass;
 begin
   if not FIsInterface then
   begin
-    if FTypeInfo <> nil then
+    if FClass <> nil then
+      Result := FClass
+    else if FTypeInfo <> nil then
     begin
+       // Fallback if FClass was somehow not set but TypeInfo was
        var LTypeData := GetTypeData(FTypeInfo);
        if Assigned(LTypeData) then
          Result := LTypeData^.ClassType
@@ -188,7 +198,7 @@ begin
          raise EDextDIException.Create('Invalid class type info');
     end
     else
-       raise EDextDIException.Create('Class TypeInfo is nil');
+       raise EDextDIException.Create('Class TypeInfo is nil and FClass is nil');
   end
   else
     raise EDextDIException.Create('Service type is an interface, not a class');

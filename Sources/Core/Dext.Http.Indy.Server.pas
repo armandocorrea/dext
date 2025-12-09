@@ -31,7 +31,7 @@ uses
   System.Classes, System.SysUtils, IdHTTPServer, IdContext, IdCustomHTTPServer,
   Dext.Http.Interfaces, Dext.DI.Interfaces;
 
-type
+  type
   TIndyWebServer = class(TInterfacedObject, IWebHost)
   private
     FHTTPServer: TIdHTTPServer;
@@ -39,13 +39,12 @@ type
     FServices: IServiceProvider;
     FPort: Integer;
 
-    FAppBuilder: IApplicationBuilder; // Keep AppBuilder alive
     procedure HandleCommandGet(AContext: TIdContext;
       ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
     procedure HandleParseAuthentication(AContext: TIdContext;
       const AAuthType, AAuthData: string; var VUsername, VPassword: string; var Handled: Boolean);
   public
-    constructor Create(APort: Integer; APipeline: TRequestDelegate; const AServices: IServiceProvider; const AAppBuilder: IApplicationBuilder);
+    constructor Create(APort: Integer; APipeline: TRequestDelegate; const AServices: IServiceProvider);
     destructor Destroy; override;
 
     procedure Run;
@@ -74,13 +73,12 @@ end;
 { TIndyWebServer }
 
 constructor TIndyWebServer.Create(APort: Integer; APipeline: TRequestDelegate;
-  const AServices: IServiceProvider; const AAppBuilder: IApplicationBuilder);
+  const AServices: IServiceProvider);
 begin
   inherited Create;
   FPort := APort;
   FPipeline := APipeline;
   FServices := AServices;
-  FAppBuilder := AAppBuilder;
 
   FHTTPServer := TIdHTTPServer.Create(nil);
   FHTTPServer.DefaultPort := FPort;
@@ -103,9 +101,9 @@ end;
 destructor TIndyWebServer.Destroy;
 begin
   Stop;
+  Stop;
   FHTTPServer.Free;
   FPipeline := nil; // Explicitly break cycle/release reference
-  FAppBuilder := nil;
   inherited Destroy;
 end;
 

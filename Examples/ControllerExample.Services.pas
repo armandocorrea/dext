@@ -40,11 +40,8 @@ implementation
 
 function TDatabaseHealthCheck.CheckHealth: THealthCheckResult;
 begin
-  // Simulate a check
-  if Random(10) > 1 then
-    Result := THealthCheckResult.Healthy('Database is reachable')
-  else
-    Result := THealthCheckResult.Unhealthy('Database connection timeout');
+  // Always healthy for testing
+  Result := THealthCheckResult.Healthy('Database is reachable');
 end;
 
 { TWorkerService }

@@ -89,6 +89,7 @@ type
     function Build: TRequestDelegate;
     function GetRoutes: TArray<TEndpointMetadata>;
     procedure UpdateLastRouteMetadata(const AMetadata: TEndpointMetadata);
+    procedure SetServiceProvider(const AProvider: IServiceProvider);
   end;
 
   TMiddleware = class(TInterfacedObject, IMiddleware)
@@ -504,6 +505,11 @@ begin
   begin
     FRoutes[FRoutes.Count - 1].Metadata := AMetadata;
   end;
+end;
+
+procedure TApplicationBuilder.SetServiceProvider(const AProvider: IServiceProvider);
+begin
+  FServiceProvider := AProvider;
 end;
 
 end.

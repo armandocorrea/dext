@@ -57,6 +57,7 @@ begin
     Conn := TFireDACConnection.Create(FDConn, True); 
     
     Ctx := TDbContext.Create(Conn, TSQLiteDialect.Create);
+    P := nil;
     try
       Conn.Connect;
       Writeln('Connected.');
@@ -98,6 +99,7 @@ begin
         Writeln('ERROR: Person still exists!');
         
     finally
+      P.Free;
       Ctx.Free;
     end;
     

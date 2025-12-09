@@ -99,13 +99,15 @@ begin
   
   FServices := TDextServiceCollection.Create;
   
+  
   // Register Configuration
+  var LConfig := FConfiguration;
   FServices.AddSingleton(
     TServiceType.FromInterface(IConfiguration),
     TConfigurationRoot,
     function(Provider: IServiceProvider): TObject
     begin
-      Result := FConfiguration as TConfigurationRoot;
+      Result := LConfig as TConfigurationRoot;
     end
   );
   
@@ -172,6 +174,9 @@ begin
   // Rebuild provider one last time to ensure all services (including hosted ones) are registered
   FServiceProvider := FServices.BuildServiceProvider;
   
+  // ✅ IMPORTANT: Update AppBuilder with new provider so it can resolve late-bound services (like HealthChecks)
+  FAppBuilder.SetServiceProvider(FServiceProvider);
+  
   // Start Hosted Services
   HostedManager := nil;
   try
@@ -190,7 +195,7 @@ begin
   RequestHandler := FAppBuilder.Build;
 
   // Create WebHost
-  WebHost := TIndyWebServer.Create(Port, RequestHandler, FServiceProvider, FAppBuilder);
+  WebHost := TIndyWebServer.Create(Port, RequestHandler, FServiceProvider);
 
   WriteLn('🚀 Starting Dext HTTP Server on port ', Port);
   WriteLn('📡 Listening for requests...');

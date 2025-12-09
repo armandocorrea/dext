@@ -55,12 +55,11 @@ type
   THealthCheckService = class
   private
     FChecks: TList<TClass>; // List of IHealthCheck classes
-    FServiceProvider: IServiceProvider;
   public
-    constructor Create(AServiceProvider: IServiceProvider);
+    constructor Create;
     destructor Destroy; override;
     procedure RegisterCheck(CheckClass: TClass);
-    function CheckHealth: TDictionary<string, THealthCheckResult>;
+    function CheckHealth(AProvider: IServiceProvider): TDictionary<string, THealthCheckResult>;
   end;
 
   THealthCheckMiddleware = class(TMiddleware)
@@ -107,10 +106,9 @@ end;
 
 { THealthCheckService }
 
-constructor THealthCheckService.Create(AServiceProvider: IServiceProvider);
+constructor THealthCheckService.Create;
 begin
   inherited Create;
-  FServiceProvider := AServiceProvider;
   FChecks := TList<TClass>.Create;
 end;
 
@@ -125,7 +123,7 @@ begin
   FChecks.Add(CheckClass);
 end;
 
-function THealthCheckService.CheckHealth: TDictionary<string, THealthCheckResult>;
+function THealthCheckService.CheckHealth(AProvider: IServiceProvider): TDictionary<string, THealthCheckResult>;
 var
   CheckClass: TClass;
   Check: IHealthCheck;
@@ -137,8 +135,8 @@ begin
   for CheckClass in FChecks do
   begin
     try
-      // Resolve check from DI
-      Obj := FServiceProvider.GetService(TServiceType.FromClass(CheckClass));
+      // Resolve check from DI using the provided scope/provider
+      Obj := AProvider.GetService(TServiceType.FromClass(CheckClass));
       if Supports(Obj, IHealthCheck, Check) then
       begin
         try
@@ -165,6 +163,8 @@ end;
 constructor THealthCheckMiddleware.Create(Service: THealthCheckService);
 begin
   inherited Create;
+  if Service = nil then
+    raise Exception.Create('THealthCheckMiddleware: Service is nil! Dependency Injection failed.');
   FService := Service;
 end;
 
@@ -182,7 +182,8 @@ begin
     Exit;
   end;
 
-  Results := FService.CheckHealth;
+  // Use the scoped provider from the context to avoid singleton leakage
+  Results := FService.CheckHealth(AContext.Services); 
   try
     OverallStatus := THealthStatus.Healthy;
     for Pair in Results do
@@ -262,24 +263,28 @@ end;
 procedure THealthCheckBuilder.Build;
 var
   CapturedChecks: TArray<TClass>;
+  Factory: TFunc<IServiceProvider, TObject>;
 begin
   CapturedChecks := FChecks.ToArray;
   
-  FServices.AddSingleton(
-    TServiceType.FromClass(THealthCheckService),
-    THealthCheckService,
-    function(Provider: IServiceProvider): TObject
+  // Create an explicit factory to help the compiler resolve the overload
+  Factory := function(Provider: IServiceProvider): TObject
     var
       Service: THealthCheckService;
       CheckClass: TClass;
     begin
-      Service := THealthCheckService.Create(Provider);
+      Service := THealthCheckService.Create; // No Provider injected here
       for CheckClass in CapturedChecks do
         Service.RegisterCheck(CheckClass);
       Result := Service;
-    end
+    end;
+
+  FServices.AddSingleton(
+    TServiceType.FromClass(THealthCheckService),
+    THealthCheckService,
+    Factory
   );
+  Self.Free;
 end;
 
 end.
-
