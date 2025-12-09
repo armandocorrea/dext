@@ -182,10 +182,10 @@ begin
     Exit;
   end;
 
-  // Use the scoped provider from the context to avoid singleton leakage
-  Results := FService.CheckHealth(AContext.Services); 
-  try
-    OverallStatus := THealthStatus.Healthy;
+    // Use the scoped provider from the context
+    Results := FService.CheckHealth(AContext.Services); 
+    try
+      OverallStatus := THealthStatus.Healthy;
     for Pair in Results do
       if Pair.Value.Status = THealthStatus.Unhealthy then
         OverallStatus := THealthStatus.Unhealthy;

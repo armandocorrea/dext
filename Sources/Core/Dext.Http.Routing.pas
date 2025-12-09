@@ -193,8 +193,11 @@ end;
 
 destructor TRouteDefinition.Destroy;
 begin
-  if Assigned(FPattern) then
+  if FPattern <> nil then
+  begin
     FPattern.Free;
+    FPattern := nil;
+  end;
   inherited;
 end;
 

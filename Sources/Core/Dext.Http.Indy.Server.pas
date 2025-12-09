@@ -101,7 +101,6 @@ end;
 destructor TIndyWebServer.Destroy;
 begin
   Stop;
-  Stop;
   FHTTPServer.Free;
   FPipeline := nil; // Explicitly break cycle/release reference
   inherited Destroy;
