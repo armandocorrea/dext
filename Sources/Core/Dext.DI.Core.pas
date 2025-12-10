@@ -236,26 +236,35 @@ begin
 end;
 
 destructor TDextServiceProvider.Destroy;
+var
+  SingletonObj: TObject;
+  Key: string;
 begin
   // Liberar instâncias singleton (apenas no root provider)
   if FIsRootProvider then
   begin
-    // Clear interfaces first - ARC will free those objects
+    // First, free non-ARC objects in FSingletons
+    // TInterfacedObject instances will be freed by ARC when we clear FSingletonInterfaces
+    if Assigned(FSingletons) then
+    begin
+      for Key in FSingletons.Keys do
+      begin
+        if FSingletons.TryGetValue(Key, SingletonObj) then
+        begin
+          // Skip TInterfacedObject - ARC will free them via FSingletonInterfaces
+          if not (SingletonObj is TInterfacedObject) then
+            SingletonObj.Free;
+        end;
+      end;
+      FSingletons.Clear;
+      FSingletons.Free;
+    end;
+    
+    // Now clear interfaces - ARC will free TInterfacedObject instances
     if Assigned(FSingletonInterfaces) then
     begin
       FSingletonInterfaces.Clear;
       FSingletonInterfaces.Free;
-    end;
-    
-    if Assigned(FSingletons) then
-    begin
-      // Explicitly free object instances as TDictionary does not own them
-      var SingletonObj: TObject;
-      for SingletonObj in FSingletons.Values do
-        SingletonObj.Free;
-        
-      FSingletons.Clear;
-      FSingletons.Free;
     end;
     
     // Free the tracking list

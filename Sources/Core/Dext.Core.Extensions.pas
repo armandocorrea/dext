@@ -21,6 +21,7 @@
 {                                                                           }
 {  Author:  Cesar Romero                                                    }
 {  Created: 2025-12-08                                                      }
+{  Updated: 2025-12-10 - Simplified AddHealthChecks, removed factory leak   }
 {                                                                           }
 {***************************************************************************}
 unit Dext.Core.Extensions;
@@ -35,9 +36,22 @@ uses
   Dext.Hosting.BackgroundService;
 
 type
+  /// <summary>
+  ///   Extension methods for IServiceCollection.
+  ///   Provides fluent API for registering framework services.
+  /// </summary>
   TDextServiceCollectionExtensions = class
   public
+    /// <summary>
+    ///   Adds health check services to the DI container.
+    ///   Returns a builder for configuring individual health checks.
+    /// </summary>
     class function AddHealthChecks(Services: IServiceCollection): THealthCheckBuilder;
+    
+    /// <summary>
+    ///   Adds background service infrastructure to the DI container.
+    ///   Returns a builder for registering hosted services.
+    /// </summary>
     class function AddBackgroundServices(Services: IServiceCollection): TBackgroundServiceBuilder;
   end;
 
@@ -45,41 +59,18 @@ implementation
 
 { TDextServiceCollectionExtensions }
 
-class function TDextServiceCollectionExtensions.AddHealthChecks(Services: IServiceCollection): THealthCheckBuilder;
-var
-  SharedChecks: TList<TClass>;
-  Factory: TFunc<IServiceProvider, TObject>;
+class function TDextServiceCollectionExtensions.AddHealthChecks(
+  Services: IServiceCollection): THealthCheckBuilder;
 begin
-  SharedChecks := TList<TClass>.Create; // Intentionally leaks config list
-  
-  Factory := function(Provider: IServiceProvider): TObject
-    var
-      ServiceList: TList<TClass>;
-    begin
-      Writeln('Dext.Core.Extensions: Factory Executing...');
-      ServiceList := TList<TClass>.Create;
-      if SharedChecks <> nil then
-        ServiceList.AddRange(SharedChecks)
-      else
-        Writeln('Dext.Core.Extensions: SharedChecks is NIL');
-        
-      Result := THealthCheckService.Create(ServiceList);
-      Writeln(Format('Dext.Core.Extensions: Created Service at %p', [Pointer(Result)]));
-    end;
-  
-  Services.AddSingleton(
-    TServiceType.FromInterface(IHealthCheckService),
-    THealthCheckService,
-    Factory
-  );
-  
-  Result := THealthCheckBuilder.Create(Services, SharedChecks);
+  // Create the builder - it handles all registration in its Build method
+  // The builder will register IHealthCheckService as Singleton with factory
+  Result := THealthCheckBuilder.Create(Services);
 end;
 
-class function TDextServiceCollectionExtensions.AddBackgroundServices(Services: IServiceCollection): TBackgroundServiceBuilder;
+class function TDextServiceCollectionExtensions.AddBackgroundServices(
+  Services: IServiceCollection): TBackgroundServiceBuilder;
 begin
   Result := TBackgroundServiceBuilder.Create(Services);
 end;
 
 end.
-

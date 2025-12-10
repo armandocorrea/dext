@@ -21,6 +21,7 @@
 {                                                                           }
 {  Author:  Cesar Romero                                                    }
 {  Created: 2025-12-08                                                      }
+{  Updated: 2025-12-10 - Refactored to use IHealthCheckService interface    }
 {                                                                           }
 {***************************************************************************}
 unit Dext.HealthChecks;
@@ -47,38 +48,72 @@ type
     class function Unhealthy(const Description: string = ''; Ex: Exception = nil): THealthCheckResult; static;
   end;
 
+  /// <summary>
+  ///   Interface for individual health checks.
+  ///   Implement this interface to create custom health checks.
+  /// </summary>
   IHealthCheck = interface
     ['{7C3E8A9B-2D4F-4A1C-8E5B-9F0D3C6A7B8E}']
     function CheckHealth: THealthCheckResult;
   end;
 
-  THealthCheckService = class
+  /// <summary>
+  ///   Interface for the Health Check Service.
+  ///   Manages the collection of health checks and executes them.
+  ///   Lifecycle is managed by DI (ARC) as a Singleton.
+  /// </summary>
+  IHealthCheckService = interface
+    ['{8A9B7C3E-2D4F-4A1C-8E5B-9F0D3C6A7B8E}']
+    procedure RegisterCheck(CheckClass: TClass);
+    function CheckHealth(AProvider: IServiceProvider): TDictionary<string, THealthCheckResult>;
+    function GetCheckCount: Integer;
+  end;
+
+  /// <summary>
+  ///   Implementation of IHealthCheckService.
+  ///   Inherits from TInterfacedObject for automatic memory management via ARC.
+  /// </summary>
+  THealthCheckService = class(TInterfacedObject, IHealthCheckService)
   private
-    FChecks: TList<TClass>; // List of IHealthCheck classes
+    FChecks: TList<TClass>;
   public
     constructor Create;
     destructor Destroy; override;
     procedure RegisterCheck(CheckClass: TClass);
     function CheckHealth(AProvider: IServiceProvider): TDictionary<string, THealthCheckResult>;
+    function GetCheckCount: Integer;
   end;
 
+  /// <summary>
+  ///   Middleware that handles /health endpoint requests.
+  ///   Registered as Singleton in the DI container.
+  ///   Receives IHealthCheckService via constructor injection.
+  /// </summary>
   THealthCheckMiddleware = class(TMiddleware)
   private
-    FService: THealthCheckService;
+    FService: IHealthCheckService;
   public
-    constructor Create(Service: THealthCheckService);
+    constructor Create(AService: IHealthCheckService);
     procedure Invoke(AContext: IHttpContext; ANext: TRequestDelegate); override;
   end;
 
+  /// <summary>
+  ///   Fluent builder for configuring health checks.
+  ///   Usage:
+  ///     App.Services.AddHealthChecks
+  ///       .AddCheck<TDatabaseHealthCheck>
+  ///       .AddCheck<TRedisHealthCheck>
+  ///       .Build;
+  /// </summary>
   THealthCheckBuilder = class
   private
     FServices: IServiceCollection;
     FChecks: TList<TClass>;
   public
-    constructor Create(Services: IServiceCollection);
+    constructor Create(AServices: IServiceCollection);
     destructor Destroy; override;
     function AddCheck<T: class, constructor>: THealthCheckBuilder;
-    procedure Build; // Registers the service
+    procedure Build;
   end;
 
 implementation
@@ -120,7 +155,13 @@ end;
 
 procedure THealthCheckService.RegisterCheck(CheckClass: TClass);
 begin
-  FChecks.Add(CheckClass);
+  if not FChecks.Contains(CheckClass) then
+    FChecks.Add(CheckClass);
+end;
+
+function THealthCheckService.GetCheckCount: Integer;
+begin
+  Result := FChecks.Count;
 end;
 
 function THealthCheckService.CheckHealth(AProvider: IServiceProvider): TDictionary<string, THealthCheckResult>;
@@ -135,16 +176,16 @@ begin
   for CheckClass in FChecks do
   begin
     try
-      // Resolve check from DI using the provided scope/provider
+      // Resolve check from DI - each check is Transient
       Obj := AProvider.GetService(TServiceType.FromClass(CheckClass));
-      if Supports(Obj, IHealthCheck, Check) then
+      if Assigned(Obj) and Supports(Obj, IHealthCheck, Check) then
       begin
         try
           Res := Check.CheckHealth;
           Result.Add(CheckClass.ClassName, Res);
         except
           on E: Exception do
-            Result.Add(CheckClass.ClassName, THealthCheckResult.Unhealthy('Exception during check', E));
+            Result.Add(CheckClass.ClassName, THealthCheckResult.Unhealthy('Exception during check: ' + E.Message));
         end;
       end
       else
@@ -153,19 +194,19 @@ begin
       end;
     except
       on E: Exception do
-        Result.Add(CheckClass.ClassName, THealthCheckResult.Unhealthy('Failed to resolve service', E));
+        Result.Add(CheckClass.ClassName, THealthCheckResult.Unhealthy('Failed to resolve service: ' + E.Message));
     end;
   end;
 end;
 
 { THealthCheckMiddleware }
 
-constructor THealthCheckMiddleware.Create(Service: THealthCheckService);
+constructor THealthCheckMiddleware.Create(AService: IHealthCheckService);
 begin
   inherited Create;
-  if Service = nil then
-    raise Exception.Create('THealthCheckMiddleware: Service is nil! Dependency Injection failed.');
-  FService := Service;
+  if AService = nil then
+    raise Exception.Create('THealthCheckMiddleware: IHealthCheckService is nil! Dependency Injection failed.');
+  FService := AService;
 end;
 
 procedure THealthCheckMiddleware.Invoke(AContext: IHttpContext; ANext: TRequestDelegate);
@@ -182,22 +223,27 @@ begin
     Exit;
   end;
 
-    // Use the scoped provider from the context
-    Results := FService.CheckHealth(AContext.Services); 
-    try
-      OverallStatus := THealthStatus.Healthy;
+  // Use the scoped provider from the context to resolve health checks
+  Results := FService.CheckHealth(AContext.Services);
+  try
+    OverallStatus := THealthStatus.Healthy;
     for Pair in Results do
+    begin
       if Pair.Value.Status = THealthStatus.Unhealthy then
-        OverallStatus := THealthStatus.Unhealthy;
+        OverallStatus := THealthStatus.Unhealthy
+      else if (Pair.Value.Status = THealthStatus.Degraded) and (OverallStatus = THealthStatus.Healthy) then
+        OverallStatus := THealthStatus.Degraded;
+    end;
 
     Json := TStringBuilder.Create;
     try
       Json.Append('{');
       
-      if OverallStatus = THealthStatus.Healthy then
-        Json.Append('"status": "Healthy",')
-      else
-        Json.Append('"status": "Unhealthy",');
+      case OverallStatus of
+        THealthStatus.Healthy: Json.Append('"status": "Healthy",');
+        THealthStatus.Degraded: Json.Append('"status": "Degraded",');
+        THealthStatus.Unhealthy: Json.Append('"status": "Unhealthy",');
+      end;
         
       Json.Append('"checks": {');
       
@@ -220,10 +266,11 @@ begin
       Json.Append('}}');
       
       AContext.Response.SetContentType('application/json');
-      if OverallStatus = THealthStatus.Healthy then
-        AContext.Response.StatusCode := 200
-      else
-        AContext.Response.StatusCode := 503;
+      case OverallStatus of
+        THealthStatus.Healthy: AContext.Response.StatusCode := 200;
+        THealthStatus.Degraded: AContext.Response.StatusCode := 200;
+        THealthStatus.Unhealthy: AContext.Response.StatusCode := 503;
+      end;
         
       AContext.Response.Write(Json.ToString);
     finally
@@ -236,10 +283,10 @@ end;
 
 { THealthCheckBuilder }
 
-constructor THealthCheckBuilder.Create(Services: IServiceCollection);
+constructor THealthCheckBuilder.Create(AServices: IServiceCollection);
 begin
   inherited Create;
-  FServices := Services;
+  FServices := AServices;
   FChecks := TList<TClass>.Create;
 end;
 
@@ -251,10 +298,10 @@ end;
 
 function THealthCheckBuilder.AddCheck<T>: THealthCheckBuilder;
 begin
-  // Register the check implementation
+  // Register the health check class as Transient in DI
   FServices.AddTransient(TServiceType.FromClass(T), T);
   
-  // Add to our list
+  // Store the class reference to be added to the service later
   FChecks.Add(T);
   
   Result := Self;
@@ -265,25 +312,29 @@ var
   CapturedChecks: TArray<TClass>;
   Factory: TFunc<IServiceProvider, TObject>;
 begin
+  // Capture the checks array for the factory closure
   CapturedChecks := FChecks.ToArray;
   
-  // Create an explicit factory to help the compiler resolve the overload
+  // Create factory that will configure the service with registered checks
   Factory := function(Provider: IServiceProvider): TObject
     var
       Service: THealthCheckService;
       CheckClass: TClass;
     begin
-      Service := THealthCheckService.Create; // No Provider injected here
+      Service := THealthCheckService.Create;
       for CheckClass in CapturedChecks do
         Service.RegisterCheck(CheckClass);
       Result := Service;
     end;
 
+  // Register IHealthCheckService as Singleton with the factory
   FServices.AddSingleton(
-    TServiceType.FromClass(THealthCheckService),
+    TServiceType.FromInterface(IHealthCheckService),
     THealthCheckService,
     Factory
   );
+  
+  // Self-destruct the builder
   Self.Free;
 end;
 
