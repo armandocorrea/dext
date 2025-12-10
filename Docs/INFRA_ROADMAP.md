@@ -90,9 +90,10 @@ Evolução da `Fluent Tasks API` para suportar cenários complexos de orquestra�
 
 ### 1. Dext.Mock (AST-Based)
 Motor de Mocks construído sobre a engine `Dext.Expressions`.
-- [ ] **Interceptor**: Uso de `TVirtualInterface` conectado à AST.
+- [ ] **AST Evolution (Core)**: Implementar `IMethodCallExpression` (para representar a chamada) e `TArgExpression` (para representar o argumento sendo validado) na engine de expressões.
+- [ ] **Interceptor**: Uso de `TVirtualInterface` conectado à AST para gravar as chamadas no `MethodCallExpression`.
 - [ ] **Argument Matchers DSL**: Record `It` para definição de regras (`It.IsAny<int>`, `It.Matches(Arg > 10)`).
-- [ ] **Async Mocking**: Suporte nativo a `ReturnsAsync` (fabricação de Tasks completadas).
+- [ ] **Async Mocking**: Suporte nativo a `ReturnsAsync` (fabricação de Tasks completadas para evitar boilerplate em testes).
 
 ### 2. Fluent Assertions
 - [ ] **Fluent API**: Sintaxe `Expect(Value).Should.Be(10)`.
