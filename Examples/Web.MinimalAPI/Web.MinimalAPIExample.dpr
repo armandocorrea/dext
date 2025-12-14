@@ -1,4 +1,4 @@
-﻿// Examples/MinimalAPI/MinimalAPIExample.pas
+// Examples/MinimalAPI/MinimalAPIExample.pas
 program Web.MinimalAPIExample;
 
 {$APPTYPE CONSOLE}
@@ -6,7 +6,7 @@ program Web.MinimalAPIExample;
 {$R *.res}
 
 uses
-  FastMM5,
+  Dext.MM,
   System.DateUtils,
   System.SysUtils,
   Dext.WebHost,
@@ -39,7 +39,6 @@ var
   Host: IWebHost;
 
 begin
-  ReportMemoryLeaksOnShutdown := True;
   Builder := TDextWebHost.CreateDefaultBuilder;
 
   Builder.ConfigureServices(

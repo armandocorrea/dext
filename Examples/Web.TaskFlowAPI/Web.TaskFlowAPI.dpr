@@ -1,7 +1,7 @@
-﻿program Web.TaskFlowAPI;
+program Web.TaskFlowAPI;
 
 uses
-  FastMM5,
+  Dext.MM,
   Dext.Web.WebApplication,
   Dext.DI.Extensions,
   Dext.Web.Routing.Attributes,
@@ -47,7 +47,6 @@ var
   App: IWebApplication;
 
 begin
-  ReportMemoryLeaksOnShutdown := True;
 
   try
     WriteLn('Starting TaskFlow API...');

@@ -1,11 +1,11 @@
-﻿program Dext.Starter.Admin;
+program Dext.Starter.Admin;
 
 {$APPTYPE CONSOLE}
 
 {$R *.res}
 
 uses
-  FastMM5,
+  Dext.MM,
   System.SysUtils,
   Dext,
   Dext.Web,
@@ -32,7 +32,6 @@ uses
   Settings.Dto in 'Features\Settings\Settings.Dto.pas';
 
 begin
-  ReportMemoryLeaksOnShutdown := True;
   try
     SetConsoleCharSet;
     // 1. Initialize Application

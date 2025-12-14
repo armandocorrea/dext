@@ -1,9 +1,9 @@
-﻿program Dext.MinimalAPITest;
+program Dext.MinimalAPITest;
 
 {$APPTYPE CONSOLE}
 
 uses
-  FastMM5,
+  Dext.MM,
   System.SysUtils,
   System.IOUtils,
   Dext.Caching,
@@ -101,7 +101,6 @@ begin
 end;
 
 begin
-  ReportMemoryLeaksOnShutdown := True;
   try
     WriteLn('Dext Minimal API - Complete Feature Demo');
     WriteLn('============================================');

@@ -1,9 +1,9 @@
-﻿program Web.RateLimitDemo;
+program Web.RateLimitDemo;
 
 {$APPTYPE CONSOLE}
 
 uses
-  FastMM5,
+  Dext.MM,
   System.SysUtils,
   Dext.Web.WebApplication,
   Dext,
@@ -17,7 +17,6 @@ uses
 var
   App: IWebApplication;
 begin
-  ReportMemoryLeaksOnShutdown := True;
 
   try
     WriteLn('Dext Rate Limiting Demo');

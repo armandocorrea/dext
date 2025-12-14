@@ -1,9 +1,9 @@
-﻿program Web.JwtAuthDemo;
+program Web.JwtAuthDemo;
 
 {$APPTYPE CONSOLE}
 
 uses
-  FastMM5,
+  Dext.MM,
   System.SysUtils,
   System.DateUtils,
   System.Rtti,
@@ -31,7 +31,6 @@ var
   SecretKey: string;
 
 begin
-  ReportMemoryLeaksOnShutdown := True;
 
   try
     WriteLn('Dext JWT Authentication Demo');
