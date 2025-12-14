@@ -22,52 +22,42 @@ type
 implementation
 
 uses
-  AppResponseConsts;
+  AppResponseConsts,
+  Dashboard.Service;
 
 { TDashboardEndpoints }
 
 class procedure TDashboardEndpoints.Map(App: TDextAppBuilder);
 begin
-  // Root path
+  // Root path (index.html is in wwwroot, not in views, so use relative path)
   App.MapGet('/',
     procedure(Context: IHttpContext)
     begin
-      // Uses Admin.Utils.GetFilePath
-      var Res: IResult := TContentResult.Create(TFile.ReadAllText(GetFilePath('wwwroot\index.html')), 'text/html');
-      Res.Execute(Context);
+      Results.HtmlFromFile('..\index.html').Execute(Context);
     end);
 
   // Dashboard fragment
   App.MapGet('/dashboard',
     procedure(Context: IHttpContext)
     begin
-      var Res: IResult := TContentResult.Create(TFile.ReadAllText(GetFilePath('wwwroot\views\dashboard_fragment.html')), 'text/html');
-      Res.Execute(Context);
+      Results.HtmlFromFile('dashboard_fragment.html').Execute(Context);
     end);
 
-  // Dashboard stats - Injected TAppDbContext
-  App.MapGet<TAppDbContext, IHttpContext>('/dashboard/stats',
-    procedure(Db: TAppDbContext; Context: IHttpContext)
+  // Dashboard stats - Injected IDashboardService
+  App.MapGet<IDashboardService, IResult>('/dashboard/stats',
+    function(Service: IDashboardService): IResult
     begin
-      var TotalCustomers := Db.Entities<TCustomer>.List.Count; 
+      var Stats := Service.GetStats;
       
-      var Orders := Db.Entities<TOrder>.List;
-      var TotalSales: Currency := 0;
-      for var O in Orders do
-        TotalSales := TotalSales + O.Total;
-        
-      var Html := Format(HTML_DASHBOARD_STATS, [TotalCustomers, TotalSales]);
-
-      var Res: IResult := TContentResult.Create(Html, 'text/html');
-      Res.Execute(Context);
+      var Html := Format(HTML_DASHBOARD_STATS, [Stats.TotalCustomers, Stats.TotalSales]);
+      Result := Results.Html(Html);
     end);
 
-  // Dashboard chart data
-  App.MapGet('/dashboard/chart',
-    procedure(Context: IHttpContext)
+  // Dashboard chart data - Using real customer data
+  App.MapGet<IDashboardService, IResult>('/dashboard/chart',
+    function(Service: IDashboardService): IResult
     begin
-      var Res := Results.Json(JSON_DASHBOARD_CHART);
-      Res.Execute(Context);
+      Result := Results.Json(Service.GetChartDataJson);
     end);
 end;
 

@@ -16,6 +16,7 @@ uses
   Customer.Endpoints in 'Features\Customers\Customer.Endpoints.pas',
   Settings.Endpoints in 'Features\Settings\Settings.Endpoints.pas',
   User in 'Domain\Entities\User.pas',
+  UserSettings in 'Domain\Entities\UserSettings.pas',
   Customer in 'Domain\Entities\Customer.pas',
   Order in 'Domain\Entities\Order.pas',
   DbContext in 'Domain\DbContext.pas',

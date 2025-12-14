@@ -117,6 +117,25 @@ type
       Handler: THandlerResultFunc<T1, T2, TResult>): IApplicationBuilder; overload;
     class function MapDelete<T1, T2, T3, TResult>(App: IApplicationBuilder; const Path: string;
       Handler: THandlerResultFunc<T1, T2, T3, TResult>): IApplicationBuilder; overload; 
+
+    // Legacy R-suffix aliases (deprecated - use MapGet/MapPost with TResult instead)
+    class function MapGetR<TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<TResult>): IApplicationBuilder; overload;
+    class function MapGetR<T, TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<T, TResult>): IApplicationBuilder; overload;
+    class function MapGetR<T1, T2, TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<T1, T2, TResult>): IApplicationBuilder; overload;
+    class function MapGetR<T1, T2, T3, TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<T1, T2, T3, TResult>): IApplicationBuilder; overload;
+
+    class function MapPostR<TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<TResult>): IApplicationBuilder; overload;
+    class function MapPostR<T, TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<T, TResult>): IApplicationBuilder; overload;
+    class function MapPostR<T1, T2, TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<T1, T2, TResult>): IApplicationBuilder; overload;
+    class function MapPostR<T1, T2, T3, TResult>(App: IApplicationBuilder; const Path: string;
+      Handler: THandlerResultFunc<T1, T2, T3, TResult>): IApplicationBuilder; overload;
   end;
 
 implementation
@@ -618,6 +637,54 @@ begin
     end);
 end;
 
+// Legacy R-suffix aliases implementation
+
+class function TApplicationBuilderExtensions.MapGetR<TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<TResult>): IApplicationBuilder;
+begin
+  Result := MapGet<TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapGetR<T, TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<T, TResult>): IApplicationBuilder;
+begin
+  Result := MapGet<T, TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapGetR<T1, T2, TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<T1, T2, TResult>): IApplicationBuilder;
+begin
+  Result := MapGet<T1, T2, TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapGetR<T1, T2, T3, TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<T1, T2, T3, TResult>): IApplicationBuilder;
+begin
+  Result := MapGet<T1, T2, T3, TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapPostR<TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<TResult>): IApplicationBuilder;
+begin
+  Result := MapPost<TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapPostR<T, TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<T, TResult>): IApplicationBuilder;
+begin
+  Result := MapPost<T, TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapPostR<T1, T2, TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<T1, T2, TResult>): IApplicationBuilder;
+begin
+  Result := MapPost<T1, T2, TResult>(App, Path, Handler);
+end;
+
+class function TApplicationBuilderExtensions.MapPostR<T1, T2, T3, TResult>(App: IApplicationBuilder;
+  const Path: string; Handler: THandlerResultFunc<T1, T2, T3, TResult>): IApplicationBuilder;
+begin
+  Result := MapPost<T1, T2, T3, TResult>(App, Path, Handler);
+end;
+
 end.
-
-

@@ -18,6 +18,7 @@ uses
   Dashboard.Service,
   // Shared
   Admin.Middleware,
+  Admin.Utils,
   // Domain
   User,
   Customer,
@@ -103,6 +104,9 @@ procedure TAppStartup.Configure(const App: IWebApplication);
 begin
   var WebApp := App.GetBuilder;
 
+  // 0. Configure Views Path (using Admin.Utils to get correct path)
+  Results.SetViewsPath(GetFilePath('wwwroot\views'));
+  
   // 1. Serve Static Files (from wwwroot)
   WebApp.UseStaticFiles;
 

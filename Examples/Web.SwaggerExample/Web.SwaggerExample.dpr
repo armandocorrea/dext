@@ -9,7 +9,7 @@ uses
   Dext.DI.Extensions,
   Dext.Web.Interfaces,
   Dext.WebHost,
-  Dext.Core.ApplicationBuilder.Extensions,
+  Dext.Web.ApplicationBuilder.Extensions,
   Dext.Swagger.Middleware,
   Dext.OpenAPI.Attributes,
   Dext.OpenAPI.Extensions,

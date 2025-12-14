@@ -7,6 +7,7 @@ uses
   Dext.Web,
   Dext.Collections,
   Dext.Persistence,
+  Dext.Json,
   Customer,
   Customer.Dto,
   Admin.Utils,
@@ -32,60 +33,47 @@ uses
 // Helper Functions
 function GenerateCustomerRow(C: TCustomer): string;
 begin
-  Result := Format(
-    '<tr id="customer-%d">' +
-    '<td>%d</td>' +
-    '<td>%s</td>' +
-    '<td>%s</td>' +
-    '<td>%m</td>' +
-    '<td>' +
-    '  <button class="btn btn-sm btn-primary" hx-get="/customers/%d/form" hx-target="#modal-content" hx-trigger="click" _="on click call showModal()">Edit</button>' +
-    '  <button class="btn btn-sm btn-danger" hx-delete="/customers/%d" hx-target="#customer-%d" hx-swap="outerHTML" hx-confirm="Are you sure?">Delete</button>' +
-    '</td>' +
-    '</tr>',
-    [C.Id, C.Id, C.Name, C.Email, C.TotalSpent, C.Id, C.Id, C.Id]);
+  // Uses HTML_CUSTOMER_ROW from AppResponseConsts
+  // Format: Id, Id, Name, Email, TotalSpent, IdEditButton, IdDeleteButton
+  Result := Format(HTML_CUSTOMER_ROW,
+    [C.Id, C.Id, C.Name, C.Email, C.TotalSpent, C.Id, C.Id]);
 end;
 
 function GenerateCustomerForm(C: TCustomer): string;
 var
-  Method, Url, Title, Name, Email, Total, IdVal: string;
+  Method, Url, Title, HxTarget, HxSwap, Name, Email, Total: string;
+  FS: TFormatSettings;
 begin
+  FS := TFormatSettings.Create;
+  FS.DecimalSeparator := '.';
+  
   if Assigned(C) then
   begin
     Title := 'Edit Customer';
-    Url := '/customers/' + IntToStr(C.Id);
     Method := 'hx-put';
-    IdVal := IntToStr(C.Id);
+    Url := '/customers/' + IntToStr(C.Id);
+    HxTarget := '#customer-row-' + IntToStr(C.Id);
+    HxSwap := 'outerHTML';
     Name := C.Name;
     Email := C.Email;
-    Total := FloatToStr(C.TotalSpent);
+    Total := FormatFloat('0.00', C.TotalSpent, FS);
   end
   else
   begin
     Title := 'New Customer';
-    Url := '/customers/';
     Method := 'hx-post';
-    IdVal := '0';
+    Url := '/customers/';
+    HxTarget := '#customers-table-body';
+    HxSwap := 'beforeend';
     Name := '';
     Email := '';
     Total := '0';
   end;
 
-  Result := Format(
-    '<div class="p-4">' +
-    '<h3>%s</h3>' +
-    '<form %s="%s" hx-target="#customer-%s" hx-swap="outerHTML">' + // Default swap for PUT. For POST, we might override in the response handling or target list
-    '<input type="hidden" name="id" value="%s">' +
-    '<div class="mb-3"><label>Name</label><input type="text" name="Name" class="form-control" value="%s" required></div>' +
-    '<div class="mb-3"><label>Email</label><input type="email" name="Email" class="form-control" value="%s" required></div>' +
-    '<div class="mb-3"><label>Total Spent</label><input type="number" name="TotalSpent" class="form-control" value="%s"></div>' +
-    '<div class="d-flex justify-content-end gap-2">' +
-    '  <button type="button" class="btn btn-secondary" _="on click call closeModal()">Cancel</button>' +
-    '  <button type="submit" class="btn btn-primary">Save</button>' +
-    '</div>' +
-    '</form></div>',
-    [Title, Method, Url, IdVal, IdVal, Name, Email, Total]
-  );
+  // Uses HTML_CUSTOMER_FORM from AppResponseConsts
+  // Format: Title, Method, Url, HxTarget, HxSwap, Name, Email, TotalSpent
+  Result := Format(HTML_CUSTOMER_FORM,
+    [Title, Method, Url, HxTarget, HxSwap, Name, Email, Total]);
 end;
 
 { TCustomerEndpoints }
@@ -164,10 +152,14 @@ begin
     function(Service: ICustomerService; Dto: TCustomerDto; Context: IHttpContext): IResult
     var
       C: TCustomer;
+      Id: Integer;
     begin
-      if Dto.Id > 0 then
+      // Get ID from route params, not DTO
+      Id := StrToIntDef(Context.Request.RouteParams['id'], 0);
+      
+      if Id > 0 then
       begin
-        C := Service.GetById(Dto.Id);
+        C := Service.GetById(Id);
         if C <> nil then
         begin
           C.Name := Dto.Name;

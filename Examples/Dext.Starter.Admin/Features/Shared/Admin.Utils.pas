@@ -10,41 +10,49 @@ function GetFilePath(const RelativePath: string): string;
 
 implementation
 
-// function GetFilePath(const RelativePath: string): string;
 function GetFilePath(const RelativePath: string): string;
 var
   AppDir: string;
-  BaseDir: string;
+  SearchDir: string;
+  TargetPath: string;
+  CandidatePath: string;
   I: Integer;
-  Candidate: string;
 begin
   AppDir := ExtractFilePath(ParamStr(0));
+  AppDir := ExpandFileName(AppDir);
   
-  // Strategy: Climb up looking for 'Dext.Starter.Admin' folder
-  BaseDir := AppDir;
+  // Estratégia: Subir até encontrar 'Dext.Starter.Admin'  
+  SearchDir := AppDir;
   for I := 0 to 5 do
   begin
-    // Check if Dext.Starter.Admin exists in current BaseDir
-    Candidate := IncludeTrailingPathDelimiter(BaseDir) + 'Dext.Starter.Admin';
-    if DirectoryExists(Candidate) then
+    // Verifica se existe Dext.Starter.Admin neste nível
+    TargetPath := TPath.Combine(SearchDir, 'Dext.Starter.Admin');
+    if TDirectory.Exists(TargetPath) then
     begin
-       Result := IncludeTrailingPathDelimiter(Candidate) + RelativePath;
-       Exit;
+      CandidatePath := TPath.Combine(TargetPath, RelativePath);
+      // Verificar se o arquivo/diretório existe antes de retornar
+      if TFile.Exists(CandidatePath) or TDirectory.Exists(TPath.GetDirectoryName(CandidatePath)) then
+      begin
+        Result := CandidatePath;
+        Exit;
+      end;
     end;
     
-    // Also check if we ARE inside Dext.Starter.Admin already (e.g. running from source root)
-    if DirectoryExists(IncludeTrailingPathDelimiter(BaseDir) + 'wwwroot') then
-    begin
-       Result := IncludeTrailingPathDelimiter(BaseDir) + RelativePath;
-       Exit;
-    end;
-
-    // Move up
-    BaseDir := BaseDir + '..\';
+    // Subir um nível
+    SearchDir := TPath.GetDirectoryName(ExcludeTrailingPathDelimiter(SearchDir));
+    if SearchDir = '' then Break;
   end;
-
-  // Fallback: Just append to AppDir if not found (will likely fail but shows intention)
-  Result := IncludeTrailingPathDelimiter(AppDir) + RelativePath;
+  
+  // Fallback: caminho absoluto direto (para cenário onde estamos rodando de dentro do projeto)
+  CandidatePath := TPath.Combine(AppDir, RelativePath);
+  if TFile.Exists(CandidatePath) then
+  begin
+    Result := CandidatePath;
+    Exit;
+  end;
+  
+  // Último fallback: mesmo que não exista, retorna o path esperado
+  Result := TPath.Combine(AppDir, '..\Dext.Starter.Admin\' + RelativePath);
 end;
 
 end.

@@ -9,7 +9,7 @@ uses
   Dext.DI.Middleware,
   Dext.Web.Interfaces,
   Dext.WebHost,
-  Dext.Core.ApplicationBuilder.Extensions,
+  Dext.Web.ApplicationBuilder.Extensions,
   Dext.Web.Results;
 
 type

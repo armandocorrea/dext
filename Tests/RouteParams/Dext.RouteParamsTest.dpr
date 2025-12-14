@@ -8,8 +8,8 @@ uses
   Dext.DI.Extensions,
   Dext.Web.Interfaces,
   Dext.WebHost,
-  Dext.Core.ApplicationBuilder.Extensions,
-  Dext.Core.HandlerInvoker;
+  Dext.Web.ApplicationBuilder.Extensions,
+  Dext.Web.HandlerInvoker;
 
 {$R *.res}
 

@@ -33,8 +33,7 @@ begin
   App.MapGet('/auth/login',
     procedure(Context: IHttpContext)
     begin
-      var Res: IResult := Results.Html(TFile.ReadAllText(GetFilePath('wwwroot\views\login.html')));
-      Res.Execute(Context);
+      Results.HtmlFromFile('login.html').Execute(Context);
     end);
 
   // POST /auth/login - Handle login
@@ -42,9 +41,9 @@ begin
   App.MapPost<IAuthService, IJwtTokenHandler, TLoginDto, IResult>('/auth/login',
     function(AuthService: IAuthService; JwtHandler: IJwtTokenHandler; Dto: TLoginDto): IResult
     var
-      User: TUser;
       Claims: TArray<TClaim>;
       Token: string;
+      User: TUser;
     begin
       User := AuthService.ValidateUser(Dto.Username, Dto.Password);
       

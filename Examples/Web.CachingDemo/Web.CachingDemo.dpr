@@ -5,8 +5,8 @@
 uses
   FastMM5,
   System.SysUtils,
-  Dext.Core.WebApplication,
-  Dext.Core.ApplicationBuilder.Extensions,
+  Dext.Web.WebApplication,
+  Dext.Web.ApplicationBuilder.Extensions,
   Dext.Web.Interfaces,
   Dext.Web.Results,
   Dext.Caching;
