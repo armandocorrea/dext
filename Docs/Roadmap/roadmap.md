@@ -17,6 +17,7 @@ Abaixo, comparamos o Dext com as principais alternativas do mercado Delphi e sua
 | Funcionalidade | ⚡ Dext | 🐴 Horse | 📦 DMVC | 🔷 ASP.NET Core |
 | :--- | :---: | :---: | :---: | :---: |
 | **Arquitetura** | Modular (Microsoft.Extensions.* style) | Middleware-based (Express.js style) | MVC Clássico | Modular |
+| **Real-Time (WebSockets)** | ✅ (Planejado v1.0) | ⚠️ (Socket.IO externo) | ❌ | ✅ (SignalR) |
 | **Injeção de Dependência** | ✅ **Nativa & First-Class** (Scoped, Transient, Singleton) | ❌ (Requer lib externa) | ⚠️ (Limitada/Externa) | ✅ Nativa |
 | **Scoped Services** | ✅ **Por Requisição** (DbContext, UoW) | ❌ | ❌ | ✅ |
 | **Minimal APIs** | ✅ `App.MapGet('/route', ...)` | ✅ | ❌ | ✅ |
@@ -215,6 +216,8 @@ Foco em produtividade, code intelligence, wizards e integração com a IDE do De
 - [x] **Health Checks**: Middleware de monitoramento de saúde (`/health`) com suporte a checks customizados.
 - [x] **Background Services**: Suporte a `IHostedService` e `TBackgroundService` para tarefas em segundo plano.
 - [x] **Options Pattern**: Configuração fortemente tipada via `IOptions<T>`.
+- [ ] **Real-Time (WebSockets/SSE)**: Suporte a comunicação bidirecional (Dext Forum).
+
 
 ### 5. Entity ORM (✅ Alpha 0.6 - Funcional)
 - [x] **Basic CRUD**: Operações Create, Read, Update, Delete.
@@ -225,10 +228,13 @@ Foco em produtividade, code intelligence, wizards e integração com a IDE do De
 - [x] **Explicit Loading**: Carregamento manual com `Entry().Reference().Load()`.
 - [x] **Naming Strategy**: Estratégias de nomenclatura (SnakeCase, CamelCase, etc.).
 - [x] **External Mapping**: Mapeamento fluente externo (`TEntityMap<T>`).
+
 - [x] **Nullable Support**: Suporte completo a `Nullable<T>` para campos opcionais e Foreign Keys.
   - Tipos: `Nullable<Integer>`, `Nullable<String>`, `Nullable<TGUID>`, etc.
   - Compatibilidade: Spring4D e Delphi nativo
   - Funcionalidades: Persist, Hydrate, Foreign Key loading
+- [ ] **Polymorphism**: Relacionamentos polimórficos e herança (Dext Forum).
+
 - [x] **Optimistic Concurrency**: Controle de concorrência via `[Version]`.
 - [x] **Database Support**:
   - ✅ **SQLite**: Suporte completo e testado
@@ -238,7 +244,7 @@ Foco em produtividade, code intelligence, wizards e integração com a IDE do De
   - `TDbConfig` helper class
   - Suporte a múltiplos providers
   - Configuração via código ou environment variables
-- [ ] **Migrations**: Sistema de migração de schema (planejado para v1.0).
+- [ ] **Migrations**: Sistema de migração de schema (Prioridade Alta - Dext Forum).
 
 ### 6. Ecossistema & Tooling (📅 Planejado para v1.1)
 - [ ] **CLI**: Ferramenta de linha de comando (`dext new webapi`).
@@ -261,6 +267,8 @@ Foco em produtividade, code intelligence, wizards e integração com a IDE do De
 - [ ] **Unit Tests**: Cobertura abrangente (Core, DI, Http).
 - [ ] **Documentation**: Site de documentação oficial (VitePress/Docusaurus).
 - [ ] **Samples**: Repositório de exemplos "Real World".
+  - [ ] **Dext Forum**: Showcase completo de comunidade (Real-time, Auth, Complex Queries).
+
 
 ---
 

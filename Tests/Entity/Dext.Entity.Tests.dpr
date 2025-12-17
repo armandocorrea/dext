@@ -15,6 +15,7 @@ uses
   Dext.Entity.Dialect.MySQL.Test in 'Dext.Entity.Dialect.MySQL.Test.pas',
   Dext.Entity.Dialect.Oracle.Test in 'Dext.Entity.Dialect.Oracle.Test.pas',
   Dext.Entity.Naming.Test in 'Dext.Entity.Naming.Test.pas',
+  Dext.Entity.Pooling.Test in 'Dext.Entity.Pooling.Test.pas',
   Dext.Entity.Mapping.Test in 'Dext.Entity.Mapping.Test.pas';
 
 procedure RunTests;

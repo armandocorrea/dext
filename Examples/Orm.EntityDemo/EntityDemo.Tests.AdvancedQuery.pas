@@ -7,7 +7,10 @@ uses
   Dext.Collections, // Add Collections unit
   Dext.Entity.Grouping, Dext.Entity.Joining, Dext.Persistence,
   Dext.Specifications.Interfaces, Dext.Specifications.Fluent,
-  EntityDemo.Entities, EntityDemo.Tests.Base;
+  EntityDemo.Entities, EntityDemo.Tests.Base,
+  // NEW:
+  Dext.Data.TypeSystem,
+  EntityDemo.Entities.Meta;
 
 type
   TAdvancedQueryTest = class(TBaseTest)
@@ -21,6 +24,7 @@ type
     procedure TestInclude;
     procedure TestSelectOptimized;
     procedure TestFluentSyntax;
+    procedure TestTypeSafeQuery; // New Test
   end;
 
 implementation
@@ -35,6 +39,7 @@ begin
   TestJoin;
   TestInclude;
   TestSelectOptimized;
+  TestTypeSafeQuery;
 
   Log('');
 end;
@@ -401,6 +406,41 @@ end;
 procedure TAdvancedQueryTest.TestFluentSyntax;
 begin
   Log('   Testing Fluent Syntax Overloads... (SKIPPED)');
+end;
+
+procedure TAdvancedQueryTest.TestTypeSafeQuery;
+var
+  Users: IList<TUser>;
+begin
+  Log('   Testing Type-Safe Query (TUserType)...');
+  TearDown;
+  Setup;
+
+  var U := TUser.Create;
+  U.Name := 'TypeSafe User';
+  U.Age := 25;
+  FContext.Entities<TUser>.Add(U);
+  FContext.SaveChanges;
+  
+  // Syntax Goal: Where(TUserType.Age > 18)
+  // TUserType.Age is TProp<Integer>
+  // > 18 invokes TProp<Integer>.GreaterThan(..., 18) -> TExpression 
+  // Where(...) takes ISpecification or IExpression (via implicit?)
+  // TFluentQuery.Where(Expression) exists.
+  
+  var Query := FContext.Entities<TUser>.QueryAll
+    .Where(TUserType.Age > 18)
+    .Where(TUserType.Name <> '');
+    //.Where(TUserType.Age > 18)
+    //.Where(TUserType.Name <> '');
+    
+    // Note: TProp<string> operators need to support <> '' 
+    // And implicit convert TProp<T> expression result (TPropExpression.TExpression) to IExpression interface
+    
+  Users := Query.ToList;
+  
+  AssertTrue(Users.Count = 1, 'Should find 1 user', Format('Found %d', [Users.Count]));
+  AssertTrue(Users[0].Age = 25, 'Age should be 25', Format('Found %d', [Users[0].Age]));
 end;
 
 end.

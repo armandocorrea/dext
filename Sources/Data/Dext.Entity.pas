@@ -108,6 +108,7 @@ type
     FDialect: ISQLDialect;
     FNamingStrategy: INamingStrategy;
     FModelBuilder: TModelBuilder; // Model Builder
+    FOwnsModelBuilder: Boolean;
     FTransaction: IDbTransaction;
     FCache: TDictionary<PTypeInfo, IInterface>; // Cache for DbSets
     FChangeTracker: IChangeTracker;
@@ -123,8 +124,14 @@ type
     procedure OnModelCreating(Builder: TModelBuilder); virtual;
     
   public
+    class var FModelCache: TObjectDictionary<TClass, TModelBuilder>;
+    class var FCriticalSection: TObject; // For thread safety
+    
     constructor Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil);
     destructor Destroy; override;
+    
+    class constructor Create;
+    class destructor Destroy;
     
     function Connection: IDbConnection;
     function Dialect: ISQLDialect;
@@ -249,6 +256,22 @@ type
     destructor Destroy; override;
   end;
 
+const
+  // Key for caching based on class type
+  CACHE_KEY = 'Model';
+
+class constructor TDbContext.Create;
+begin
+  FModelCache := TObjectDictionary<TClass, TModelBuilder>.Create([doOwnsValues]);
+  FCriticalSection := TObject.Create;
+end;
+
+class destructor TDbContext.Destroy;
+begin
+  FModelCache.Free;
+  FCriticalSection.Free;
+end;
+
 constructor TDbContext.Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil);
 begin
   inherited Create;
@@ -261,10 +284,23 @@ begin
     
   FCache := TDictionary<PTypeInfo, IInterface>.Create;
   FChangeTracker := TChangeTracker.Create;
-  FModelBuilder := TModelBuilder.Create;
   
-  // Initialize Model
-  OnModelCreating(FModelBuilder);
+  // Model Caching Logic
+  System.TMonitor.Enter(FCriticalSection);
+  try
+    if not FModelCache.TryGetValue(Self.ClassType, FModelBuilder) then
+    begin
+      FModelBuilder := TModelBuilder.Create;
+      // Initialize Model
+      OnModelCreating(FModelBuilder);
+      
+      FModelCache.Add(Self.ClassType, FModelBuilder);
+    end;
+    // We reuse the cached builder. Do NOT own it.
+    FOwnsModelBuilder := False;
+  finally
+    System.TMonitor.Exit(FCriticalSection);
+  end;
 end;
 
 destructor TDbContext.Destroy;
@@ -275,7 +311,8 @@ begin
     FChangeTracker.Clear;
     
   FCache.Free;
-  FModelBuilder.Free;
+  if FOwnsModelBuilder then
+    FModelBuilder.Free;
   inherited;
 end;
 
