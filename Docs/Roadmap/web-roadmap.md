@@ -18,24 +18,41 @@ Blindagem das interfaces para suportar alta performance (Zero-Copy) no futuro.
 ### 1. Web API Improvements (Prioridade Alta) 🔥
 Melhorias na experiência de construção de APIs robustas e profissionais.
 
-#### 0. **Object Serialization in Dext.Json** 🔥 **URGENTE** (4-6 horas)
-Atualmente `Dext.Json.pas` só serializa records, primitivos, arrays e listas. **Falta suporte a objetos/classes!**
+#### 0. **Object Serialization in Dext.Json** ✅ **CONCLUÍDO** + 🔥 **Deserialization URGENTE**
 
-**Problema**:
-- ❌ Não pode serializar DTOs que são classes
-- ❌ Não pode retornar grafos de objetos complexos de APIs
-- ❌ Limita usabilidade do framework para cenários reais
+**Status da Serialização**: ✅ **COMPLETO**
+- ✅ Adicionado método `SerializeObject(const AValue: TValue): IDextJsonObject`
+- ✅ Atualizado `ValueToJson` para rotear `tkClass` corretamente (distinguir entre listas e objetos)
+- ✅ Suporte a atributos `[JsonIgnore]` e `[JsonName]` para controle de serialização
+- ✅ Lidar com objetos null (retornar `null` JSON)
+- ✅ Serialização recursiva de objetos aninhados
+- ✅ Suporte para `IList<TObject>` com objetos aninhados
+- ✅ Zero memory leaks (validado com FastMM5)
+- ✅ Testes criados (objetos simples, aninhados, listas, null)
 
-**Solução**:
-- [ ] Adicionar método `SerializeObject(const AValue: TValue): IDextJsonObject`
-- [ ] Atualizar `ValueToJson` para rotear `tkClass` corretamente (distinguir entre listas e objetos)
-- [ ] Implementar detecção de referências circulares (`TDictionary<TObject, Boolean>`)
-- [ ] Suportar atributos `[JsonIgnore]` e `[JsonName]` para controle de serialização
-- [ ] Lidar com objetos null (retornar `null` JSON)
-- [ ] Implementar deserialização (`DeserializeObject`)
-- [ ] Criar testes abrangentes (objetos simples, aninhados, circulares, null)
+**Próximos Passos** (por prioridade):
 
-**Exemplo de Uso**:
+1. **🔥 Object Deserialization (URGENTE)** (6-8 horas)
+   - [ ] Implementar `DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo): TValue`
+   - [ ] Suporte para objetos aninhados (recursivo)
+   - [ ] Suporte para `IList<TObject>` deserialization
+   - [ ] Criar instâncias via RTTI (`TRttiType.GetMethod('Create')`)
+   - [ ] Setar propriedades via RTTI (`TRttiProperty.SetValue`)
+   - [ ] Lidar com propriedades null
+   - [ ] Testes abrangentes (POST/PUT endpoints)
+
+2. **Circular Reference Detection** (2-3 horas)
+   - [ ] Implementar `TDictionary<TObject, Boolean>` para rastrear objetos já serializados
+   - [ ] Lançar exceção ou retornar `null` em caso de referência circular
+   - [ ] Testes com grafos circulares
+
+3. **Performance Optimization** (3-4 horas)
+   - [ ] Cache de RTTI types (`TDictionary<PTypeInfo, TRttiType>`)
+   - [ ] Cache de property metadata
+   - [ ] Benchmark com objetos profundos (10+ níveis)
+   - [ ] Otimizar clonagem de objetos JSON
+
+**Exemplo de Uso Atual**:
 ```pascal
 type
   TAddress = class
