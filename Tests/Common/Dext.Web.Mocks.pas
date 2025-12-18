@@ -35,6 +35,8 @@ type
     function GetRouteParams: TDictionary<string, string>;
     function GetHeaders: TDictionary<string, string>; virtual;
     function GetRemoteIpAddress: string;
+    function GetHeader(const AName: string): string;
+    function GetQueryParam(const AName: string): string;
 
     property RemoteIpAddress: string read FRemoteIpAddress write FRemoteIpAddress;
   end;
@@ -225,6 +227,17 @@ end;
 function TMockHttpRequest.GetRemoteIpAddress: string;
 begin
   Result := FRemoteIpAddress;
+end;
+
+function TMockHttpRequest.GetHeader(const AName: string): string;
+begin
+  if not FHeaders.TryGetValue(AName, Result) then
+    Result := '';
+end;
+
+function TMockHttpRequest.GetQueryParam(const AName: string): string;
+begin
+  Result := FQueryParams.Values[AName];
 end;
 
 { TMockHttpResponse }
