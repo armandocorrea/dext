@@ -1,2 +1,39 @@
 @echo off
-dcc32.exe -$O- -$W+ -$R+ -$Q+ --no-config -B -Q -TX.exe -AGenerics.Collections=System.Generics.Collections;Generics.Defaults=System.Generics.Defaults;WinTypes=Winapi.Windows;WinProcs=Winapi.Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE -DDEBUG -E..\Output -I"c:\program files (x86)\embarcadero\studio\23.0\lib\Win32\debug";..\..\Output\Win32\Debug;"c:\program files (x86)\embarcadero\studio\23.0\lib\Win32\release";C:\Users\Cezar\Documents\Embarcadero\Studio\23.0\Imports;C:\Users\Cezar\Documents\Embarcadero\Studio\23.0\Imports\Win32;"c:\program files (x86)\embarcadero\studio\23.0\Imports";C:\Users\Public\Documents\Embarcadero\Studio\23.0\Dcp;"c:\program files (x86)\embarcadero\studio\23.0\include";C:\f10\projetos\comp\FastMM5;C:\dev\Dext\Output\Win32\Debug -LEC:\Users\Public\Documents\Embarcadero\Studio\23.0\Bpl -LNC:\Users\Public\Documents\Embarcadero\Studio\23.0\Dcp -NU..\Output\Win32\Debug -NSWinapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;System;Xml;Data;Datasnap;Web;Soap; Web.ControllerExample.dpr
+setlocal
+
+echo Setting up Delphi environment...
+call "C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"
+
+echo.
+echo ==========================================
+echo Building Web.ControllerExample
+echo ==========================================
+echo.
+
+set BUILD_CONFIG=Debug
+set PLATFORM=Win32
+set FRAMEWORK_OUTPUT=%~dp0..\..\Output
+set OUTPUT_PATH=%~dp0Output
+
+if not exist "%OUTPUT_PATH%" mkdir "%OUTPUT_PATH%"
+
+echo Building Web.ControllerExample.exe...
+msbuild "Web.ControllerExample.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /p:DCC_ExeOutput="%OUTPUT_PATH%" /p:DCC_DcuOutput="%OUTPUT_PATH%" /p:DCC_UnitSearchPath="%FRAMEWORK_OUTPUT%" /v:minimal
+
+if %ERRORLEVEL% NEQ 0 goto Error
+
+echo.
+echo ==========================================
+echo Build Completed Successfully!
+echo Output: %OUTPUT_PATH%\Web.ControllerExample.exe
+echo ==========================================
+if not "%1"=="--no-wait" pause
+exit /b 0
+
+:Error
+echo.
+echo ==========================================
+echo BUILD FAILED!
+echo ==========================================
+if not "%1"=="--no-wait" pause
+exit /b 1

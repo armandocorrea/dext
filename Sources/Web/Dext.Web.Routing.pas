@@ -282,6 +282,10 @@ begin
   Path := AContext.Request.Path;
   RequestVersion := GetRequestedApiVersion(AContext);
   
+  // Normalize path: remove trailing slash (except for root "/")
+  if (Length(Path) > 1) and (Path[Length(Path)] = '/') then
+    Path := Copy(Path, 1, Length(Path) - 1);
+  
   // Collect all path-matching candidates
   Candidates := TList<TRouteDefinition>.Create;
   try
