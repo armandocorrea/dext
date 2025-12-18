@@ -466,7 +466,6 @@ end;
 procedure TObjectTestController.GetPersonWithAddress(Ctx: IHttpContext);
 var
   Person: TPersonWithAddress;
-  Json: string;
 begin
   Person := TPersonWithAddress.Create;
   try
@@ -490,48 +489,40 @@ procedure TObjectTestController.GetPeopleList(Ctx: IHttpContext);
 var
   People: IList<TPersonWithAddress>;
   Person: TPersonWithAddress;
-  Json: string;
-  I: Integer;
 begin
-  People := TCollections.CreateList<TPersonWithAddress>;
-  try
-    // Person 1 - with address
-    Person := TPersonWithAddress.Create;
-    Person.Id := 1;
-    Person.Name := 'John Doe';
-    Person.Email := 'john@example.com';
-    Person.Address := TAddress.Create;
-    Person.Address.Street := '456 Oak Ave';
-    Person.Address.City := 'Los Angeles';
-    Person.Address.ZipCode := '90001';
-    People.Add(Person);
+  People := TCollections.CreateList<TPersonWithAddress>(True);
+  // Person 1 - with address
+  Person := TPersonWithAddress.Create;
+  Person.Id := 1;
+  Person.Name := 'John Doe';
+  Person.Email := 'john@example.com';
+  Person.Address := TAddress.Create;
+  Person.Address.Street := '456 Oak Ave';
+  Person.Address.City := 'Los Angeles';
+  Person.Address.ZipCode := '90001';
+  People.Add(Person);
     
-    // Person 2 - with address
-    Person := TPersonWithAddress.Create;
-    Person.Id := 2;
-    Person.Name := 'Jane Smith';
-    Person.Email := 'jane@example.com';
-    Person.Address := TAddress.Create;
-    Person.Address.Street := '123 Main St';
-    Person.Address.City := 'New York';
-    Person.Address.ZipCode := '10001';
-    People.Add(Person);
+  // Person 2 - with address
+  Person := TPersonWithAddress.Create;
+  Person.Id := 2;
+  Person.Name := 'Jane Smith';
+  Person.Email := 'jane@example.com';
+  Person.Address := TAddress.Create;
+  Person.Address.Street := '123 Main St';
+  Person.Address.City := 'New York';
+  Person.Address.ZipCode := '10001';
+  People.Add(Person);
     
-    // Person 3 - without address (null)
-    Person := TPersonWithAddress.Create;
-    Person.Id := 3;
-    Person.Name := 'Bob Johnson';
-    Person.Email := 'bob@example.com';
-    Person.Address := nil;
-    People.Add(Person);
+  // Person 3 - without address (null)
+  Person := TPersonWithAddress.Create;
+  Person.Id := 3;
+  Person.Name := 'Bob Johnson';
+  Person.Email := 'bob@example.com';
+  Person.Address := nil;
+  People.Add(Person);
     
-    // Use Results.Ok for automatic serialization
-    Results.Ok<IList<TPersonWithAddress>>(People).Execute(Ctx);
-  finally
-    // Free all objects
-    for I := 0 to People.Count - 1 do
-      People[I].Free;
-  end;
+  // Use Results.Ok for automatic serialization
+  Results.Ok<IList<TPersonWithAddress>>(People).Execute(Ctx);
 end;
 
 
