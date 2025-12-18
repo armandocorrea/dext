@@ -10,7 +10,7 @@ uses
   EntityDemo.Entities, EntityDemo.Tests.Base,
   // NEW:
   Dext.Data.TypeSystem,
-  EntityDemo.Entities.Meta;
+  EntityDemo.Entities.Info;
 
 type
   TAdvancedQueryTest = class(TBaseTest)

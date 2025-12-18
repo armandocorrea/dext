@@ -51,7 +51,7 @@ type
   TFluentExpression = Dext.Specifications.Types.TFluentExpression;
   
   // TypeSystem
-  TPropertyMeta = Dext.Data.TypeSystem.TPropertyMeta;
+  TPropertyInfo = Dext.Data.TypeSystem.TPropertyInfo;
 
   /// <summary>
   ///   Concrete implementation of DbContext.

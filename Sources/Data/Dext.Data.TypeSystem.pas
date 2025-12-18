@@ -17,7 +17,7 @@ type
   ///   Holds the heavy RTTI metadata for a property.
   ///   Class-based to ensure single instance per property per entity type.
   /// </summary>
-  TPropertyMeta = class
+  TPropertyInfo = class
   private
     FName: string;
     FPropInfo: PPropInfo;
@@ -38,22 +38,22 @@ type
   end;
 
   /// <summary>
-  ///   Lightweight record wrapper for TPropertyMeta that provides strongest typing and
+  ///   Lightweight record wrapper for TPropertyInfo that provides strongest typing and
   ///   operator overloading for the Query Expressions syntax.
   ///   TProp<Integer> -> allows operators >, <, =, etc. against Integers.
   /// </summary>
   TProp<T> = record
   private
-    FMeta: TPropertyMeta;
+    FInfo: TPropertyInfo;
   public
     // Implicit conversion to "Old" TPropExpression for backward compatibility
     class operator Implicit(const Value: TProp<T>): TPropExpression;
     
-    // Implicit from TPropertyMeta (used by the scaffold/init)
-    class operator Implicit(const Value: TPropertyMeta): TProp<T>;
+    // Implicit from TPropertyInfo (used by the scaffold/init)
+    class operator Implicit(const Value: TPropertyInfo): TProp<T>;
     
-    // Implicit to TPropertyMeta (for usage in IEntityBuilder)
-    class operator Implicit(const Value: TProp<T>): TPropertyMeta;
+    // Implicit to TPropertyInfo (for usage in IEntityBuilder)
+    class operator Implicit(const Value: TProp<T>): TPropertyInfo;
 
     // Operators returning TFluentExpression (compatible with logical & and |)
     class operator Equal(const Left: TProp<T>; Right: T): TFluentExpression;
@@ -82,7 +82,7 @@ type
     function Desc: IOrderBy;
 
     // Access to underlying metadata
-    property Meta: TPropertyMeta read FMeta;
+    property Info: TPropertyInfo read FInfo;
   end;
 
   /// <summary>
@@ -90,7 +90,7 @@ type
   /// </summary>
   IEntityBuilder<T: class> = interface
     ['{A1C2E3B4-D5F6-4789-8123-456789ABCDEF}']
-    function Prop(const AMeta: TPropertyMeta; const AValue: TValue): IEntityBuilder<T>; overload;
+    function Prop(const AInfo: TPropertyInfo; const AValue: TValue): IEntityBuilder<T>; overload;
     function Prop(const AProp: TProp<string>; const AValue: string): IEntityBuilder<T>; overload;
     function Prop(const AProp: TProp<Integer>; const AValue: Integer): IEntityBuilder<T>; overload;
     function Prop(const AProp: TProp<Double>; const AValue: Double): IEntityBuilder<T>; overload;
@@ -108,7 +108,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    function Prop(const AMeta: TPropertyMeta; const AValue: TValue): IEntityBuilder<T>; overload;
+    function Prop(const AInfo: TPropertyInfo; const AValue: TValue): IEntityBuilder<T>; overload;
     function Prop(const AProp: TProp<string>; const AValue: string): IEntityBuilder<T>; overload;
     function Prop(const AProp: TProp<Integer>; const AValue: Integer): IEntityBuilder<T>; overload;
     function Prop(const AProp: TProp<Double>; const AValue: Double): IEntityBuilder<T>; overload;
@@ -135,9 +135,9 @@ var
 
 implementation
 
-{ TPropertyMeta }
+{ TPropertyInfo }
 
-constructor TPropertyMeta.Create(const AName: string; APropInfo: PPropInfo;
+constructor TPropertyInfo.Create(const AName: string; APropInfo: PPropInfo;
   APropTypeInfo: PTypeInfo; AConverter: IValueConverter);
 begin
   FName := AName;
@@ -146,7 +146,7 @@ begin
   FConverter := AConverter;
 end;
 
-function TPropertyMeta.GetValue(Instance: TObject): TValue;
+function TPropertyInfo.GetValue(Instance: TObject): TValue;
 begin
   var RttiType := GlobalRttiContext.GetType(Instance.ClassType);
   var RttiProp := RttiType.GetProperty(FName);
@@ -156,7 +156,7 @@ begin
     Result := TValue.Empty;
 end;
 
-procedure TPropertyMeta.SetValue(Instance: TObject; const Value: TValue);
+procedure TPropertyInfo.SetValue(Instance: TObject; const Value: TValue);
 begin
   var RttiType := GlobalRttiContext.GetType(Instance.ClassType);
   var RttiProp := RttiType.GetProperty(FName);
@@ -168,105 +168,105 @@ end;
 
 class operator TProp<T>.Implicit(const Value: TProp<T>): TPropExpression;
 begin
-  if Value.FMeta = nil then
+  if Value.FInfo = nil then
     Result := TPropExpression.Create('')
   else
-    Result := TPropExpression.Create(Value.FMeta.Name);
+    Result := TPropExpression.Create(Value.FInfo.Name);
 end;
 
-class operator TProp<T>.Implicit(const Value: TPropertyMeta): TProp<T>;
+class operator TProp<T>.Implicit(const Value: TPropertyInfo): TProp<T>;
 begin
-  Result.FMeta := Value;
+  Result.FInfo := Value;
 end;
 
-class operator TProp<T>.Implicit(const Value: TProp<T>): TPropertyMeta;
+class operator TProp<T>.Implicit(const Value: TProp<T>): TPropertyInfo;
 begin
-  Result := Value.FMeta;
+  Result := Value.FInfo;
 end;
 
 class operator TProp<T>.Equal(const Left: TProp<T>; Right: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(Left.FMeta.Name) = TValue.From<T>(Right);
+  Result := TPropExpression.Create(Left.FInfo.Name) = TValue.From<T>(Right);
 end;
 
 class operator TProp<T>.NotEqual(const Left: TProp<T>; Right: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(Left.FMeta.Name) <> TValue.From<T>(Right);
+  Result := TPropExpression.Create(Left.FInfo.Name) <> TValue.From<T>(Right);
 end;
 
 class operator TProp<T>.GreaterThan(const Left: TProp<T>; Right: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(Left.FMeta.Name) > TValue.From<T>(Right);
+  Result := TPropExpression.Create(Left.FInfo.Name) > TValue.From<T>(Right);
 end;
 
 class operator TProp<T>.GreaterThanOrEqual(const Left: TProp<T>; Right: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(Left.FMeta.Name) >= TValue.From<T>(Right);
+  Result := TPropExpression.Create(Left.FInfo.Name) >= TValue.From<T>(Right);
 end;
 
 class operator TProp<T>.LessThan(const Left: TProp<T>; Right: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(Left.FMeta.Name) < TValue.From<T>(Right);
+  Result := TPropExpression.Create(Left.FInfo.Name) < TValue.From<T>(Right);
 end;
 
 class operator TProp<T>.LessThanOrEqual(const Left: TProp<T>; Right: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(Left.FMeta.Name) <= TValue.From<T>(Right);
+  Result := TPropExpression.Create(Left.FInfo.Name) <= TValue.From<T>(Right);
 end;
 
 function TProp<T>.Like(const Pattern: string): TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).Like(Pattern);
+  Result := TPropExpression.Create(FInfo.Name).Like(Pattern);
 end;
 
 function TProp<T>.StartsWith(const Value: string): TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).StartsWith(Value);
+  Result := TPropExpression.Create(FInfo.Name).StartsWith(Value);
 end;
 
 function TProp<T>.EndsWith(const Value: string): TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).EndsWith(Value);
+  Result := TPropExpression.Create(FInfo.Name).EndsWith(Value);
 end;
 
 function TProp<T>.Contains(const Value: string): TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).Contains(Value);
+  Result := TPropExpression.Create(FInfo.Name).Contains(Value);
 end;
 
 function TProp<T>.In_(const Values: TArray<T>): TFluentExpression;
 begin
-  Result := TBinaryExpression.Create(FMeta.Name, boIn, TValue.From<TArray<T>>(Values));
+  Result := TBinaryExpression.Create(FInfo.Name, boIn, TValue.From<TArray<T>>(Values));
 end;
 
 function TProp<T>.NotIn(const Values: TArray<T>): TFluentExpression;
 begin
-  Result := TBinaryExpression.Create(FMeta.Name, boNotIn, TValue.From<TArray<T>>(Values));
+  Result := TBinaryExpression.Create(FInfo.Name, boNotIn, TValue.From<TArray<T>>(Values));
 end;
 
 function TProp<T>.IsNull: TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).IsNull;
+  Result := TPropExpression.Create(FInfo.Name).IsNull;
 end;
 
 function TProp<T>.IsNotNull: TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).IsNotNull;
+  Result := TPropExpression.Create(FInfo.Name).IsNotNull;
 end;
 
 function TProp<T>.Between(const Lower, Upper: T): TFluentExpression;
 begin
-  Result := TPropExpression.Create(FMeta.Name).Between(TValue.From<T>(Lower).AsVariant, TValue.From<T>(Upper).AsVariant);
+  Result := TPropExpression.Create(FInfo.Name).Between(TValue.From<T>(Lower).AsVariant, TValue.From<T>(Upper).AsVariant);
 end;
 
 function TProp<T>.Asc: IOrderBy;
 begin
-  Result := TPropExpression.Create(FMeta.Name).Asc;
+  Result := TPropExpression.Create(FInfo.Name).Asc;
 end;
 
 function TProp<T>.Desc: IOrderBy;
 begin
-  Result := TPropExpression.Create(FMeta.Name).Desc;
+  Result := TPropExpression.Create(FInfo.Name).Desc;
 end;
 
 { TEntityType<T> }
@@ -325,37 +325,37 @@ begin
   FEntity := nil; // Ownership transferred to caller
 end;
 
-function TEntityBuilder<T>.Prop(const AMeta: TPropertyMeta;
+function TEntityBuilder<T>.Prop(const AInfo: TPropertyInfo;
   const AValue: TValue): IEntityBuilder<T>;
 begin
-  if (FEntity <> nil) and (AMeta <> nil) then
-    AMeta.SetValue(FEntity, AValue);
+  if (FEntity <> nil) and (AInfo <> nil) then
+    AInfo.SetValue(FEntity, AValue);
   Result := Self;
 end;
 
 function TEntityBuilder<T>.Prop(const AProp: TProp<string>; const AValue: string): IEntityBuilder<T>;
 begin
-  Result := Prop(AProp.Meta, TValue.From<string>(AValue));
+  Result := Prop(AProp.Info, TValue.From<string>(AValue));
 end;
 
 function TEntityBuilder<T>.Prop(const AProp: TProp<Integer>; const AValue: Integer): IEntityBuilder<T>;
 begin
-  Result := Prop(AProp.Meta, TValue.From<Integer>(AValue));
+  Result := Prop(AProp.Info, TValue.From<Integer>(AValue));
 end;
 
 function TEntityBuilder<T>.Prop(const AProp: TProp<Double>; const AValue: Double): IEntityBuilder<T>;
 begin
-  Result := Prop(AProp.Meta, TValue.From<Double>(AValue));
+  Result := Prop(AProp.Info, TValue.From<Double>(AValue));
 end;
 
 function TEntityBuilder<T>.Prop(const AProp: TProp<Boolean>; const AValue: Boolean): IEntityBuilder<T>;
 begin
-  Result := Prop(AProp.Meta, TValue.From<Boolean>(AValue));
+  Result := Prop(AProp.Info, TValue.From<Boolean>(AValue));
 end;
 
 function TEntityBuilder<T>.Prop(const AProp: TProp<TDateTime>; const AValue: TDateTime): IEntityBuilder<T>;
 begin
-  Result := Prop(AProp.Meta, TValue.From<TDateTime>(AValue));
+  Result := Prop(AProp.Info, TValue.From<TDateTime>(AValue));
 end;
 
 initialization

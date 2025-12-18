@@ -6,7 +6,7 @@ uses
   System.SysUtils, System.Generics.Collections, Dext.Entity, Dext.Entity.Query,
   Dext.Collections, Dext.Persistence, Dext.Data.TypeSystem,
   Dext.Specifications.Interfaces, Dext.Specifications.Types, Dext.Specifications.Fluent,
-  EntityDemo.Entities, EntityDemo.Tests.Base, EntityDemo.Entities.Meta;
+  EntityDemo.Entities, EntityDemo.Tests.Base, EntityDemo.Entities.Info;
 
 type
   TTypeSystemTest = class(TBaseTest)
@@ -33,19 +33,19 @@ end;
 procedure TTypeSystemTest.TestPropertyMetaAccess;
 var
   U: TUser;
-  Meta: TPropertyMeta;
+  Meta: TPropertyInfo;
 begin
-  Log('   Testing RTTI Access via TPropertyMeta...');
+  Log('   Testing RTTI Access via TPropertyInfo...');
   U := TUser.Create;
   try
     U.Name := 'Test User';
     U.Age := 42;
     
-    // TUserType.Name is TProp<string>, and Meta is TPropertyMeta
-    Meta := TUserType.Name.Meta;
+    // TUserType.Name is TProp<string>, and Meta is TPropertyInfo
+    Meta := TUserType.Name.Info;
     AssertTrue(Meta.GetValue(U).AsString = 'Test User', 'RTTI GetValue(Name) failed');
     
-    Meta := TUserType.Age.Meta;
+    Meta := TUserType.Age.Info;
     AssertTrue(Meta.GetValue(U).AsInteger = 42, 'RTTI GetValue(Age) failed');
     
     Meta.SetValue(U, 50);

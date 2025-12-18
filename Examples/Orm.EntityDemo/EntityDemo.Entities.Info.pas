@@ -1,4 +1,4 @@
-unit EntityDemo.Entities.Meta;
+unit EntityDemo.Entities.Info;
 
 interface
 
@@ -51,31 +51,31 @@ begin
   // We don't call inherited here because TEntityType<T>.Create is a class constructor too and runs automatically.
   // We use TypeInfo(TUser) directly to avoid dependency on execution order regarding EntityTypeInfo.
   
-  Id := TPropertyMeta.Create('Id', GetPropInfo(TypeInfo(TUser), 'Id'), TypeInfo(Integer));
-  Name := TPropertyMeta.Create('Name', GetPropInfo(TypeInfo(TUser), 'Name'), TypeInfo(string));
-  Age := TPropertyMeta.Create('Age', GetPropInfo(TypeInfo(TUser), 'Age'), TypeInfo(Integer));
-  Email := TPropertyMeta.Create('Email', GetPropInfo(TypeInfo(TUser), 'Email'), TypeInfo(string));
-  City := TPropertyMeta.Create('City', GetPropInfo(TypeInfo(TUser), 'City'), TypeInfo(string));
-  AddressId := TPropertyMeta.Create('AddressId', GetPropInfo(TypeInfo(TUser), 'AddressId'), TypeInfo(Nullable<Integer>));
+  Id := TPropertyInfo.Create('Id', GetPropInfo(TypeInfo(TUser), 'Id'), TypeInfo(Integer));
+  Name := TPropertyInfo.Create('Name', GetPropInfo(TypeInfo(TUser), 'Name'), TypeInfo(string));
+  Age := TPropertyInfo.Create('Age', GetPropInfo(TypeInfo(TUser), 'Age'), TypeInfo(Integer));
+  Email := TPropertyInfo.Create('Email', GetPropInfo(TypeInfo(TUser), 'Email'), TypeInfo(string));
+  City := TPropertyInfo.Create('City', GetPropInfo(TypeInfo(TUser), 'City'), TypeInfo(string));
+  AddressId := TPropertyInfo.Create('AddressId', GetPropInfo(TypeInfo(TUser), 'AddressId'), TypeInfo(Nullable<Integer>));
 end;
 
 { TAddressType }
 
 class constructor TAddressType.Create;
 begin
-  Id := TPropertyMeta.Create('Id', GetPropInfo(TypeInfo(TAddress), 'Id'), TypeInfo(Integer));
-  Street := TPropertyMeta.Create('Street', GetPropInfo(TypeInfo(TAddress), 'Street'), TypeInfo(string));
-  City := TPropertyMeta.Create('City', GetPropInfo(TypeInfo(TAddress), 'City'), TypeInfo(string));
+  Id := TPropertyInfo.Create('Id', GetPropInfo(TypeInfo(TAddress), 'Id'), TypeInfo(Integer));
+  Street := TPropertyInfo.Create('Street', GetPropInfo(TypeInfo(TAddress), 'Street'), TypeInfo(string));
+  City := TPropertyInfo.Create('City', GetPropInfo(TypeInfo(TAddress), 'City'), TypeInfo(string));
 end;
 
 { TProductType }
 
 class constructor TProductType.Create;
 begin
-  Id := TPropertyMeta.Create('Id', GetPropInfo(TypeInfo(TProduct), 'Id'), TypeInfo(Integer));
-  Name := TPropertyMeta.Create('Name', GetPropInfo(TypeInfo(TProduct), 'Name'), TypeInfo(string));
-  Price := TPropertyMeta.Create('Price', GetPropInfo(TypeInfo(TProduct), 'Price'), TypeInfo(Double));
-  Version := TPropertyMeta.Create('Version', GetPropInfo(TypeInfo(TProduct), 'Version'), TypeInfo(Integer));
+  Id := TPropertyInfo.Create('Id', GetPropInfo(TypeInfo(TProduct), 'Id'), TypeInfo(Integer));
+  Name := TPropertyInfo.Create('Name', GetPropInfo(TypeInfo(TProduct), 'Name'), TypeInfo(string));
+  Price := TPropertyInfo.Create('Price', GetPropInfo(TypeInfo(TProduct), 'Price'), TypeInfo(Double));
+  Version := TPropertyInfo.Create('Version', GetPropInfo(TypeInfo(TProduct), 'Version'), TypeInfo(Integer));
 end;
 
 end.
