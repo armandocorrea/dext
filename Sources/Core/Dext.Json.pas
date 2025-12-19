@@ -951,11 +951,18 @@ begin
 
         tkRecord:
            begin
-              var NestedObj := AJson.GetObject(ActualPropName);
-              if NestedObj <> nil then
-                PropValue := DeserializeRecord(NestedObj, Prop.PropertyType.Handle)
+              if Prop.PropertyType.Handle = TypeInfo(TGUID) then
+              begin
+                PropValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(ActualPropName)));
+              end
               else
-                PropValue := TValue.Empty;
+              begin
+                var NestedObj := AJson.GetObject(ActualPropName);
+                if NestedObj <> nil then
+                  PropValue := DeserializeRecord(NestedObj, Prop.PropertyType.Handle)
+                else
+                  PropValue := TValue.Empty;
+              end;
            end;
       end;
 
@@ -978,6 +985,9 @@ var
   FieldValue: TValue;
   Found: Boolean;
 begin
+  if AType = TypeInfo(TGUID) then
+    Exit(TValue.From<TGUID>(StringToGUID(AJson.GetString(ValueField))));
+
   TValue.Make(nil, AType, Result);
   Context := TRttiContext.Create;
   try
@@ -1172,7 +1182,10 @@ function TDextSerializer.JsonToValue(AJson: IDextJsonObject; AType: PTypeInfo): 
 begin
   if AType.Kind = tkRecord then
   begin
-    Result := DeserializeRecord(AJson, AType);
+    if AType = TypeInfo(TGUID) then
+      Result := TValue.From<TGUID>(StringToGUID(AJson.GetString(ValueField)))
+    else
+      Result := DeserializeRecord(AJson, AType);
   end
   else if AType.Kind = tkClass then
   begin
@@ -1286,6 +1299,13 @@ var
   HasCustomFormat: Boolean;
   CustomFormat: string;
 begin
+  if AValue.TypeInfo = TypeInfo(TGUID) then
+  begin
+    Result := TDextJson.Provider.CreateObject;
+    Result.SetString(ValueField, GUIDToString(AValue.AsType<TGUID>));
+    Exit;
+  end;
+
   Result := TDextJson.Provider.CreateObject;
 
   Context := TRttiContext.Create;
@@ -1312,7 +1332,7 @@ begin
         end;
       end;
 
-      if FieldValue.TypeInfo = TypeInfo(TGUID) then
+      if (Field.FieldType.Handle = TypeInfo(TGUID)) or (FieldValue.TypeInfo = TypeInfo(TGUID)) then
       begin
         Result.SetString(FieldName, GUIDToString(FieldValue.AsType<TGUID>));
         Continue;
@@ -1504,8 +1524,13 @@ begin
 
         tkRecord:
           begin
-            var NestedRecord := SerializeRecord(PropValue);
-            Result.SetObject(PropName, NestedRecord);
+            if PropValue.TypeInfo = TypeInfo(TGUID) then
+              Result.SetString(PropName, GUIDToString(PropValue.AsType<TGUID>))
+            else
+            begin
+              var NestedRecord := SerializeRecord(PropValue);
+              Result.SetObject(PropName, NestedRecord);
+            end;
           end;
 
         tkClass:
@@ -1600,9 +1625,12 @@ begin
 
     tkRecord:
       begin
-        // Replace result with serialized record
-        // Note: ValueToJson returns Object. If SerializeRecord returns Object, we are good.
-        Result := SerializeRecord(AValue);
+        if AValue.TypeInfo = TypeInfo(TGUID) then
+          Result.SetString(ValueField, GUIDToString(AValue.AsType<TGUID>))
+        else
+          // Replace result with serialized record
+          // Note: ValueToJson returns Object. If SerializeRecord returns Object, we are good.
+          Result := SerializeRecord(AValue);
       end;
 
     // Array handling in ValueToJson is tricky because return type is IDextJsonObject
@@ -1722,11 +1750,16 @@ begin
             ElementValue := TValue.FromOrdinal(ElementType, GetEnumValue(ElementType, AJson.GetString(I)));
         tkRecord:
           begin
-            var Node := AJson.GetNode(I);
-            if (Node <> nil) and (Node.GetNodeType = jntObject) then
-              ElementValue := DeserializeRecord(Node as IDextJsonObject, ElementType)
+            if ElementType = TypeInfo(TGUID) then
+              ElementValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(I)))
             else
-              ElementValue := TValue.Empty;
+            begin
+              var Node := AJson.GetNode(I);
+              if (Node <> nil) and (Node.GetNodeType = jntObject) then
+                ElementValue := DeserializeRecord(Node as IDextJsonObject, ElementType)
+              else
+                ElementValue := TValue.Empty;
+            end;
           end;
         tkClass:
           begin
@@ -1799,6 +1832,11 @@ begin
               ElementValue := TValue.From<Boolean>(AJson.GetBoolean(I))
             else
               ElementValue := TValue.Empty;
+          tkRecord:
+            if ElementType = TypeInfo(TGUID) then
+              ElementValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(I)))
+            else
+              ElementValue := TValue.Empty;
           else
             ElementValue := TValue.Empty;
         end;
@@ -1845,7 +1883,10 @@ begin
         else
           Result.Add(GetEnumName(ElementType, ElementValue.AsOrdinal));
       tkRecord:
-        Result.Add(SerializeRecord(ElementValue));
+        if ElementType = TypeInfo(TGUID) then
+          Result.Add(GUIDToString(ElementValue.AsType<TGUID>))
+        else
+          Result.Add(SerializeRecord(ElementValue));
     else
       Result.AddNull;
     end;
@@ -1899,7 +1940,10 @@ begin
 
         case ElementValue.TypeInfo.Kind of
           tkRecord:
-            Result.Add(SerializeRecord(ElementValue));
+            if ElementValue.TypeInfo = TypeInfo(TGUID) then
+              Result.Add(GUIDToString(ElementValue.AsType<TGUID>))
+            else
+              Result.Add(SerializeRecord(ElementValue));
           tkClass:
             begin
               if ElementValue.AsObject = nil then
@@ -1946,7 +1990,10 @@ begin
 
           case ElementValue.TypeInfo.Kind of
             tkRecord:
-              Result.Add(SerializeRecord(ElementValue));
+              if ElementValue.TypeInfo = TypeInfo(TGUID) then
+                Result.Add(GUIDToString(ElementValue.AsType<TGUID>))
+              else
+                Result.Add(SerializeRecord(ElementValue));
             tkClass:
               begin
                 if ElementValue.AsObject = nil then

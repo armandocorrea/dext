@@ -30,6 +30,15 @@ type
     property Posts: TObjectList<TPost> read FPosts write FPosts;
   end;
 
+  TEntityWithGuid = class
+  private
+    FId: TGUID;
+    FName: string;
+  public
+    property Id: TGUID read FId write FId;
+    property Name: string read FName write FName;
+  end;
+
 constructor TThread.Create;
 begin
   FPosts := TObjectList<TPost>.Create;
@@ -87,9 +96,71 @@ begin
   end;
 end;
 
+procedure TestGuidSerialization;
+var
+  Entity, Deserialized: TEntityWithGuid;
+  Json: string;
+  NewGuid: TGUID;
+begin
+  Writeln('----------------------------------------');
+  Writeln('Testing TGUID Serialization...');
+  
+  NewGuid := TGuid.Create('{6A7B8C9D-0E1F-2A3B-4C5D-6E7F8A9B0C1D}');
+  
+  Entity := TEntityWithGuid.Create;
+  try
+    Entity.Id := NewGuid;
+    Entity.Name := 'Test Entity with GUID';
+    
+    Json := TDextJson.Serialize(Entity);
+    Writeln('Serialized JSON: ' + Json);
+    
+    if not Json.Contains(GuidToString(NewGuid)) then
+      Writeln('[FAIL] JSON does not contain the expected GUID string')
+    else
+      Writeln('[PASS] GUID serialized as string');
+      
+    Writeln('Testing TGUID Deserialization...');
+    Deserialized := TDextJson.Deserialize<TEntityWithGuid>(Json);
+    try
+      if IsEqualGUID(Deserialized.Id, NewGuid) then
+        Writeln('[PASS] GUID deserialized correctly: ' + GuidToString(Deserialized.Id))
+      else
+        Writeln('[FAIL] GUID mismatch. Expected: ' + GuidToString(NewGuid) + ' but got: ' + GuidToString(Deserialized.Id));
+        
+      if Deserialized.Name = Entity.Name then
+        Writeln('[PASS] Name deserialized correctly: ' + Deserialized.Name)
+      else
+        Writeln('[FAIL] Name mismatch.');
+        
+    finally
+      Deserialized.Free;
+    end;
+    
+  finally
+    Entity.Free;
+  end;
+  
+  Writeln('Testing Raw TGUID Serialization...');
+  Json := TDextJson.Serialize(NewGuid);
+  Writeln('Raw GUID JSON: ' + Json);
+  if Json.Contains(GuidToString(NewGuid)) then
+    Writeln('[PASS] Raw GUID serialized correctly')
+  else
+    Writeln('[FAIL] Raw GUID serialization failed');
+    
+  Writeln('Testing Raw TGUID Deserialization...');
+  var RawDeserialized := TDextJson.Deserialize<TGUID>(Json);
+  if IsEqualGUID(RawDeserialized, NewGuid) then
+    Writeln('[PASS] Raw GUID deserialized correctly')
+  else
+    Writeln('[FAIL] Raw GUID deserialization failed');
+end;
+
 begin
   try
     TestDeserialization;
+    TestGuidSerialization;
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
