@@ -25,7 +25,7 @@ package Dext.EF.Core;
 {$IMAGEBASE $400000}
 {$DEFINE DEBUG}
 {$ENDIF IMPLICITBUILDING}
-{$DESCRIPTION 'Dext Framework - Entity Framework (ORM)'}
+{$DESCRIPTION 'Dext Framework - ORM & Data Access'}
 {$RUNONLY}
 {$IMPLICITBUILD OFF}
 
@@ -68,6 +68,7 @@ contains
   Dext.Entity.Setup in 'Data\Dext.Entity.Setup.pas',
   Dext.Entity.TypeSystem in 'Data\Dext.Entity.TypeSystem.pas',
   Dext.Hosting.CLI in 'Hosting\Dext.Hosting.CLI.pas',
-  Dext.Specifications.SQL.Generator in 'Data\Dext.Specifications.SQL.Generator.pas';
+  Dext.Specifications.SQL.Generator in 'Data\Dext.Specifications.SQL.Generator.pas',
+  Dext.Entity.TypeConverters in 'Data\Dext.Entity.TypeConverters.pas';
 
 end.

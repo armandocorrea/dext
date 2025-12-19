@@ -151,6 +151,7 @@
         <DCCReference Include="Data\Dext.Entity.TypeSystem.pas"/>
         <DCCReference Include="Hosting\Dext.Hosting.CLI.pas"/>
         <DCCReference Include="Data\Dext.Specifications.SQL.Generator.pas"/>
+        <DCCReference Include="Data\Dext.Entity.TypeConverters.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

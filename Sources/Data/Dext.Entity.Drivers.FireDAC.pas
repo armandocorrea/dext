@@ -51,6 +51,8 @@ uses
   FireDAC.Stan.Option,
   FireDAC.Stan.Param,
   Dext.Entity.Drivers.Interfaces,
+  Dext.Entity.TypeConverters,
+  Dext.Entity.Dialects,
   Dext.Types.Nullable;
 
 type
@@ -88,7 +90,9 @@ type
   private
     FQuery: TFDQuery;
     FConnection: TFDConnection;
+    FDialect: TDatabaseDialect;
     procedure SetParamValue(Param: TFDParam; const AValue: TValue);
+    function GetDialect: TDatabaseDialect;
   public
     constructor Create(AConnection: TFDConnection);
     destructor Destroy; override;
@@ -254,7 +258,33 @@ begin
   end;
 end;
 
+function TFireDACCommand.GetDialect: TDatabaseDialect;
+var
+  DriverID: string;
+begin
+  if FDialect <> ddUnknown then
+    Exit(FDialect);
+    
+  DriverID := FConnection.DriverName.ToLower;
+  
+  if DriverID.Contains('pg') or DriverID.Contains('postgres') then
+    FDialect := ddPostgreSQL
+  else if DriverID.Contains('mysql') or DriverID.Contains('maria') then
+    FDialect := ddMySQL
+  else if DriverID.Contains('mssql') or DriverID.Contains('sqlserver') then
+    FDialect := ddSQLServer
+  else if DriverID.Contains('sqlite') then
+    FDialect := ddSQLite
+  else
+    FDialect := ddUnknown;
+    
+  Result := FDialect;
+end;
+
 procedure TFireDACCommand.SetParamValue(Param: TFDParam; const AValue: TValue);
+var
+  Converter: ITypeConverter;
+  ConvertedValue: TValue;
 begin
   if AValue.IsEmpty then
   begin
@@ -263,6 +293,31 @@ begin
       Param.DataType := ftString; 
   end
   else
+  begin
+    // Try to find a type converter
+    Converter := TTypeConverterRegistry.Instance.GetConverter(AValue.TypeInfo);
+    if Converter <> nil then
+    begin
+      // Convert value using converter
+      ConvertedValue := Converter.ToDatabase(AValue, GetDialect);
+      
+      // Set param value (converted value is typically a string or integer)
+      case ConvertedValue.Kind of
+        tkInteger, tkInt64:
+        begin
+          Param.DataType := ftInteger;
+          Param.AsInteger := ConvertedValue.AsInteger;
+        end;
+        tkString, tkUString, tkWString, tkChar, tkWChar:
+        begin
+          Param.DataType := ftString;
+          Param.AsString := ConvertedValue.AsString;
+        end;
+        else
+          Param.Value := ConvertedValue.AsVariant;
+      end;
+    end
+    else
   begin
     case AValue.Kind of
       tkInteger, tkInt64: 
@@ -329,6 +384,7 @@ begin
     else
       Param.Value := AValue.AsVariant;
     end;
+    end; // Close else block for type converter
   end;
 end;
 

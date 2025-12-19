@@ -35,6 +35,19 @@ uses
   Dext.Entity.Migrations.Operations;
 
 type
+  /// <summary>
+  ///   Database dialect enumeration for type converters.
+  /// </summary>
+  TDatabaseDialect = (
+    ddUnknown,
+    ddSQLite,
+    ddPostgreSQL,
+    ddMySQL,
+    ddSQLServer,
+    ddFirebird,
+    ddOracle
+  );
+
   TReturningPosition = (rpAtEnd, rpBeforeValues);
 
   /// <summary>

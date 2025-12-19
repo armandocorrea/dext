@@ -247,6 +247,16 @@ Plano estratégico focado em Dext SO4 (Fórum/Social) e melhorias de Core (Nulla
   - `TDbConfig` helper class
   - Suporte a múltiplos providers
   - Configuração via código ou environment variables
+- [x] **Type Converters**: Sistema de conversão de tipos database-specific (v1.0)
+  - ✅ **GUID/UUID**: Suporte completo a `TGUID` com casts específicos por dialeto
+    - PostgreSQL: `::uuid`
+    - SQL Server: `CAST AS UNIQUEIDENTIFIER`
+    - MySQL/SQLite: string
+  - ✅ **Enum**: Suporte a enums como integer (padrão) ou string (`[EnumAsString]`)
+  - ✅ **JSON/JSONB**: Serialização automática de objetos (PostgreSQL `::jsonb`)
+  - ✅ **Arrays**: Suporte a `TArray<T>` (PostgreSQL native arrays)
+  - ✅ **Custom Converters**: API extensível para tipos customizados
+  - 📚 Documentação: [ORM Type System Guide](../ORM-Type-System-Guide.md)
 - [ ] **Migrations**: Sistema de migração de schema (Prioridade Alta - Dext Forum).
 - [ ] **Stored Procedures**: Mapeamento e execução de Stored Procedures e Functions.
 
