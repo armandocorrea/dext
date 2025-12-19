@@ -702,6 +702,8 @@ begin
         Result := TValue.FromOrdinal(AType, Deserialize<Integer>(AJson));
     tkRecord:
       Result := DeserializeRecord(AType, AJson);
+    tkClass:
+      Result := Deserialize(AType, AJson, TDextSettings.Default);
     else
       raise EDextJsonException.CreateFmt('Unsupported type for deserialization: %s', [AType.NameFld.ToString]);
   end;
@@ -720,6 +722,8 @@ begin
     begin
       if AType.Kind = tkRecord then
         Result := Serializer.DeserializeRecord(JsonNode as IDextJsonObject, AType)
+      else if AType.Kind = tkClass then
+        Result := Serializer.DeserializeObject(JsonNode as IDextJsonObject, AType)
       else
         raise EDextJsonException.CreateFmt('Unsupported type for deserialization with settings: %s', [AType.NameFld.ToString]);
     end

@@ -340,11 +340,9 @@ end;
 
 destructor TEntityBuilder<T>.Destroy;
 begin
-  // FEntity is NOT freed here if Build was called?
-  // Actually, standard builder pattern: Build returns the instance,
-  // but who owns it? The caller.
-  // If Build was NOT called, we might leak.
-  // But usually builders are used in a single expression.
+  // If Build was NOT called, we must clean up the entity we created
+  if FEntity <> nil then
+    TObject(FEntity).Free;
   inherited;
 end;
 

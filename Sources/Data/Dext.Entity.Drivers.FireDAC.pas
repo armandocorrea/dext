@@ -286,6 +286,7 @@ var
   Converter: ITypeConverter;
   ConvertedValue: TValue;
 begin
+  Converter := TTypeConverterRegistry.Instance.GetConverter(AValue.TypeInfo);
   if AValue.IsEmpty then
   begin
     Param.Clear;
@@ -405,17 +406,21 @@ begin
 end;
 
 function TFireDACCommand.ExecuteQuery: IDbReader;
+var
+  Q: TFDQuery;
+  i: Integer;
+  Src, Dest: TFDParam;
 begin
   // Create a new Query for the Reader to allow independent iteration
-  var Q := TFDQuery.Create(nil);
+  Q := TFDQuery.Create(nil);
   Q.Connection := FConnection;
   Q.SQL.Text := FQuery.SQL.Text;
   
   // Copy params
-  for var i := 0 to FQuery.Params.Count - 1 do
+  for i := 0 to FQuery.Params.Count - 1 do
   begin
-    var Src := FQuery.Params[i];
-    var Dest := Q.Params.FindParam(Src.Name);
+    Src := FQuery.Params[i];
+    Dest := Q.Params.FindParam(Src.Name);
     if Dest <> nil then
     begin
       Dest.DataType := Src.DataType;

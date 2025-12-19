@@ -48,6 +48,7 @@ uses
   Dext.Specifications.Interfaces,
   Dext.Specifications.SQL.Generator,
   Dext.Specifications.Types,
+  Dext.Entity.TypeConverters,
   Dext.Types.Nullable;
 
 type
@@ -428,6 +429,14 @@ begin
     if FProps.TryGetValue(ColName.ToLower, Prop) then
     begin
       try
+        // Check if there's a type converter for this property type
+        var Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+        if Converter <> nil then
+        begin
+          // Use type converter to convert from database format
+          Val := Converter.FromDatabase(Val, Prop.PropertyType.Handle);
+        end;
+        
         TValueConverter.ConvertAndSet(Result, Prop, Val);
       except
         on E: Exception do

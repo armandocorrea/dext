@@ -12,16 +12,7 @@
         <Projects Include="Dext.Web.Core.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\Examples\Dext.Starter.Admin\Dext.Starter.Admin.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="..\Examples\Web.ControllerExample\Web.ControllerExample.dproj">
-            <Dependencies/>
-        </Projects>
         <Projects Include="..\Examples\Orm.EntityDemo\Orm.EntityDemo.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="..\Tests\Entity\TestTypeConverters.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -59,24 +50,6 @@
     <Target Name="Dext_Web_Core:Make">
         <MSBuild Projects="Dext.Web.Core.dproj" Targets="Make"/>
     </Target>
-    <Target Name="Dext_Starter_Admin">
-        <MSBuild Projects="..\Examples\Dext.Starter.Admin\Dext.Starter.Admin.dproj"/>
-    </Target>
-    <Target Name="Dext_Starter_Admin:Clean">
-        <MSBuild Projects="..\Examples\Dext.Starter.Admin\Dext.Starter.Admin.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="Dext_Starter_Admin:Make">
-        <MSBuild Projects="..\Examples\Dext.Starter.Admin\Dext.Starter.Admin.dproj" Targets="Make"/>
-    </Target>
-    <Target Name="Web_ControllerExample">
-        <MSBuild Projects="..\Examples\Web.ControllerExample\Web.ControllerExample.dproj"/>
-    </Target>
-    <Target Name="Web_ControllerExample:Clean">
-        <MSBuild Projects="..\Examples\Web.ControllerExample\Web.ControllerExample.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="Web_ControllerExample:Make">
-        <MSBuild Projects="..\Examples\Web.ControllerExample\Web.ControllerExample.dproj" Targets="Make"/>
-    </Target>
     <Target Name="Orm_EntityDemo">
         <MSBuild Projects="..\Examples\Orm.EntityDemo\Orm.EntityDemo.dproj"/>
     </Target>
@@ -86,23 +59,14 @@
     <Target Name="Orm_EntityDemo:Make">
         <MSBuild Projects="..\Examples\Orm.EntityDemo\Orm.EntityDemo.dproj" Targets="Make"/>
     </Target>
-    <Target Name="TestTypeConverters">
-        <MSBuild Projects="..\Tests\Entity\TestTypeConverters.dproj"/>
-    </Target>
-    <Target Name="TestTypeConverters:Clean">
-        <MSBuild Projects="..\Tests\Entity\TestTypeConverters.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="TestTypeConverters:Make">
-        <MSBuild Projects="..\Tests\Entity\TestTypeConverters.dproj" Targets="Make"/>
-    </Target>
     <Target Name="Build">
-        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Starter_Admin;Web_ControllerExample;Orm_EntityDemo;TestTypeConverters"/>
+        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Orm_EntityDemo"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Starter_Admin:Clean;Web_ControllerExample:Clean;Orm_EntityDemo:Clean;TestTypeConverters:Clean"/>
+        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Orm_EntityDemo:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Starter_Admin:Make;Web_ControllerExample:Make;Orm_EntityDemo:Make;TestTypeConverters:Make"/>
+        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Orm_EntityDemo:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

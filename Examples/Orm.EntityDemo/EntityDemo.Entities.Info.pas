@@ -20,6 +20,7 @@ type
     // Navigation property
     // class var Address: TProp<TAddress>; 
     class constructor Create;
+    class destructor Destroy;
   end;
 
   TAddressType = class(TEntityType<TAddress>)
@@ -28,6 +29,7 @@ type
     class var Street: TProp<string>;
     class var City: TProp<string>;
     class constructor Create;
+    class destructor Destroy;
   end;
 
   TProductType = class(TEntityType<TProduct>)
@@ -37,6 +39,7 @@ type
     class var Price: TProp<Double>;
     class var Version: TProp<Integer>;
     class constructor Create;
+    class destructor Destroy;
   end;
 
   // Other entities skipped for brevity in this showcase, 
@@ -59,6 +62,16 @@ begin
   AddressId := TPropertyInfo.Create('AddressId', GetPropInfo(TypeInfo(TUser), 'AddressId'), TypeInfo(Nullable<Integer>));
 end;
 
+class destructor TUserType.Destroy;
+begin
+  Id.Info.Free;
+  Name.Info.Free;
+  Age.Info.Free;
+  Email.Info.Free;
+  City.Info.Free;
+  AddressId.Info.Free;
+end;
+
 { TAddressType }
 
 class constructor TAddressType.Create;
@@ -66,6 +79,13 @@ begin
   Id := TPropertyInfo.Create('Id', GetPropInfo(TypeInfo(TAddress), 'Id'), TypeInfo(Integer));
   Street := TPropertyInfo.Create('Street', GetPropInfo(TypeInfo(TAddress), 'Street'), TypeInfo(string));
   City := TPropertyInfo.Create('City', GetPropInfo(TypeInfo(TAddress), 'City'), TypeInfo(string));
+end;
+
+class destructor TAddressType.Destroy;
+begin
+  Id.Info.Free;
+  Street.Info.Free;
+  City.Info.Free;
 end;
 
 { TProductType }
@@ -76,6 +96,14 @@ begin
   Name := TPropertyInfo.Create('Name', GetPropInfo(TypeInfo(TProduct), 'Name'), TypeInfo(string));
   Price := TPropertyInfo.Create('Price', GetPropInfo(TypeInfo(TProduct), 'Price'), TypeInfo(Double));
   Version := TPropertyInfo.Create('Version', GetPropInfo(TypeInfo(TProduct), 'Version'), TypeInfo(Integer));
+end;
+
+class destructor TProductType.Destroy;
+begin
+  Id.Info.Free;
+  Name.Info.Free;
+  Price.Info.Free;
+  Version.Info.Free;
 end;
 
 end.

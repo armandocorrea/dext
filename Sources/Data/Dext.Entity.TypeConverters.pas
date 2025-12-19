@@ -103,7 +103,11 @@ type
   ///   Converter for TGUID type.
   /// </summary>
   TGuidConverter = class(TTypeConverterBase)
+  private
+    FSwapEndianness: Boolean;
+    function DoSwap(const G: TGUID): TGUID;
   public
+    constructor Create(ASwapEndianness: Boolean = False);
     function CanConvert(ATypeInfo: PTypeInfo): Boolean; override;
     function ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue; override;
     function FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue; override;
@@ -209,6 +213,23 @@ end;
 
 { TGuidConverter }
 
+constructor TGuidConverter.Create(ASwapEndianness: Boolean);
+begin
+  inherited Create;
+  FSwapEndianness := ASwapEndianness;
+end;
+
+function TGuidConverter.DoSwap(const G: TGUID): TGUID;
+begin
+  Result := G;
+  Result.D1 := ((Result.D1 and $000000FF) shl 24) or
+               ((Result.D1 and $0000FF00) shl 8) or
+               ((Result.D1 and $00FF0000) shr 8) or
+               ((Result.D1 and $FF000000) shr 24);
+  Result.D2 := Swap(Result.D2);
+  Result.D3 := Swap(Result.D3);
+end;
+
 function TGuidConverter.CanConvert(ATypeInfo: PTypeInfo): Boolean;
 begin
   Result := ATypeInfo = TypeInfo(TGUID);
@@ -235,7 +256,15 @@ begin
   else
   begin
     GuidStr := AValue.AsString;
-    Guid := StringToGUID(GuidStr);
+    try
+      Guid := StringToGUID(GuidStr);
+      if FSwapEndianness then
+        Guid := DoSwap(Guid);
+    except
+      on E: Exception do
+        raise Exception.CreateFmt('''%s'' is not a valid GUID value (SourceType: %s, Kind: %d)', 
+          [GuidStr, AValue.TypeInfo.Name, Ord(AValue.Kind)]);
+    end;
     TValue.Make(@Guid, TypeInfo(TGUID), Result);
   end;
 end;
@@ -334,9 +363,10 @@ begin
   if JsonStr.Trim.IsEmpty then
     Exit(TValue.Empty);
     
-  // TODO: Implement proper deserialization with class factory
-  // For now, return the JSON string as-is
-  Result := AValue;
+  if ATypeInfo.Kind = tkClass then
+    Result := TDextJson.Deserialize(ATypeInfo, JsonStr)
+  else
+    Result := AValue;
 end;
 
 function TJsonConverter.GetSQLCast(const AParamName: string; ADialect: TDatabaseDialect): string;

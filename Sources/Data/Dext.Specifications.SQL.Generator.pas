@@ -39,6 +39,7 @@ uses
   Dext.Entity.Dialects,
   Dext.Entity.Attributes,
   Dext.Entity.Mapping,
+  Dext.Entity.TypeConverters,
   Dext.Types.Nullable;
 
 type
@@ -108,6 +109,7 @@ type
     function GetSoftDeleteFilter: string;
     function GetDiscriminatorFilter: string;
     function GetDiscriminatorValueSQL: string;
+    function GetDialectEnum: TDatabaseDialect;
 
   public
     constructor Create(ADialect: ISQLDialect; AMap: TEntityMap = nil);
@@ -164,7 +166,7 @@ class function TSQLGeneratorHelper.GetRelatedTableAndPK(ACtx: TRttiContext; ACla
 var
   RTyp: TRttiType;
   RProp: TRttiProperty;
-  RAttr: TCustomAttribute;
+  RAttr, SubAttr: TCustomAttribute;
 begin
   Result := False;
   RTyp := ACtx.GetType(AClass);
@@ -185,7 +187,7 @@ begin
       begin
         APK := RProp.Name;
         // Check for Column Attribute on PK
-        for var SubAttr in RProp.GetAttributes do
+        for SubAttr in RProp.GetAttributes do
           if SubAttr is ColumnAttribute then
             APK := ColumnAttribute(SubAttr).Name;
         Exit(True);
@@ -270,6 +272,10 @@ var
   ArrayValue: TValue;
   I: Integer;
   ParamNames: TStringBuilder;
+  SQLCast: string;
+  Converter: ITypeConverter;
+  DialectEnum: TDatabaseDialect;
+  Quoted: string;
 begin
   // Special handling for IN and NOT IN operators
   if (C.BinaryOperator = boIn) or (C.BinaryOperator = boNotIn) then
@@ -332,9 +338,30 @@ begin
         .Append(FDialect.QuoteIdentifier(MapColumn(C.PropertyName)))
         .Append(' ')
         .Append(GetBinaryOpSQL(C.BinaryOperator))
-        .Append(' :')
-        .Append(ParamName)
-        .Append(')');
+        .Append(' ');
+
+    // Type converter support for SQL casting in WHERE clause
+    SQLCast := ':' + ParamName;
+    Converter := TTypeConverterRegistry.Instance.GetConverter(C.Value.TypeInfo);
+    if Converter <> nil then
+    begin
+      // We need ddPostgreSQL, etc. TSQLWhereGenerator has FDialect: ISQLDialect.
+      // I'll use the same detection logic or refactor it.
+      // For now, let's assume we can get it from FDialect.
+      DialectEnum := ddUnknown;
+      Quoted := FDialect.QuoteIdentifier('t');
+      if Quoted.StartsWith('[') then DialectEnum := ddSQLServer
+      else if Quoted.StartsWith('`') then DialectEnum := ddMySQL
+      else if Quoted.StartsWith('"') then
+      begin
+        if FDialect.BooleanToSQL(True) = 'TRUE' then DialectEnum := ddPostgreSQL
+        else DialectEnum := ddSQLite;
+      end;
+      
+      SQLCast := Converter.GetSQLCast(':' + ParamName, DialectEnum);
+    end;
+
+    FSQL.Append(SQLCast).Append(')');
   end;
 end;
 
@@ -491,6 +518,7 @@ var
   PropName: string;
   DeletedVal, NotDeletedVal: Variant;
   IsSoftDelete: Boolean;
+  PropMap: TPropertyMap;
 begin
   Result := '';
   IsSoftDelete := False;
@@ -537,7 +565,7 @@ begin
     if SameText(Prop.Name, PropName) then
     begin
       // Priority 1: Fluent Property Map
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if (FMap <> nil) and FMap.Properties.TryGetValue(Prop.Name, PropMap) then
       begin
         if PropMap.ColumnName <> '' then
@@ -635,6 +663,32 @@ begin
   end;
 end;
 
+function TSQLGenerator<T>.GetDialectEnum: TDatabaseDialect;
+var
+  QuotedTest: string;
+begin
+  // Convert ISQLDialect to TDatabaseDialect enum
+  // We detect the dialect by checking the quote identifier format
+  QuotedTest := FDialect.QuoteIdentifier('test');
+  
+  if QuotedTest.StartsWith('[') then
+    Result := ddSQLServer  // SQL Server uses [brackets]
+  else if QuotedTest.StartsWith('`') then
+    Result := ddMySQL      // MySQL uses `backticks`
+  else if QuotedTest.StartsWith('"') then
+  begin
+    // Both PostgreSQL and SQLite use double quotes
+    // Check BooleanToSQL to differentiate
+    var BoolTest := FDialect.BooleanToSQL(True);
+    if BoolTest = 'TRUE' then
+      Result := ddPostgreSQL  // PostgreSQL uses TRUE/FALSE
+    else
+      Result := ddSQLite;     // SQLite uses 1/0
+  end
+  else
+    Result := ddUnknown;
+end;
+
 function TSQLGenerator<T>.GenerateInsert(const AEntity: T): string;
 var
   Ctx: TRttiContext;
@@ -643,8 +697,12 @@ var
   Attr: TCustomAttribute;
   ColName, ParamName: string;
   SBCols, SBVals: TStringBuilder;
-  IsAutoInc, IsMapped: Boolean;
+  IsAutoInc, IsMapped, First: Boolean;
   Val: TValue;
+  SQLCast: string;
+  Converter: ITypeConverter;
+  NullableHelper: TNullableHelper;
+  PropMap: TPropertyMap;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -655,7 +713,7 @@ begin
   SBCols := TStringBuilder.Create;
   SBVals := TStringBuilder.Create;
   try
-    var First := True;
+    First := True;
     
     for Prop in Typ.GetProperties do
     begin
@@ -663,7 +721,7 @@ begin
       IsAutoInc := False;
       ColName := Prop.Name;
       
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if FMap <> nil then
         FMap.Properties.TryGetValue(Prop.Name, PropMap);
         
@@ -705,8 +763,8 @@ begin
       // Check for Nullable<T>
       if IsNullable(Val.TypeInfo) then
       begin
-        var Helper := TNullableHelper.Create(Val.TypeInfo);
-        if not Helper.HasValue(Val.GetReferenceToRawData) then
+        NullableHelper := TNullableHelper.Create(Val.TypeInfo);
+        if not NullableHelper.HasValue(Val.GetReferenceToRawData) then
         begin
           // It is NULL.
           SBVals.Append('NULL');
@@ -715,12 +773,22 @@ begin
         else
         begin
           // It has value. Extract it.
-          Val := Helper.GetValue(Val.GetReferenceToRawData);
+          Val := NullableHelper.GetValue(Val.GetReferenceToRawData);
         end;
       end;
 
       ParamName := GetNextParamName;
-      SBVals.Append(':').Append(ParamName);
+      
+      // Check if there's a type converter that needs SQL casting
+      Converter := TTypeConverterRegistry.Instance.GetConverter(Val.TypeInfo);
+      if Converter <> nil then
+      begin
+        SQLCast := Converter.GetSQLCast(':' + ParamName, GetDialectEnum);
+        SBVals.Append(SQLCast);
+      end
+      else
+        SBVals.Append(':').Append(ParamName);
+        
       FParams.Add(ParamName, Val);
     end;
     
@@ -767,7 +835,8 @@ var
   Attr: TCustomAttribute;
   ColName: string;
   SBCols, SBVals: TStringBuilder;
-  IsAutoInc, IsMapped: Boolean;
+  IsAutoInc, IsMapped, First: Boolean;
+  PropMap: TPropertyMap;
 begin
   Ctx := TRttiContext.Create;
   Typ := Ctx.GetType(T);
@@ -777,15 +846,15 @@ begin
   AProps := TList<TPair<TRttiProperty, string>>.Create;
   
   try
-    var First := True;
-    
+    First := True;
+
     for Prop in Typ.GetProperties do
     begin
       IsMapped := True;
       IsAutoInc := False;
       ColName := Prop.Name;
       
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if FMap <> nil then
         FMap.Properties.TryGetValue(Prop.Name, PropMap);
         
@@ -847,6 +916,10 @@ var
   IsPK, IsMapped, IsVersion: Boolean;
   Val: TValue;
   NewVersionVal: Integer;
+  FirstSet, FirstWhere: Boolean;
+  PropMap: TPropertyMap;
+  SQLCastStr: string;
+  Converter: ITypeConverter;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -857,8 +930,8 @@ begin
   SBSet := TStringBuilder.Create;
   SBWhere := TStringBuilder.Create;
   try
-    var FirstSet := True;
-    var FirstWhere := True;
+    FirstSet := True;
+    FirstWhere := True;
     
     for Prop in Typ.GetProperties do
     begin
@@ -867,7 +940,7 @@ begin
       IsVersion := False;
       ColName := Prop.Name;
       
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if FMap <> nil then
         FMap.Properties.TryGetValue(Prop.Name, PropMap);
         
@@ -918,7 +991,15 @@ begin
         
         if not FirstSet then SBSet.Append(', ');
         FirstSet := False;
-        SBSet.Append(FDialect.QuoteIdentifier(ColName)).Append(' = :').Append(ParamNameNew);
+        
+        SQLCastStr := '';
+        Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+        if Converter <> nil then
+           SQLCastStr := Converter.GetSQLCast(':' + ParamNameNew, GetDialectEnum)
+        else
+           SQLCastStr := ':' + ParamNameNew;
+
+        SBSet.Append(FDialect.QuoteIdentifier(ColName)).Append(' = ').Append(SQLCastStr);
       end
       else if IsPK then
       begin
@@ -938,7 +1019,15 @@ begin
         
         if not FirstSet then SBSet.Append(', ');
         FirstSet := False;
-        SBSet.Append(FDialect.QuoteIdentifier(ColName)).Append(' = :').Append(ParamName);
+        
+        SQLCastStr := '';
+        Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+        if Converter <> nil then
+           SQLCastStr := Converter.GetSQLCast(':' + ParamName, GetDialectEnum)
+        else
+           SQLCastStr := ':' + ParamName;
+
+        SBSet.Append(FDialect.QuoteIdentifier(ColName)).Append(' = ').Append(SQLCastStr);
       end;
     end;
     
@@ -962,8 +1051,9 @@ var
   Attr: TCustomAttribute;
   ColName, ParamName: string;
   SBWhere: TStringBuilder;
-  IsPK: Boolean;
+  IsPK, FirstWhere: Boolean;
   Val: TValue;
+  PropMap: TPropertyMap;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -973,14 +1063,14 @@ begin
   
   SBWhere := TStringBuilder.Create;
   try
-    var FirstWhere := True;
+    FirstWhere := True;
     
     for Prop in Typ.GetProperties do
     begin
       IsPK := False;
       ColName := Prop.Name;
       
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if FMap <> nil then
         FMap.Properties.TryGetValue(Prop.Name, PropMap);
         
@@ -1034,7 +1124,13 @@ var
   First: Boolean;
   SelectedCols: TArray<string>;
   OrderBy: TArray<IOrderBy>;
-  Skip, Take: Integer;
+  Skip, Take, i: Integer;
+  Pair: TPair<string, TValue>;
+  IsMapped: Boolean;
+  PropMap: TPropertyMap;
+  SoftDeleteFilter, DiscriminatorFilter: string;
+  SortCol: string;
+  P: TRttiProperty;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -1045,7 +1141,7 @@ begin
     WhereSQL := WhereGen.Generate(ASpec.GetExpression);
     
     // Copy params
-    for var Pair in WhereGen.Params do
+    for Pair in WhereGen.Params do
     begin
       FParams.Add(Pair.Key, Pair.Value);
     end;
@@ -1061,7 +1157,7 @@ begin
     if Length(SelectedCols) > 0 then
     begin
       // Custom projection
-      for var i := 0 to High(SelectedCols) do
+      for i := 0 to High(SelectedCols) do
       begin
         if i > 0 then SB.Append(', ');
         SB.Append(FDialect.QuoteIdentifier(SelectedCols[i]));
@@ -1077,9 +1173,9 @@ begin
       for Prop in Typ.GetProperties do
       begin
         ColName := Prop.Name;
-        var IsMapped := True;
+        IsMapped := True;
         
-        var PropMap: TPropertyMap := nil;
+        PropMap := nil;
         if FMap <> nil then
           FMap.Properties.TryGetValue(Prop.Name, PropMap);
           
@@ -1112,8 +1208,8 @@ begin
     SB.Append(' FROM ').Append(FDialect.QuoteIdentifier(GetTableName));
     
     // Add soft delete filter
-    var SoftDeleteFilter := GetSoftDeleteFilter;
-    var DiscriminatorFilter := GetDiscriminatorFilter;
+    SoftDeleteFilter := GetSoftDeleteFilter;
+    DiscriminatorFilter := GetDiscriminatorFilter;
     
     // Combine filters
     if DiscriminatorFilter <> '' then
@@ -1138,15 +1234,15 @@ begin
     if Length(OrderBy) > 0 then
     begin
       SB.Append(' ORDER BY ');
-      for var i := 0 to High(OrderBy) do
+      for i := 0 to High(OrderBy) do
       begin
         if i > 0 then SB.Append(', ');
         
-        var SortCol := OrderBy[i].GetPropertyName;
+        SortCol := OrderBy[i].GetPropertyName;
         // Lookup column name (simplified)
         Ctx := TRttiContext.Create;
         Typ := Ctx.GetType(T);
-        var P := Typ.GetProperty(SortCol);
+        P := Typ.GetProperty(SortCol);
         if P <> nil then
         begin
            for Attr in P.GetAttributes do
@@ -1200,7 +1296,9 @@ var
   Attr: TCustomAttribute;
   Ctx: TRttiContext;
   Typ: TRttiType;
-  First: Boolean;
+  First, IsMapped: Boolean;
+  PropMap: TPropertyMap;
+  SoftDeleteFilter, DiscriminatorFilter: string;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -1217,9 +1315,9 @@ begin
     for Prop in Typ.GetProperties do
     begin
       ColName := Prop.Name;
-      var IsMapped := True;
+      IsMapped := True;
 
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if FMap <> nil then
         FMap.Properties.TryGetValue(Prop.Name, PropMap);
 
@@ -1251,8 +1349,8 @@ begin
     SB.Append(' FROM ').Append(FDialect.QuoteIdentifier(GetTableName));
 
     // Add soft delete filter
-    var SoftDeleteFilter := GetSoftDeleteFilter;
-    var DiscriminatorFilter := GetDiscriminatorFilter;
+    SoftDeleteFilter := GetSoftDeleteFilter;
+    DiscriminatorFilter := GetDiscriminatorFilter;
     
     if DiscriminatorFilter <> '' then
     begin
@@ -1277,6 +1375,8 @@ var
   WhereGen: TSQLWhereGenerator;
   WhereSQL: string;
   SB: TStringBuilder;
+  SoftDeleteFilter, DiscriminatorFilter: string;
+  Pair: TPair<string, TValue>;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -1287,7 +1387,7 @@ begin
     WhereSQL := WhereGen.Generate(ASpec.GetExpression);
     
     // Copy params
-    for var Pair in WhereGen.Params do
+    for Pair in WhereGen.Params do
     begin
       FParams.Add(Pair.Key, Pair.Value);
     end;
@@ -1300,8 +1400,8 @@ begin
     SB.Append('SELECT COUNT(*) FROM ').Append(FDialect.QuoteIdentifier(GetTableName));
     
     // Add soft delete filter
-    var SoftDeleteFilter := GetSoftDeleteFilter;
-    var DiscriminatorFilter := GetDiscriminatorFilter;
+    SoftDeleteFilter := GetSoftDeleteFilter;
+    DiscriminatorFilter := GetDiscriminatorFilter;
     
     if DiscriminatorFilter <> '' then
     begin
@@ -1328,7 +1428,7 @@ end;
 
 function TSQLGenerator<T>.GenerateCount: string;
 var
-  SoftDeleteFilter: string;
+  SoftDeleteFilter, DiscriminatorFilter: string;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -1337,7 +1437,7 @@ begin
   
   // Add soft delete filter
   SoftDeleteFilter := GetSoftDeleteFilter;
-  var DiscriminatorFilter := GetDiscriminatorFilter;
+  DiscriminatorFilter := GetDiscriminatorFilter;
   
   if DiscriminatorFilter <> '' then
   begin
@@ -1358,10 +1458,23 @@ var
   Attr: TCustomAttribute;
   ColName, ColType, Body: string;
   SB: TStringBuilder;
-  IsPK, IsAutoInc, IsMapped, HasAutoInc: Boolean;
-  First: Boolean;
+  First, IsPK, IsAutoInc, IsMapped, HasAutoInc: Boolean;
   PKCols: TList<string>;
   FKConstraints: TList<string>;
+  Constraint: string;
+  TypeAttr: TCustomAttribute;
+  PropMap: TPropertyMap;
+  i: Integer;
+  FK: ForeignKeyAttribute;
+  FKPropName: string;
+  FKColName: string;
+  RelatedTable, RelatedPK: string;
+  LConstraint: string;
+  PropTypeHandle: PTypeInfo;
+  Underlying: PTypeInfo;
+  IsSoftDeleteColumn: Boolean;
+  SoftDeleteDefaultValue: Variant;
+  SoftDelAttr: SoftDeleteAttribute;
 begin
   SB := TStringBuilder.Create;
   PKCols := TList<string>.Create;
@@ -1379,26 +1492,25 @@ begin
       begin
         if Attr is ForeignKeyAttribute then
         begin
-          var FK := ForeignKeyAttribute(Attr);
-          var FKPropName := FK.ColumnName;
-          var FKColName := TSQLGeneratorHelper.GetColumnNameForProperty(Typ, FKPropName);
-          var RelatedTable, RelatedPK: string;
+          FK := ForeignKeyAttribute(Attr);
+          FKPropName := FK.ColumnName;
+          FKColName := TSQLGeneratorHelper.GetColumnNameForProperty(Typ, FKPropName);
           
           if (Prop.PropertyType.TypeKind = tkClass) and 
              TSQLGeneratorHelper.GetRelatedTableAndPK(Ctx, Prop.PropertyType.AsInstance.MetaclassType, RelatedTable, RelatedPK) then
           begin
-             var Constraint := Format('FOREIGN KEY (%s) REFERENCES %s (%s)', 
+             LConstraint := Format('FOREIGN KEY (%s) REFERENCES %s (%s)', 
                [FDialect.QuoteIdentifier(FKColName), 
                 FDialect.QuoteIdentifier(RelatedTable), 
                 FDialect.QuoteIdentifier(RelatedPK)]);
                 
              if FK.OnDelete <> caNoAction then
-               Constraint := Constraint + ' ON DELETE ' + TSQLGeneratorHelper.GetCascadeSQL(FK.OnDelete);
+               LConstraint := LConstraint + ' ON DELETE ' + TSQLGeneratorHelper.GetCascadeSQL(FK.OnDelete);
                
              if FK.OnUpdate <> caNoAction then
-               Constraint := Constraint + ' ON UPDATE ' + TSQLGeneratorHelper.GetCascadeSQL(FK.OnUpdate);
+               LConstraint := LConstraint + ' ON UPDATE ' + TSQLGeneratorHelper.GetCascadeSQL(FK.OnUpdate);
                
-             FKConstraints.Add(Constraint);
+             FKConstraints.Add(LConstraint);
           end;
         end;
       end;
@@ -1408,7 +1520,7 @@ begin
       IsAutoInc := False;
       ColName := Prop.Name;
       
-      var PropMap: TPropertyMap := nil;
+      PropMap := nil;
       if FMap <> nil then
         FMap.Properties.TryGetValue(Prop.Name, PropMap);
         
@@ -1447,12 +1559,12 @@ begin
       SB.Append(FDialect.QuoteIdentifier(ColName));
       SB.Append(' ');
       
-      var PropTypeHandle := Prop.PropertyType.Handle;
+      PropTypeHandle := Prop.PropertyType.Handle;
       
       // Handle Nullable<T>
       if IsNullable(Prop.PropertyType.Handle) then
       begin
-        var Underlying := GetUnderlyingType(Prop.PropertyType.Handle);
+        Underlying := GetUnderlyingType(Prop.PropertyType.Handle);
         if Underlying <> nil then
           PropTypeHandle := Underlying;
       end;
@@ -1461,13 +1573,12 @@ begin
       SB.Append(ColType);
       
       // Check if this is a soft delete column and add DEFAULT
-      var IsSoftDeleteColumn := False;
-      var SoftDeleteDefaultValue: Variant;
-      for var TypeAttr in Typ.GetAttributes do
+      IsSoftDeleteColumn := False;
+      for TypeAttr in Typ.GetAttributes do
       begin
         if TypeAttr is SoftDeleteAttribute then
         begin
-          var SoftDelAttr := SoftDeleteAttribute(TypeAttr);
+          SoftDelAttr := SoftDeleteAttribute(TypeAttr);
           if SameText(ColName, SoftDelAttr.ColumnName) then
           begin
             IsSoftDeleteColumn := True;
@@ -1499,7 +1610,7 @@ begin
     if (PKCols.Count > 0) and not HasAutoInc then
     begin
       SB.Append(', PRIMARY KEY (');
-      for var i := 0 to PKCols.Count - 1 do
+      for i := 0 to PKCols.Count - 1 do
       begin
         if i > 0 then SB.Append(', ');
         SB.Append(PKCols[i]);
@@ -1508,7 +1619,7 @@ begin
     end;
     
     // Add FK Constraints
-    for var Constraint in FKConstraints do
+    for Constraint in FKConstraints do
     begin
       SB.Append(', ').Append(Constraint);
     end;

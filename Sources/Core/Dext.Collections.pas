@@ -205,9 +205,10 @@ end;
 
 procedure TSmartList<T>.Notify(Sender: TObject; const Item: T; Action: TCollectionNotification);
 begin
-  if Action = cnRemoved then
+  if FOwnsObjects and (Action = cnRemoved) then
   begin
-    PObject(@Item).Free;
+    if PTypeInfo(TypeInfo(T)).Kind = tkClass then
+      TObject(PPointer(@Item)^).Free;
   end;
 end;
 
