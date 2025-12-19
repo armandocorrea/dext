@@ -822,12 +822,6 @@ begin
               end;
             end;
           end;
-                  PropValue := TValue.From<Double>(AJson.GetDouble(ActualPropName));
-              end;
-            end
-            else
-              PropValue := TValue.From<Double>(AJson.GetDouble(ActualPropName));
-          end;
           
         tkString, tkLString, tkWString, tkUString:
           PropValue := TValue.From<string>(AJson.GetString(ActualPropName));

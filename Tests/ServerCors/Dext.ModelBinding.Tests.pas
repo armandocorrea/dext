@@ -11,6 +11,9 @@ procedure TestBindRouteEdgeCases;
 procedure TestBindHeaderComprehensive;
 procedure TestBindServicesComprehensive;
 
+// New test for Date/Time types
+procedure TestBindQueryDateTypes;
+
 
 implementation
 
@@ -537,6 +540,59 @@ begin
   except
     on E: Exception do
       Writeln('❌ ERRO BindServices: ', E.ClassName, ' - ', E.Message);
+  end;
+end;
+
+
+procedure TestBindQueryDateTypes;
+type
+  TDateTest = record
+    [FromQuery] DateVal: TDate;
+    [FromQuery] TimeVal: TTime;
+    [FromQuery] UserDateTime: TDateTime;
+    [FromQuery] InvalidDate: TDate; // Should default to 0
+  end;
+var
+  MockContext: IHttpContext;
+  Binder: IModelBinder;
+begin
+  Writeln('=== TESTE BINDQUERY DATETYPES ===');
+  try
+    Binder := TModelBinder.Create;
+
+    // ISO Format Test
+    Writeln('✅ TESTE 1: ISO Format');
+    // Using explicit date strings to avoid locale issues in test construction, but typical ISO is safe
+    MockContext := TMockFactory.CreateHttpContext('dateval=2025-12-25&timeval=14:30:00&userdatetime=2025-12-25T14:30:00&invaliddate=not-a-date');
+
+    var Value := Binder.BindQuery(TypeInfo(TDateTest), MockContext);
+    var Test := Value.AsType<TDateTest>;
+
+    Writeln('  DateVal: ', DateToStr(Test.DateVal), ' (Expected: 25/12/2025)');
+    Writeln('  TimeVal: ', TimeToStr(Test.TimeVal), ' (Expected: 14:30:00)');
+    Writeln('  UserDateTime: ', DateTimeToStr(Test.UserDateTime), ' (Expected: 25/12/2025 14:30:00)');
+    Writeln('  InvalidDate: ', FloatToStr(Test.InvalidDate), ' (Expected: 0)');
+
+    if (Test.InvalidDate <> 0) then
+      Writeln('  ❌ InvalidDate falhou (não é 0)');
+
+    // Common Format Test (slash)
+    Writeln(#10 + '✅ TESTE 2: Common Format (Slash)');
+    // Note: Depends on local settings slightly if TryParseCommonDate uses settings, but common formats usually hardcoded
+    // Assuming TryParseCommonDate handles dd/mm/yyyy
+    MockContext := TMockFactory.CreateHttpContext('dateval=25/12/2025&timeval=14:30&userdatetime=25/12/2025 14:30');
+
+    Value := Binder.BindQuery(TypeInfo(TDateTest), MockContext);
+    Test := Value.AsType<TDateTest>;
+    
+    Writeln('  DateVal (slash): ', DateToStr(Test.DateVal));
+    Writeln('  TimeVal (short): ', TimeToStr(Test.TimeVal));
+    Writeln('  UserDateTime (space): ', DateTimeToStr(Test.UserDateTime));
+
+    Writeln('=== SUCESSO BINDQUERY DATETYPES! ===');
+  except
+    on E: Exception do
+      Writeln('❌ ERRO BindQueryDateTypes: ', E.ClassName, ' - ', E.Message);
   end;
 end;
 

@@ -75,8 +75,8 @@ begin
     TestEdgeCases;
     TestLocalization;
     TestProviders; // ✅ Adicionado teste de drivers
-    Readln;
-    Exit;
+    // Readln;
+    // Exit;
     TestBindingAttributes;
     TestRealWorldBindingScenarios;
     TestModelBinderBasic;
@@ -85,6 +85,7 @@ begin
 
     TestBindHeaderComprehensive;
     TestBindServicesComprehensive;
+    TestBindQueryDateTypes; // ✅ New test for Date/Time binding
     Readln;
     Exit;
     TestBindRouteComprehensive;
