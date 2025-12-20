@@ -85,6 +85,9 @@ contains
   Dext.OpenAPI.Extensions in 'Web\Dext.OpenAPI.Extensions.pas',
   Dext.Swagger.Middleware in 'Web\Dext.Swagger.Middleware.pas',
   Dext.Web.ApplicationBuilder.Extensions in 'Web\Hosting\Dext.Web.ApplicationBuilder.Extensions.pas',
-  Dext.Web.WebApplication in 'Web\Hosting\Dext.Web.WebApplication.pas';
+  Dext.Web.WebApplication in 'Web\Hosting\Dext.Web.WebApplication.pas',
+  Dext.Core.Span in 'Core\Base\Dext.Core.Span.pas',
+  Dext.Json.Utf8.Serializer in 'Core\Json\Dext.Json.Utf8.Serializer.pas',
+  Dext.Json.Utf8 in 'Core\Json\Dext.Json.Utf8.pas';
 
 end.
