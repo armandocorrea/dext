@@ -18,16 +18,9 @@ interface
 uses
   System.SysUtils, System.Classes, System.Rtti,
   Dext.Web.Interfaces, Dext.DI.Interfaces, Dext.Web.Middleware,
-  Dext.Web.Core;
+  Dext.Web.Core, Dext.MultiTenancy;
 
 type
-  ITenant = interface
-    ['{B9FA6A6A-7F4C-4D3E-9A5B-1C2D3E4F5A6B}']
-    function GetId: string;
-    function GetName: string;
-    function GetConnectionString: string;
-  end;
-
   ITenantResolutionStrategy = interface
     ['{C8E9D0A1-B2F3-4C5D-6E7F-8A9B0C1D2E3F}']
     function Resolve(const AContext: IHttpContext): string;
@@ -42,7 +35,6 @@ type
   private
     FStrategy: ITenantResolutionStrategy;
     FStore: ITenantStore;
-  public
   public
     constructor Create(const AStrategy: ITenantResolutionStrategy; const AStore: ITenantStore);
     procedure Invoke(AContext: IHttpContext; ANext: TRequestDelegate); override;
@@ -63,6 +55,7 @@ procedure TMultiTenancyMiddleware.Invoke(AContext: IHttpContext; ANext: TRequest
 var
   LTenantId: string;
   LTenant: ITenant;
+  LProvider: ITenantProvider;
 begin
   if FStrategy <> nil then
   begin
@@ -74,7 +67,14 @@ begin
         LTenant := FStore.GetTenant(LTenantId);
         if LTenant <> nil then
         begin
+          // Store in Context Items for easy access in views/controllers
           AContext.Items.AddOrSetValue('Tenant', TValue.From<ITenant>(LTenant));
+          
+          // Populate ITenantProvider if registered (Scoped service)
+          if Supports(AContext.Services.GetService(TypeInfo(ITenantProvider)), ITenantProvider, LProvider) then
+          begin
+            LProvider.Tenant := LTenant;
+          end;
         end;
       end;
     end;

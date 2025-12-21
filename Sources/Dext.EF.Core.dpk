@@ -29,20 +29,14 @@ package Dext.EF.Core;
 {$RUNONLY}
 {$IMPLICITBUILD OFF}
 
-{$I Dext.inc}
-
 requires
   rtl,
   dbrtl,
   FireDAC,
   FireDACCommon,
   FireDACCommonDriver,
-  Dext.Core
-  {$IFDEF DEXT_ENABLE_DB_SQLITE}, FireDACSqliteDriver {$ENDIF}
-  {$IFDEF DEXT_ENABLE_DB_POSTGRES}, FireDACPgDriver {$ENDIF}
-  {$IFDEF DEXT_ENABLE_DB_MYSQL}, FireDACMySQLDriver {$ENDIF}
-  {$IFDEF DEXT_ENABLE_DB_MSSQL}, FireDACMSSQLDriver {$ENDIF}
-  {$IFDEF DEXT_ENABLE_DB_ODBC}, FireDACCommonODBC {$ENDIF};
+  Dext.Core,
+  FireDACSqliteDriver;
 
 contains
   Dext.Entity in 'Data\Dext.Entity.pas',
@@ -76,6 +70,7 @@ contains
   Dext.Hosting.CLI in 'Hosting\Dext.Hosting.CLI.pas',
   Dext.Specifications.SQL.Generator in 'Data\Dext.Specifications.SQL.Generator.pas',
   Dext.Entity.TypeConverters in 'Data\Dext.Entity.TypeConverters.pas',
-  Dext.Entity.Drivers.FireDAC.Phys in 'Data\Dext.Entity.Drivers.FireDAC.Phys.pas';
+  Dext.Entity.Drivers.FireDAC.Phys in 'Data\Dext.Entity.Drivers.FireDAC.Phys.pas',
+  Dext.Entity.Tenancy in 'Data\Dext.Entity.Tenancy.pas';
 
 end.

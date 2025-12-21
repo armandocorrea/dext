@@ -161,6 +161,7 @@
         <DCCReference Include="Core\Dext.MM.pas"/>
         <DCCReference Include="Core\Base\Dext.Core.DateUtils.pas"/>
         <DCCReference Include="Core\Dext.Types.UUID.pas"/>
+        <DCCReference Include="Core\Dext.MultiTenancy.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

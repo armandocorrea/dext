@@ -37,6 +37,7 @@ uses
 type
   IDbReader = interface;
   IDbTransaction = interface;
+  IDbCommand = interface;
 
   /// <summary>
   ///   Represents a database connection.
@@ -50,7 +51,7 @@ type
     function BeginTransaction: IDbTransaction;
     
     // Factory methods
-    function CreateCommand(const ASQL: string): IInterface; // Returns IDbCommand (circular ref avoidance)
+    function CreateCommand(const ASQL: string): IDbCommand; 
     
     function GetLastInsertId: Variant;
     

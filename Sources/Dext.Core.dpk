@@ -78,7 +78,8 @@ contains
   Dext.Validation in 'Core\Dext.Validation.pas',
   Dext.MM in 'Core\Dext.MM.pas',
   Dext.Core.DateUtils in 'Core\Base\Dext.Core.DateUtils.pas',
-  Dext.Types.UUID in 'Core\Dext.Types.UUID.pas';
+  Dext.Types.UUID in 'Core\Dext.Types.UUID.pas',
+  Dext.MultiTenancy in 'Core\Dext.MultiTenancy.pas';
 
 end.
 

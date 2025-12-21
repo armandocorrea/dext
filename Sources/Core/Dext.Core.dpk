@@ -62,6 +62,7 @@ contains
   Dext.Core.CancellationToken in 'Core\Base\Dext.Core.CancellationToken.pas',
   Dext.Hosting.BackgroundService in 'Core\Dext.Hosting.BackgroundService.pas',
   Dext.Core.Extensions in 'Core\Base\Dext.Core.Extensions.pas',
+  Dext.MultiTenancy in 'Core\Dext.MultiTenancy.pas',
   Dext in 'Core\Dext.pas',
   Dext.Options.Extensions in 'Core\Dext.Options.Extensions.pas',
   Dext.Core.Memory in 'Core\Base\Dext.Core.Memory.pas',

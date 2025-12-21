@@ -39,7 +39,8 @@ uses
   Dext.Entity.Naming, // Add Naming unit
   Dext.Entity.Query,
   Dext.Specifications.Base,
-  Dext.Specifications.Interfaces;
+  Dext.Specifications.Interfaces,
+  Dext.MultiTenancy;
 
 type
   EOptimisticConcurrencyException = class(Exception);
@@ -225,6 +226,10 @@ type
     function GetMapping(AType: PTypeInfo): TObject;
     
     function Entry(const AEntity: TObject): IEntityEntry;
+    
+    // Tenancy
+    function GetTenantProvider: ITenantProvider;
+    property TenantProvider: ITenantProvider read GetTenantProvider;
   end;
 
 /// <summary>

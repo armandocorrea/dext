@@ -49,7 +49,9 @@ uses
   Dext.Specifications.SQL.Generator,
   Dext.Specifications.Types,
   Dext.Entity.TypeConverters,
-  Dext.Types.Nullable;
+  Dext.Types.Nullable,
+  Dext.MultiTenancy,
+  Dext.Entity.Tenancy;
 
 type
   TDbSet<T: class> = class(TInterfacedObject, IDbSet<T>, IDbSet)
@@ -81,6 +83,8 @@ type
     function GetRelatedId(const AObject: TObject): TValue;
     procedure DoLoadIncludes(const AEntities: IList<T>; const AIncludes: TArray<string>);
     function GetItem(Index: Integer): T;
+    
+    procedure ApplyTenantFilter(var ASpec: ISpecification<T>);
   public
     constructor Create(const AContext: IDbContext); reintroduce;
     destructor Destroy; override;
@@ -580,7 +584,13 @@ var
 begin
   Generator := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
   try
-    Sql := Generator.GenerateInsert(T(AEntity));
+    try
+        Sql := Generator.GenerateInsert(T(AEntity));
+    except
+        on E: Exception do
+             raise;
+    end;
+
     UseReturning := (FPKColumns.Count = 1) and FContext.Dialect.SupportsInsertReturning;
     if UseReturning then
     begin
@@ -596,7 +606,7 @@ begin
       else
         Sql := Sql + ' ' + ReturningClause;
     end;
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Cmd := FContext.Connection.CreateCommand(Sql);
     for var Pair in Generator.Params do
       Cmd.AddParam(Pair.Key, Pair.Value);
     if UseReturning then
@@ -615,7 +625,7 @@ begin
          var LastIdSQL := FContext.Dialect.GetLastInsertIdSQL;
          if LastIdSQL <> '' then
          begin
-           var IdCmd := FContext.Connection.CreateCommand(LastIdSQL) as IDbCommand;
+           var IdCmd := FContext.Connection.CreateCommand(LastIdSQL);
            var IdVal := IdCmd.ExecuteScalar;
            if not IdVal.IsEmpty then
              PKVal := IdVal.AsVariant
@@ -714,7 +724,7 @@ begin
   Generator := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
   try
     Sql := Generator.GenerateUpdate(T(AEntity));
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Cmd := FContext.Connection.CreateCommand(Sql);
     for var Pair in Generator.Params do
       Cmd.AddParam(Pair.Key, Pair.Value);
     RowsAffected := Cmd.ExecuteNonQuery;
@@ -862,7 +872,7 @@ begin
   Generator := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
   try
     Sql := Generator.GenerateDelete(T(AEntity));
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Cmd := FContext.Connection.CreateCommand(Sql);
     for var Pair in Generator.Params do
       Cmd.AddParam(Pair.Key, Pair.Value);
     Cmd.ExecuteNonQuery;
@@ -937,13 +947,17 @@ var
   Entity: T;
   IsProjection: Boolean;
   Tracking: Boolean;
+  LSpec: ISpecification<T>;
 begin
-  IsProjection := (ASpec <> nil) and (Length(ASpec.GetSelectedColumns) > 0);
+  LSpec := ASpec;
+  ApplyTenantFilter(LSpec);
+
+  IsProjection := (LSpec <> nil) and (Length(LSpec.GetSelectedColumns) > 0);
   
   // Tracking defaults to True
   // If Spec is provided, respect its setting
-  if ASpec <> nil then
-    Tracking := ASpec.IsTrackingEnabled
+  if LSpec <> nil then
+    Tracking := LSpec.IsTrackingEnabled
   else
     Tracking := True;
 
@@ -960,11 +974,11 @@ begin
   Generator.IgnoreQueryFilters := FIgnoreQueryFilters;
   Generator.OnlyDeleted := FOnlyDeleted;
   try
-    if ASpec <> nil then
-      Sql := Generator.GenerateSelect(ASpec)
+    if LSpec <> nil then
+      Sql := Generator.GenerateSelect(LSpec)
     else
       Sql := Generator.GenerateSelect;
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Cmd := FContext.Connection.CreateCommand(Sql);
     for var Pair in Generator.Params do
       Cmd.AddParam(Pair.Key, Pair.Value);
     
@@ -983,11 +997,31 @@ begin
       end;
     end;
 
-    if (ASpec <> nil) and (Length(ASpec.GetIncludes) > 0) then
-      DoLoadIncludes(Result, ASpec.GetIncludes);
+    if (LSpec <> nil) and (Length(LSpec.GetIncludes) > 0) then
+      DoLoadIncludes(Result, LSpec.GetIncludes);
   finally
     Generator.Free;
   end;
+end;
+
+procedure TDbSet<T>.ApplyTenantFilter(var ASpec: ISpecification<T>);
+var
+  Provider: ITenantProvider;
+begin
+  if FIgnoreQueryFilters then Exit;
+
+  // Check if T implements ITenantAware using RTTI
+  if GetTypeData(TypeInfo(T))^.ClassType.GetInterfaceEntry(ITenantAware) = nil then Exit;
+
+  Provider := FContext.TenantProvider;
+  
+  if (Provider = nil) or (Provider.Tenant = nil) then Exit;
+
+  if ASpec = nil then
+    ASpec := TSpecification<T>.Create;
+    
+  // Append TenantId filter
+  ASpec.Where(TBinaryExpression.Create('TenantId', boEqual, Provider.Tenant.Id));
 end;
 
 procedure TDbSet<T>.ExtractForeignKeys(const AEntities: IList<T>; PropertyToCheck: string;
@@ -1260,6 +1294,7 @@ begin
   Generator.OnlyDeleted := FOnlyDeleted;
   try
     var Spec: ISpecification<T> := TSpecification<T>.Create(AExpression);
+    ApplyTenantFilter(Spec);
     Spec.Take(1);
     
     Sql := Generator.GenerateSelect(Spec); 
@@ -1284,8 +1319,9 @@ begin
   Generator.OnlyDeleted := FOnlyDeleted;
   try
     var Spec: ISpecification<T> := TSpecification<T>.Create(AExpression);
+    ApplyTenantFilter(Spec);
     Sql := Generator.GenerateCount(Spec);
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Cmd := FContext.Connection.CreateCommand(Sql);
     for var Pair in Generator.Params do Cmd.AddParam(Pair.Key, Pair.Value);
     var Val := Cmd.ExecuteScalar;
     Result := Val.AsInteger;
@@ -1315,7 +1351,7 @@ begin
   Generator := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
   try
     Sql := Generator.GenerateDelete(AEntity);
-    Cmd := FContext.Connection.CreateCommand(Sql) as IDbCommand;
+    Cmd := FContext.Connection.CreateCommand(Sql);
     for var Pair in Generator.Params do
       Cmd.AddParam(Pair.Key, Pair.Value);
     Cmd.ExecuteNonQuery;

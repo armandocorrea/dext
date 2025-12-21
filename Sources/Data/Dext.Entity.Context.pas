@@ -45,7 +45,9 @@ uses
   Dext,
   Dext.Entity.TypeSystem,
   Dext.Specifications.Fluent,
-  Dext.Specifications.Types;
+  Dext.Specifications.Types,
+  Dext.MultiTenancy,
+  Dext.Entity.Tenancy;
 
 type
   TFluentExpression = Dext.Specifications.Types.TFluentExpression;
@@ -109,6 +111,13 @@ type
   ///   Note: This class implements IDbContext but disables reference counting.
   ///   You must manage its lifecycle manually (Free).
   /// </summary>
+  /// <summary>
+  ///   Concrete implementation of DbContext.
+  ///   Manages database connection, transactions, and entity sets.
+  ///   
+  ///   Note: This class implements IDbContext but disables reference counting.
+  ///   You must manage its lifecycle manually (Free).
+  /// </summary>
   TDbContext = class(TObject, IDbContext)
   private
     FConnection: IDbConnection;
@@ -119,6 +128,7 @@ type
     FTransaction: IDbTransaction;
     FCache: TDictionary<PTypeInfo, IInterface>; // Cache for DbSets
     FChangeTracker: IChangeTracker;
+    FTenantProvider: ITenantProvider;
   protected
     // IDbContext Implementation
     function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
@@ -134,7 +144,7 @@ type
     class var FModelCache: TObjectDictionary<TClass, TModelBuilder>;
     class var FCriticalSection: TObject; // For thread safety
     
-    constructor Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil);
+    constructor Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil);
     destructor Destroy; override;
     
     class constructor Create;
@@ -144,6 +154,7 @@ type
     function Dialect: ISQLDialect;
     function NamingStrategy: INamingStrategy;
     function ModelBuilder: TModelBuilder; // Expose ModelBuilder
+    function GetTenantProvider: ITenantProvider;
     
     procedure BeginTransaction;
     procedure Commit;
@@ -279,7 +290,7 @@ begin
   FCriticalSection.Free;
 end;
 
-constructor TDbContext.Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil);
+constructor TDbContext.Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil);
 begin
   inherited Create;
   FConnection := AConnection;
@@ -291,6 +302,7 @@ begin
     
   FCache := TDictionary<PTypeInfo, IInterface>.Create;
   FChangeTracker := TChangeTracker.Create;
+  FTenantProvider := ATenantProvider;
   
   // Model Caching Logic
   System.TMonitor.Enter(FCriticalSection);
@@ -359,6 +371,11 @@ end;
 function TDbContext.ModelBuilder: TModelBuilder;
 begin
   Result := FModelBuilder;
+end;
+
+function TDbContext.GetTenantProvider: ITenantProvider;
+begin
+  Result := FTenantProvider;
 end;
 
 procedure TDbContext.OnModelCreating(Builder: TModelBuilder);
@@ -680,7 +697,20 @@ begin
             Entity := Pair.Key;
             if not AddedGroups.ContainsKey(Entity.ClassInfo) then
               AddedGroups.Add(Entity.ClassInfo, TList<TObject>.Create);
-            AddedGroups[Entity.ClassInfo].Add(Entity);
+            
+             // Auto-populate TenantId if applicable
+             var TenantAware: ITenantAware;
+             if (FTenantProvider <> nil) and (FTenantProvider.Tenant <> nil) then
+             begin
+               if Supports(Entity, ITenantAware, TenantAware) then
+               begin
+                  // Only set if empty? Or enforce? Enforce is safer.
+                  if TenantAware.TenantId = '' then
+                    TenantAware.TenantId := FTenantProvider.Tenant.Id;
+               end;
+             end;
+               
+             AddedGroups[Entity.ClassInfo].Add(Entity);
           end;
         end;
 

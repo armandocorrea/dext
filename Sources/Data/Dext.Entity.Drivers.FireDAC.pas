@@ -129,7 +129,7 @@ type
     function IsConnected: Boolean;
     
     function BeginTransaction: IDbTransaction;
-    function CreateCommand(const ASQL: string): IInterface; // Returns IDbCommand
+    function CreateCommand(const ASQL: string): IDbCommand;
     function GetLastInsertId: Variant;
     function TableExists(const ATableName: string): Boolean;
     
@@ -758,7 +758,7 @@ begin
   FConnection.Connected := True;
 end;
 
-function TFireDACConnection.CreateCommand(const ASQL: string): IInterface;
+function TFireDACConnection.CreateCommand(const ASQL: string): IDbCommand;
 var
   Cmd: IDbCommand;
 begin
