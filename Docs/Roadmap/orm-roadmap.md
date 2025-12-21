@@ -278,8 +278,8 @@ Suportar hierarquias de classes no ORM com estratégias de mapeamento.
 2. **SQL Join Translation** (2 semanas)
    - Traduzir Join para SQL
 3. **JSON Column Support** (1 semana)
-   - [x] Groundwork: Clean TGUID/Enum serialization in `Dext.Json`
-   - [x] Foundation: `ITypeConverter` infrastructure
+   - [x] Groundwork: Clean TGUID/UUID/Enum serialization in `Dext.Json`
+   - [x] Foundation: `ITypeConverter` infrastructure with `TUuidConverter`
    - [ ] Mapeamento de colunas JSON
    - [ ] Query functions (JSON_EXTRACT, etc)
 

@@ -106,6 +106,17 @@ type
   end;
 
   /// <summary>
+  ///   Converter for TUUID type (RFC 9562).
+  /// </summary>
+  TUuidConverter = class(TTypeConverterBase)
+  public
+    function CanConvert(ATypeInfo: PTypeInfo): Boolean; override;
+    function ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue; override;
+    function FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue; override;
+    function GetSQLCast(const AParamName: string; ADialect: TDatabaseDialect): string; override;
+  end;
+
+  /// <summary>
   ///   Converter for Enum types.
   /// </summary>
   TEnumConverter = class(TTypeConverterBase)
@@ -317,6 +328,55 @@ begin
 end;
 
 
+{ TUuidConverter }
+
+function TUuidConverter.CanConvert(ATypeInfo: PTypeInfo): Boolean;
+begin
+  Result := ATypeInfo = TypeInfo(TUUID);
+end;
+
+function TUuidConverter.ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue;
+var
+  U: TUUID;
+begin
+  U := AValue.AsType<TUUID>;
+  Result := U.ToString; // Canonical string
+end;
+
+function TUuidConverter.FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue;
+var
+  U: TUUID;
+  GuidStr: string;
+begin
+  if AValue.IsEmpty then
+  begin
+    U := TUUID.Null;
+    TValue.Make(@U, TypeInfo(TUUID), Result);
+  end
+  else
+  begin
+    GuidStr := AValue.AsString;
+    try
+      U := TUUID.FromString(GuidStr);
+    except
+      on E: Exception do
+        raise Exception.CreateFmt('''%s'' is not a valid UUID value (SourceType: %s)', 
+          [GuidStr, AValue.TypeInfo.Name]);
+    end;
+    TValue.Make(@U, TypeInfo(TUUID), Result);
+  end;
+end;
+
+function TUuidConverter.GetSQLCast(const AParamName: string; ADialect: TDatabaseDialect): string;
+begin
+  case ADialect of
+    ddPostgreSQL: Result := Format('%s::uuid', [AParamName]);
+    ddSQLServer: Result := Format('CAST(%s AS UNIQUEIDENTIFIER)', [AParamName]);
+    else Result := AParamName;
+  end;
+end;
+
+
 { TEnumConverter }
 
 constructor TEnumConverter.Create(AUseString: Boolean);
@@ -376,6 +436,7 @@ begin
   // However, returning True here allows Global Registration to work.
   Result := (ATypeInfo.Kind in [tkClass, tkRecord, tkDynArray]) and
             (ATypeInfo <> TypeInfo(TGUID)) and
+            (ATypeInfo <> TypeInfo(TUUID)) and
             (ATypeInfo <> TypeInfo(TBytes));
 end;
 
@@ -540,6 +601,7 @@ begin
   
   // Register built-in converters
   RegisterConverter(TGuidConverter.Create);
+  RegisterConverter(TUuidConverter.Create);
   RegisterConverter(TDateTimeConverter.Create);
   RegisterConverter(TDateConverter.Create);
   RegisterConverter(TTimeConverter.Create);

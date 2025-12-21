@@ -32,6 +32,7 @@ uses
   System.Rtti,
   System.SysUtils,
   System.TypInfo,
+  Dext.Types.UUID,
   Dext.Json.Types;
 
 type
@@ -877,6 +878,10 @@ begin
               begin
                 PropValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(ActualPropName)));
               end
+              else if Prop.PropertyType.Handle = TypeInfo(TUUID) then
+              begin
+                PropValue := TValue.From<TUUID>(TUUID.FromString(AJson.GetString(ActualPropName)));
+              end
               else
               begin
                 var NestedObj := AJson.GetObject(ActualPropName);
@@ -909,6 +914,8 @@ var
 begin
   if AType = TypeInfo(TGUID) then
     Exit(TValue.From<TGUID>(StringToGUID(AJson.GetString(ValueField))));
+  if AType = TypeInfo(TUUID) then
+    Exit(TValue.From<TUUID>(TUUID.FromString(AJson.GetString(ValueField))));
 
   TValue.Make(nil, AType, Result);
   Context := TRttiContext.Create;
@@ -965,6 +972,17 @@ begin
           FieldValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(ActualFieldName)));
         except
           FieldValue := TValue.From<TGUID>(TGUID.Empty);
+        end;
+        Field.SetValue(Result.GetReferenceToRawData, FieldValue);
+        Continue;
+      end;
+
+      if Field.FieldType.Handle = TypeInfo(TUUID) then
+      begin
+        try
+          FieldValue := TValue.From<TUUID>(TUUID.FromString(AJson.GetString(ActualFieldName)));
+        except
+          FieldValue := TValue.From<TUUID>(TUUID.Null);
         end;
         Field.SetValue(Result.GetReferenceToRawData, FieldValue);
         Continue;
@@ -1141,6 +1159,8 @@ begin
   begin
     if AType = TypeInfo(TGUID) then
       Result := TValue.From<TGUID>(StringToGUID(AJson.GetString(ValueField)))
+    else if AType = TypeInfo(TUUID) then
+      Result := TValue.From<TUUID>(TUUID.FromString(AJson.GetString(ValueField)))
     else
       Result := DeserializeRecord(AJson, AType);
   end
@@ -1272,6 +1292,13 @@ begin
     Exit;
   end;
 
+  if AValue.TypeInfo = TypeInfo(TUUID) then
+  begin
+    Result := TDextJson.Provider.CreateObject;
+    Result.SetString(ValueField, AValue.AsType<TUUID>.ToString);
+    Exit;
+  end;
+
   Result := TDextJson.Provider.CreateObject;
 
   Context := TRttiContext.Create;
@@ -1301,6 +1328,12 @@ begin
       if (Field.FieldType.Handle = TypeInfo(TGUID)) or (FieldValue.TypeInfo = TypeInfo(TGUID)) then
       begin
         Result.SetString(FieldName, GUIDToString(FieldValue.AsType<TGUID>));
+        Continue;
+      end;
+
+      if (Field.FieldType.Handle = TypeInfo(TUUID)) or (FieldValue.TypeInfo = TypeInfo(TUUID)) then
+      begin
+        Result.SetString(FieldName, FieldValue.AsType<TUUID>.ToString);
         Continue;
       end;
 
@@ -1496,6 +1529,8 @@ begin
           begin
             if PropValue.TypeInfo = TypeInfo(TGUID) then
               Result.SetString(PropName, GUIDToString(PropValue.AsType<TGUID>))
+            else if PropValue.TypeInfo = TypeInfo(TUUID) then
+              Result.SetString(PropName, PropValue.AsType<TUUID>.ToString)
             else
             begin
               var NestedRecord := SerializeRecord(PropValue);
@@ -1597,6 +1632,8 @@ begin
       begin
         if AValue.TypeInfo = TypeInfo(TGUID) then
           Result.SetString(ValueField, GUIDToString(AValue.AsType<TGUID>))
+        else if AValue.TypeInfo = TypeInfo(TUUID) then
+          Result.SetString(ValueField, AValue.AsType<TUUID>.ToString)
         else
           // Replace result with serialized record
           // Note: ValueToJson returns Object. If SerializeRecord returns Object, we are good.
@@ -1736,6 +1773,8 @@ begin
           begin
             if ElementType = TypeInfo(TGUID) then
               ElementValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(I)))
+            else if ElementType = TypeInfo(TUUID) then
+              ElementValue := TValue.From<TUUID>(TUUID.FromString(AJson.GetString(I)))
             else
             begin
               var Node := AJson.GetNode(I);
@@ -1819,6 +1858,8 @@ begin
           tkRecord:
             if ElementType = TypeInfo(TGUID) then
               ElementValue := TValue.From<TGUID>(StringToGUID(AJson.GetString(I)))
+            else if ElementType = TypeInfo(TUUID) then
+              ElementValue := TValue.From<TUUID>(TUUID.FromString(AJson.GetString(I)))
             else
               ElementValue := TValue.Empty;
           else
@@ -1869,6 +1910,8 @@ begin
       tkRecord:
         if ElementType = TypeInfo(TGUID) then
           Result.Add(GUIDToString(ElementValue.AsType<TGUID>))
+        else if ElementType = TypeInfo(TUUID) then
+          Result.Add(ElementValue.AsType<TUUID>.ToString)
         else
           Result.Add(SerializeRecord(ElementValue));
     else
@@ -1926,6 +1969,8 @@ begin
           tkRecord:
             if ElementValue.TypeInfo = TypeInfo(TGUID) then
               Result.Add(GUIDToString(ElementValue.AsType<TGUID>))
+            else if ElementValue.TypeInfo = TypeInfo(TUUID) then
+              Result.Add(ElementValue.AsType<TUUID>.ToString)
             else
               Result.Add(SerializeRecord(ElementValue));
           tkClass:
@@ -1976,6 +2021,8 @@ begin
             tkRecord:
               if ElementValue.TypeInfo = TypeInfo(TGUID) then
                 Result.Add(GUIDToString(ElementValue.AsType<TGUID>))
+              else if ElementValue.TypeInfo = TypeInfo(TUUID) then
+                Result.Add(ElementValue.AsType<TUUID>.ToString)
               else
                 Result.Add(SerializeRecord(ElementValue));
             tkClass:

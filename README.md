@@ -32,7 +32,7 @@ A lightweight and powerful HTTP framework for building REST APIs and microservic
 - **Smart Binding**: Automatic JSON serialization and validation for Records/Classes.
 - **Middlewares**: Modular and extensible request pipeline.
 - **SSL/HTTPS**: Pluggable support for OpenSSL and TaurusTLS (OpenSSL 1.1x/3.x).
-- **Smart JSON**: Native support for TGUID/UUID, Enums, and advanced types in JSON serialization.
+- **First-Class UUID**: Native support for binding `TUUID` (RFC 9562) in Routes/Body.
 - **OpenAPI**: Native Swagger integration with auto-generated documentation.
 
 ### 🗄️ Dext.Entity (ORM)
@@ -42,7 +42,7 @@ A modern ORM focused on productivity and performance.
 - **Migrations**: Database schema version control via CLI.
 - **Fluent Query API**: Strongly typed and expressive queries.
 - **Change Tracking**: Automatic change tracking and optimized persistence.
-- **Advanced Types**: Native support for UUID/GUID, Enums (as string or int), JSON/JSONB, and Arrays.
+- **Advanced Types**: Native support for **UUID v7** (Time-Ordered), JSON/JSONB, and Arrays.
 - **Multi-Database**: Support for SQL Server, PostgreSQL, Firebird, MySQL, Oracle, and SQLite.
 - **High-Performance Drivers**:
   - **Standard FireDAC Driver**: Full-featured with TDataSet compatibility
