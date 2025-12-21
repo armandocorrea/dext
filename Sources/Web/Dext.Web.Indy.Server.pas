@@ -154,6 +154,14 @@ begin
     Writeln(Format('Dext server running on http://localhost:%d', [FPort]));
     if FSSLHandler <> nil then
       Writeln('HTTPS Enabled.');
+
+    // Check for automated test mode
+    if FindCmdLineSwitch('no-wait', ['-', '/'], True) then
+    begin
+       Writeln('🤖 Automated test mode: Server started successfully. Exiting run loop.');
+       Exit;
+    end;
+
     Writeln('Press Ctrl+C to stop the server...');
 
     GServerStopping := False;

@@ -3,7 +3,9 @@ program Web.SslDemo;
 {$APPTYPE CONSOLE}
 
 uses
+  Dext.MM,
   System.SysUtils,
+  Dext,
   Dext.Web,
   Dext.Web.Interfaces;
 
@@ -15,15 +17,16 @@ begin
     Writeln('Check appsettings.json for configuration options.');
     Writeln('');
 
-    var App := TDextApplication.Create;
+    var App: IWebApplication := TDextApplication.Create;
 
-    App.GetBuilder
-      .MapGet('/', function(Context: IHttpContext)
+    App.Builder
+      .MapGet('/', procedure(Context: IHttpContext)
       begin
-        Context.Response.Send('<h1>Dext SSL Demo</h1>' +
-          '<p>If you see this, the server is running!</p>' +
-          '<p>Protocol: ' + Context.Request.Scheme + '</p>' +
-          '<p>Check the console for HTTPS enabling messages.</p>');
+        Context.Response.SetStatusCode(200);
+        Context.Response.SetContentType('text/html');
+        Context.Response.Write('<h1>Dext SSL Demo</h1>' +
+          '<p>If you see this, the server is running over a secure connection!</p>' +
+          '<p>Check the browser address bar for the lock icon.</p>');
       end);
 
     App.Run;

@@ -29,7 +29,7 @@ for /r "%~dp0..\Examples" %%f in (*.dproj) do (
         echo ------------------------------------------
         
         REM Build using MSBuild
-        msbuild "!PROJECT_PATH!" /p:Config=Release /p:Platform=Win32 /v:minimal /nologo
+        msbuild "!PROJECT_PATH!" /p:Config=Debug /p:Platform=Win32 /v:minimal /nologo
         
         if !ERRORLEVEL! EQU 0 (
             echo [SUCCESS] !PROJECT_NAME!
