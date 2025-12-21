@@ -171,6 +171,10 @@ Plano estratégico focado em Dext SO4 (Fórum/Social) e melhorias de Core (Nulla
 
 ### 1. Core & Arquitetura (✅ Concluído)
 - [x] **IHost / IWebApplication**: Abstração do ciclo de vida da aplicação.
+  - ✅ **Application States**: `Starting`, `Migrating`, `Running`, `Stopping`.
+  - ✅ **Lifecycle Events**: `Started`, `Stopping`, `Stopped` (via `CancellationToken`).
+  - ✅ **Graceful Shutdown**: Encerramento seguro de serviços e conexões.
+  - ✅ **Startup Lock**: Bloqueio de tráfego HTTP (503) durante migrations/seeding.
 - [x] **Dependency Injection**: Container IOC completo (Singleton, Scoped, Transient).
 - [x] **Activator**: Suporte a Pure DI, Manual, e Hybrid Injection.
 - [x] **Configuration**: Sistema de configuração (JSON, Environment Variables).

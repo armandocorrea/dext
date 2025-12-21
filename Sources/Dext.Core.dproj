@@ -141,7 +141,6 @@
         <DCCReference Include="Core\Dext.DI.Core.pas"/>
         <DCCReference Include="Core\Dext.DI.Extensions.pas"/>
         <DCCReference Include="Core\Dext.DI.Interfaces.pas"/>
-        <DCCReference Include="Core\Dext.Hosting.BackgroundService.pas"/>
         <DCCReference Include="Core\Dext.Json.pas"/>
         <DCCReference Include="Core\Dext.Json.Types.pas"/>
         <DCCReference Include="Core\Dext.Logging.Console.pas"/>
@@ -162,6 +161,9 @@
         <DCCReference Include="Core\Base\Dext.Core.DateUtils.pas"/>
         <DCCReference Include="Core\Dext.Types.UUID.pas"/>
         <DCCReference Include="Core\Dext.MultiTenancy.pas"/>
+        <DCCReference Include="Core\Dext.Hosting.AppState.pas"/>
+        <DCCReference Include="Core\Dext.Hosting.BackgroundService.pas"/>
+        <DCCReference Include="Core\Dext.Hosting.ApplicationLifetime.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

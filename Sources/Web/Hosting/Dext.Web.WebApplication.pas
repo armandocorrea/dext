@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -42,6 +42,8 @@ type
     FAppBuilder: IApplicationBuilder;
     FScanner: IControllerScanner;
     FConfiguration: IConfiguration;
+    FDefaultPort: Integer;
+
   public
     constructor Create;
     destructor Destroy; override;
@@ -55,7 +57,11 @@ type
     function UseMiddleware(Middleware: TClass): IWebApplication;
     function UseStartup(Startup: IStartup): IWebApplication; // ? Non-generic
     function MapControllers: IWebApplication;
-    procedure Run(Port: Integer = 8080);
+    procedure Run; overload;
+    procedure Run(Port: Integer); overload;
+    procedure Stop;
+
+    property DefaultPort: Integer read FDefaultPort write FDefaultPort;
   end;
 
 implementation
@@ -66,6 +72,7 @@ uses
   Dext.Utils,
   {$ENDIF}
   Dext.DI.Core,
+  Dext.Hosting.BackgroundService,
   Dext.Web.Core,
   Dext.Web.Indy.Server,
   Dext.Web.Indy.SSL.Interfaces,
@@ -75,7 +82,10 @@ uses
   Dext.Configuration.Json,
   Dext.Configuration.EnvironmentVariables,
   Dext.HealthChecks,
-  Dext.Hosting.BackgroundService;
+  Dext.Hosting.ApplicationLifetime,
+  Dext.Hosting.AppState,
+  Dext.Entity.Core,
+  Dext.Entity.Migrations.Runner;
 
 { TDextApplication }
 
@@ -84,6 +94,7 @@ var
   ConfigBuilder: IConfigurationBuilder;
 begin
   inherited Create;
+  FDefaultPort := 8080;
   {$IF Defined(MSWINDOWS)}
   SetConsoleCharSet(CP_UTF8);
   SetTextCodePage(Output, CP_UTF8);
@@ -117,6 +128,27 @@ begin
     function(Provider: IServiceProvider): TObject
     begin
       Result := LConfig as TConfigurationRoot;
+    end
+  );
+
+  // Register Application Lifetime
+  FServices.AddSingleton(
+    TServiceType.FromInterface(IHostApplicationLifetime),
+    THostApplicationLifetime
+  );
+
+  // Register Application State
+  FServices.AddSingleton(
+    TServiceType.FromInterface(IAppStateObserver),
+    TApplicationStateManager
+  );
+  FServices.AddSingleton(
+    TServiceType.FromInterface(IAppStateControl),
+    TApplicationStateManager,
+    function(Provider: IServiceProvider): TObject
+    begin
+      // Return the same instance as IAppStateObserver (Singleton)
+      Result := Provider.GetService(TServiceType.FromInterface(IAppStateObserver));
     end
   );
   
@@ -181,18 +213,79 @@ begin
   Result := Self;
 end;
 
+procedure TDextApplication.Run;
+begin
+  Run(FDefaultPort);
+end;
+
 procedure TDextApplication.Run(Port: Integer);
 var
   WebHost: IWebHost;
   RequestHandler: TRequestDelegate;
-  HostedManager: THostedServiceManager;
+  HostedManager: IHostedServiceManager;
   SSLHandler: IIndySSLHandler;
+  Lifetime: THostApplicationLifetime;
+  StateControl: IAppStateControl;
 begin
+  FDefaultPort := Port;
   // ? REBUILD ServiceProvider to include all services registered after Create()
   FServiceProvider := nil; // Release old provider
   FServiceProvider := FServices.BuildServiceProvider;
   FAppBuilder.SetServiceProvider(FServiceProvider);
   
+  // Get Lifetime & State Service
+  var LifetimeIntf := FServiceProvider.GetServiceAsInterface(TServiceType.FromInterface(IHostApplicationLifetime));
+  if LifetimeIntf <> nil then
+    Lifetime := LifetimeIntf as THostApplicationLifetime
+  else
+    Lifetime := nil;
+
+  var StateIntf := FServiceProvider.GetServiceAsInterface(TServiceType.FromInterface(IAppStateControl));
+  if StateIntf <> nil then
+    StateControl := StateIntf as IAppStateControl
+  else
+    StateControl := nil;
+
+  // Update State: Starting -> Migrating
+  if StateControl <> nil then
+    StateControl.SetState(asMigrating);
+
+  // 🔄 Run Migrations automatically if configured
+  var DbConfig := FConfiguration.GetSection('Database');
+  if (DbConfig <> nil) and (SameText(DbConfig['AutoMigrate'], 'true')) then
+  begin
+    Writeln('⚙️ AutoMigrate enabled. Checking database schema...');
+    
+    // Resolve DbContext
+    // Note: We assume the user has registered their DbContext in ConfigureServices
+    // If not, this might fail or return nil depending on DI implementation.
+    // For now, we try to get IDbContext.
+    var DbContextIntf := FServiceProvider.GetServiceAsInterface(TServiceType.FromInterface(IDbContext));
+    if DbContextIntf <> nil then
+    begin
+      var Migrator := TMigrator.Create(DbContextIntf as IDbContext);
+      try
+        Migrator.Migrate;
+        Writeln('✅ Database is up to date.');
+      finally
+        Migrator.Free;
+      end;
+    end
+    else
+      Writeln('⚠️ IDbContext not found in DI container. Skipping auto-migration.');
+  end;
+  
+  // Update State: Migrating -> Seeding
+  if StateControl <> nil then
+    StateControl.SetState(asSeeding);
+    
+  // TODO: Run Seeding automatically if configured
+
+  // Update State: Seeding -> Running
+  if StateControl <> nil then
+    StateControl.SetState(asRunning);
+
+
   // Start Hosted Services
   HostedManager := nil;
   try
@@ -205,8 +298,12 @@ begin
     end;
   except
     on E: Exception do
-      { Failed to start hosted services };
+      Writeln('Error starting hosted services: ' + E.Message);
   end;
+
+  // Notify Started
+  if Lifetime <> nil then
+    Lifetime.NotifyStarted;
 
   // Build pipeline
   RequestHandler := FAppBuilder.Build;
@@ -235,6 +332,14 @@ begin
   try
     WebHost.Run;
   finally
+    // Update State: Running -> Stopping
+    if StateControl <> nil then
+      StateControl.SetState(asStopping);
+
+    // Notify Stopping
+    if Lifetime <> nil then
+      Lifetime.NotifyStopping;
+
     // Stop Hosted Services
     if HostedManager <> nil then
     begin
@@ -244,10 +349,17 @@ begin
       // If it's transient, we might need to free it, but it's registered as singleton usually.
     end;
     
+    // Update State: Stopping -> Stopped
+    if StateControl <> nil then
+      StateControl.SetState(asStopped);
+
+    // Notify Stopped
+    if Lifetime <> nil then
+      Lifetime.NotifyStopped;
+      
     // Explicitly release provider reference to ensure cleanup
     FServiceProvider := nil;
   end;
-
 end;
 
 function TDextApplication.UseMiddleware(Middleware: TClass): IWebApplication;
@@ -265,6 +377,12 @@ begin
   Startup.Configure(Self);
   
   Result := Self;
+end;
+
+procedure TDextApplication.Stop;
+begin
+  // Implementation of Stop if needed by IWebHost
+  // In Indy implementation, we might need a way to stop the loop
 end;
 
 end.

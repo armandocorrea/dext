@@ -45,8 +45,8 @@ type
   IHostedServiceManager = interface
     ['{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}']
     procedure RegisterService(Service: IHostedService);
-    procedure StartAsync;
-    procedure StopAsync;
+    procedure StartAsync(Token: ICancellationToken = nil);
+    procedure StopAsync(Token: ICancellationToken = nil);
   end;
 
   TBackgroundService = class;
@@ -86,8 +86,8 @@ type
     destructor Destroy; override;
     
     procedure RegisterService(Service: IHostedService);
-    procedure StartAsync;
-    procedure StopAsync;
+    procedure StartAsync(Token: ICancellationToken = nil);
+    procedure StopAsync(Token: ICancellationToken = nil);
   end;
 
   TBackgroundServiceBuilder = class
@@ -176,7 +176,7 @@ begin
   FServices.Add(Service);
 end;
 
-procedure THostedServiceManager.StartAsync;
+procedure THostedServiceManager.StartAsync(Token: ICancellationToken);
 var
   Service: IHostedService;
 begin
@@ -193,7 +193,7 @@ begin
   end;
 end;
 
-procedure THostedServiceManager.StopAsync;
+procedure THostedServiceManager.StopAsync(Token: ICancellationToken);
 var
   Service: IHostedService;
 begin

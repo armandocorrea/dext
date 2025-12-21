@@ -181,7 +181,7 @@ type
     procedure Configure(const App: IWebApplication);
   end;
 
-  IWebApplication = interface
+  IWebApplication = interface(IWebHost)
     ['{B6C96B49-0292-42A6-A767-C7EAF52F71FC}']
     function GetServices: TDextServices;
     function GetBuilder: TDextAppBuilder;
@@ -191,7 +191,7 @@ type
     function GetApplicationBuilder: IApplicationBuilder;
     function GetConfiguration: IConfiguration;
     function BuildServices: IServiceProvider; // ? Automation
-    procedure Run(Port: Integer = 8080);
+    procedure Run(Port: Integer); overload;
 
     property Services: TDextServices read GetServices;
     property Builder: TDextAppBuilder read GetBuilder;

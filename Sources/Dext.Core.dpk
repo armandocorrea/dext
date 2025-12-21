@@ -59,7 +59,6 @@ contains
   Dext.DI.Core in 'Core\Dext.DI.Core.pas',
   Dext.DI.Extensions in 'Core\Dext.DI.Extensions.pas',
   Dext.DI.Interfaces in 'Core\Dext.DI.Interfaces.pas',
-  Dext.Hosting.BackgroundService in 'Core\Dext.Hosting.BackgroundService.pas',
   Dext.Json in 'Core\Dext.Json.pas',
   Dext.Json.Types in 'Core\Dext.Json.Types.pas',
   Dext.Logging.Console in 'Core\Dext.Logging.Console.pas',
@@ -79,7 +78,10 @@ contains
   Dext.MM in 'Core\Dext.MM.pas',
   Dext.Core.DateUtils in 'Core\Base\Dext.Core.DateUtils.pas',
   Dext.Types.UUID in 'Core\Dext.Types.UUID.pas',
-  Dext.MultiTenancy in 'Core\Dext.MultiTenancy.pas';
+  Dext.MultiTenancy in 'Core\Dext.MultiTenancy.pas',
+  Dext.Hosting.AppState in 'Core\Dext.Hosting.AppState.pas',
+  Dext.Hosting.BackgroundService in 'Core\Dext.Hosting.BackgroundService.pas',
+  Dext.Hosting.ApplicationLifetime in 'Core\Dext.Hosting.ApplicationLifetime.pas';
 
 end.
 

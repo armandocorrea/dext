@@ -175,6 +175,7 @@
         <DCCReference Include="Web\Indy\Dext.Web.Indy.SSL.OpenSSL.pas"/>
         <DCCReference Include="Web\Indy\Dext.Web.Indy.SSL.Taurus.pas"/>
         <DCCReference Include="Web\Dext.Web.MultiTenancy.pas"/>
+        <DCCReference Include="Web\Middleware\Dext.Web.Middleware.StartupLock.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

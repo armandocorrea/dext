@@ -81,16 +81,17 @@ type
 
     function AddSingleton(const AServiceType: TServiceType;
                          const AImplementationClass: TClass;
-                         const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection; overload;
+                         const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection;
 
     function AddTransient(const AServiceType: TServiceType;
                           const AImplementationClass: TClass;
-                          const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection; overload;
+                          const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection;
 
     function AddScoped(const AServiceType: TServiceType;
                        const AImplementationClass: TClass;
-                       const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection; overload;
+                       const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection;
 
+    procedure AddRange(const AOther: IServiceCollection);
     function BuildServiceProvider: IServiceProvider;
   end;
 
@@ -109,8 +110,10 @@ type
   private
     FServices: IServiceCollection;
   public
-    constructor Create(AServices: IServiceCollection);
+    constructor Create(AServices: IServiceCollection); overload;
+    class function New: TDextServices; static;
     function Unwrap: IServiceCollection;
+    procedure AddRange(const AOther: TDextServices);
     class operator Implicit(const A: TDextServices): IServiceCollection;
 
     // Generic Overloads
@@ -187,6 +190,8 @@ begin
 end;
 
 function TServiceType.AsClass: TClass;
+var
+  LTypeData: PTypeData;
 begin
   if not FIsInterface then
   begin
@@ -195,7 +200,7 @@ begin
     else if FTypeInfo <> nil then
     begin
        // Fallback if FClass was somehow not set but TypeInfo was
-       var LTypeData := GetTypeData(FTypeInfo);
+       LTypeData := GetTypeData(FTypeInfo);
        if Assigned(LTypeData) then
          Result := LTypeData^.ClassType
        else
@@ -253,6 +258,17 @@ end;
 constructor TDextServices.Create(AServices: IServiceCollection);
 begin
   FServices := AServices;
+end;
+
+class function TDextServices.New: TDextServices;
+begin
+  Result.FServices := TDextDIFactory.CreateServiceCollection;
+end;
+
+procedure TDextServices.AddRange(const AOther: TDextServices);
+begin
+  if (FServices <> nil) and (AOther.FServices <> nil) then
+    FServices.AddRange(AOther.FServices);
 end;
 
 function TDextServices.Unwrap: IServiceCollection;

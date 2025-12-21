@@ -167,11 +167,12 @@ O objetivo foi permitir consultas complexas de forma tipada e fluente. Concluíd
 Sistema completo de evolução de esquema Code-First.
 - [x] **Schema Builder**: API fluente para definição de DDL (`CreateTable`, `AddColumn`).
 - [x] **Model Diff**: Algoritmo para comparar Modelo Atual vs Snapshot Anterior.
-- [x] **Migration Generator**: Gerar classes Pascal com os passos `Up`/`Down`. (Via Code in Memory for now)
+- [x] **Migration Generator**: Gerar classes Pascal com os passos `Up`/`Down`.
 - [x] **Migration Runner**: Aplicar migrações pendentes no banco e gerenciar tabela de histórico.
+- [x] **Auto-Migrations**: Opção `AutoMigrate` no host para atualizar o banco no startup.
 - [x] **JSON Migration Format**: Suporte a migrações em JSON (agnóstico a linguagem).
 - [x] **External Runner**: `dext.exe` console app para rodar migrações em CI/CD.
-- [x] **Runtime Safety**: Validação de versão de esquema no startup ("Handshake").
+- [x] **Runtime Safety**: Validação de versão de esquema no startup ("Handshake" via Startup Lock).
 - [x] **CLI Integration**: Comandos para criar e rodar migrações (`migrate:list`, `migrate:up`).
 
 ### 🚀 Fase 5: Performance & Observability (Novo)

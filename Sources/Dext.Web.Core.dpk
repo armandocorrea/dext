@@ -92,6 +92,7 @@ contains
   Dext.Web.Indy.SSL.Interfaces in 'Web\Indy\Dext.Web.Indy.SSL.Interfaces.pas',
   Dext.Web.Indy.SSL.OpenSSL in 'Web\Indy\Dext.Web.Indy.SSL.OpenSSL.pas',
   Dext.Web.Indy.SSL.Taurus in 'Web\Indy\Dext.Web.Indy.SSL.Taurus.pas',
-  Dext.Web.MultiTenancy in 'Web\Dext.Web.MultiTenancy.pas';
+  Dext.Web.MultiTenancy in 'Web\Dext.Web.MultiTenancy.pas',
+  Dext.Web.Middleware.StartupLock in 'Web\Middleware\Dext.Web.Middleware.StartupLock.pas';
 
 end.

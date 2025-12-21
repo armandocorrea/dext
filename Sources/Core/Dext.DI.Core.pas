@@ -114,16 +114,17 @@ type
 
     function AddSingleton(const AServiceType: TServiceType;
                          const AImplementationClass: TClass;
-                         const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection; overload;
+                         const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection;
 
     function AddTransient(const AServiceType: TServiceType;
                           const AImplementationClass: TClass;
-                          const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection; overload;
+                          const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection;
 
     function AddScoped(const AServiceType: TServiceType;
                        const AImplementationClass: TClass;
-                       const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection; overload;
+                       const AFactory: TFunc<IServiceProvider, TObject> = nil): IServiceCollection;
 
+    procedure AddRange(const AOther: IServiceCollection);
     function BuildServiceProvider: IServiceProvider;
   end;
 
@@ -209,6 +210,19 @@ begin
     AServiceType, AImplementationClass, TServiceLifetime.Scoped, AFactory);
   FDescriptors.Add(Descriptor);
   Result := Self;
+end;
+
+procedure TDextServiceCollection.AddRange(const AOther: IServiceCollection);
+var
+  OtherColl: TDextServiceCollection;
+  Desc: TServiceDescriptor;
+begin
+  if Assigned(AOther) and (TObject(AOther) is TDextServiceCollection) then
+  begin
+    OtherColl := TDextServiceCollection(TObject(AOther));
+    for Desc in OtherColl.FDescriptors do
+      FDescriptors.Add(Desc.Clone);
+  end;
 end;
 
 function TDextServiceCollection.BuildServiceProvider: IServiceProvider;

@@ -31,6 +31,7 @@ uses
   System.Rtti,
   Dext.Web.Interfaces,
   Dext.Web.Middleware,
+  Dext.Web.Middleware.StartupLock,
   Dext.Logging;
 
 type
@@ -41,6 +42,8 @@ type
     
     class function UseExceptionHandler(const ABuilder: IApplicationBuilder): IApplicationBuilder; overload;
     class function UseExceptionHandler(const ABuilder: IApplicationBuilder; const AOptions: TExceptionHandlerOptions): IApplicationBuilder; overload;
+    
+    class function UseStartupLock(const ABuilder: IApplicationBuilder): IApplicationBuilder;
   end;
 
 implementation
@@ -70,6 +73,11 @@ class function TApplicationBuilderMiddlewareExtensions.UseExceptionHandler(const
 begin
   // Let DI resolve ILogger automatically via Hybrid Activator
   Result := ABuilder.UseMiddleware(TExceptionHandlerMiddleware, TValue.From(AOptions));
+end;
+
+class function TApplicationBuilderMiddlewareExtensions.UseStartupLock(const ABuilder: IApplicationBuilder): IApplicationBuilder;
+begin
+  Result := ABuilder.UseMiddleware(TStartupLockMiddleware);
 end;
 
 end.

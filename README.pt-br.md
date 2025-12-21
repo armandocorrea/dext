@@ -103,6 +103,7 @@ A fundação do framework, utilizável em qualquer tipo de aplicação.
 ### ⚙️ Core & Infraestrutura
 - [Dependency Injection & Scopes](Docs/scoped-services.md)
 - [Configuration & Options Pattern](Docs/options-pattern.md)
+- [Ciclo de Vida & Integridade](Docs/application-lifecycle.md)
 - [Async Programming](Docs/async-api.md)
 - [Caching](Docs/caching.md)
 

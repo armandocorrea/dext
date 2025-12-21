@@ -120,8 +120,9 @@ function TRoutePattern.ExtractParameterNames(const APattern: string): TArray<str
 var
   Matches: TMatchCollection;
   I: Integer;
+  PatternRegex: TRegEx;
 begin
-  var PatternRegex := TRegEx.Create('\{(.+?)\}');
+  PatternRegex := TRegEx.Create('\{(.+?)\}');
   Matches := PatternRegex.Matches(APattern);
 
   SetLength(Result, Matches.Count);
@@ -206,6 +207,7 @@ end;
 constructor TRouteMatcher.Create(const ARoutes: TList<TRouteDefinition>);
 var
   Route: TRouteDefinition;
+  NewRoute: TRouteDefinition;
 begin
   inherited Create;
   FRoutes := TObjectList<TRouteDefinition>.Create(True); // Owns objects
@@ -213,7 +215,7 @@ begin
   // Clone routes to ensure thread safety and independence
   for Route in ARoutes do
   begin
-    var NewRoute := TRouteDefinition.Create(Route.Method, Route.Path, Route.Handler);
+    NewRoute := TRouteDefinition.Create(Route.Method, Route.Path, Route.Handler);
     NewRoute.Metadata := Route.Metadata;
     FRoutes.Add(NewRoute);
   end;
@@ -239,6 +241,8 @@ begin
 end;
 
 function TRouteMatcher.IsVersionMatch(const RequestedVersion: string; const SupportedVersions: TArray<string>): Boolean;
+var
+  V: string;
 begin
   // If no version requested, match anything that DOESN'T require a specific version?
   // Or match typically V1?
@@ -259,7 +263,7 @@ begin
     Exit(False); 
   end;
     
-  for var V in SupportedVersions do
+  for V in SupportedVersions do
     if SameText(V, RequestedVersion) then
       Exit(True);
       

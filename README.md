@@ -105,6 +105,7 @@ The foundation of the framework, usable in any type of application.
 ### ⚙️ Core & Infrastructure
 - [Dependency Injection & Scopes](Docs/scoped-services.md)
 - [Configuration & Options Pattern](Docs/options-pattern.md)
+- [Application Lifecycle & Integrity](Docs/application-lifecycle.md)
 - [Async Programming](Docs/async-api.md)
 - [Caching](Docs/caching.md)
 

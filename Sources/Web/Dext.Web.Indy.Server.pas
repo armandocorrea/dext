@@ -30,7 +30,7 @@ interface
 
 uses
   System.Classes, System.SysUtils, IdHTTPServer, IdContext, IdCustomHTTPServer,
-  Dext.Web.Interfaces, Dext.DI.Interfaces, Dext.Web.Indy.SSL.Interfaces;
+  Dext.Web.Interfaces, Dext.DI.Interfaces, Dext.Web.Indy.SSL.Interfaces, Dext.Hosting.ApplicationLifetime;
 
 type
   TIndyWebServer = class(TInterfacedObject, IWebHost)
@@ -166,10 +166,22 @@ begin
 
     GServerStopping := False;
     SetConsoleCtrlHandler(@ConsoleCtrlHandler, True);
+    // Get Lifetime Service to observe external stop requests
+    var LifetimeIntf := FServices.GetServiceAsInterface(TServiceType.FromInterface(IHostApplicationLifetime));
+    var Lifetime: IHostApplicationLifetime := nil;
+    if LifetimeIntf <> nil then
+        Lifetime := LifetimeIntf as IHostApplicationLifetime;
+
     try
       while FHTTPServer.Active and (not GServerStopping) do
       begin
         Sleep(100);
+        
+        // Check for programatic shutdown request
+        if (Lifetime <> nil) and (Lifetime.ApplicationStopping.IsCancellationRequested) then
+        begin
+           GServerStopping := True;
+        end;
       end;
     finally
       SetConsoleCtrlHandler(@ConsoleCtrlHandler, False);

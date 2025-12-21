@@ -61,6 +61,9 @@ uses
   Dext.Web.Indy.Server,
   Dext.Web.Injection,
   Dext.Web.Interfaces,
+  Dext.Hosting.ApplicationLifetime,
+  Dext.Hosting.AppState,
+  Dext.Web.Middleware.StartupLock,
   Dext.Web.ApplicationBuilder.Extensions,
   Dext.Web.Middleware.Extensions,
   Dext.Web.Middleware.Logging,
@@ -272,6 +275,11 @@ type
   IWebHost = Dext.Web.Interfaces.IWebHost;
   TWebHostBuilder = Dext.WebHost.TWebHostBuilder;
   TDextWebHost = Dext.Web.Interfaces.TDextWebHost;
+  IHostApplicationLifetime = Dext.Hosting.ApplicationLifetime.IHostApplicationLifetime;
+  IAppStateObserver = Dext.Hosting.AppState.IAppStateObserver;
+  IAppStateControl = Dext.Hosting.AppState.IAppStateControl;
+  TApplicationState = Dext.Hosting.AppState.TApplicationState;
+  TStartupLockMiddleware = Dext.Web.Middleware.StartupLock.TStartupLockMiddleware;
 
   // Indy
   TIndyWebServer = Dext.Web.Indy.Server.TIndyWebServer;
@@ -443,6 +451,11 @@ type
     // 🧱 Middleware
     // -------------------------------------------------------------------------
     function UseStaticFiles: TDextAppBuilder; overload;
+    function UseStartupLock: TDextAppBuilder;
+    function UseExceptionHandler: TDextAppBuilder; overload;
+    function UseExceptionHandler(const AOptions: TExceptionHandlerOptions): TDextAppBuilder; overload;
+    function UseHttpLogging: TDextAppBuilder; overload;
+    function UseHttpLogging(const AOptions: THttpLoggingOptions): TDextAppBuilder; overload;
 
     // -------------------------------------------------------------------------
     // 🛣️ Routing - POST
@@ -588,6 +601,36 @@ end;
 function TDextHttpAppBuilderHelper.UseCors(const AOptions: TCorsOptions): TDextAppBuilder;
 begin
   TApplicationBuilderCorsExtensions.UseCors(Self.Unwrap, AOptions);
+  Result := Self;
+end;
+
+function TDextHttpAppBuilderHelper.UseStartupLock: TDextAppBuilder;
+begin
+  TApplicationBuilderMiddlewareExtensions.UseStartupLock(Self.Unwrap);
+  Result := Self;
+end;
+
+function TDextHttpAppBuilderHelper.UseExceptionHandler: TDextAppBuilder;
+begin
+  TApplicationBuilderMiddlewareExtensions.UseExceptionHandler(Self.Unwrap);
+  Result := Self;
+end;
+
+function TDextHttpAppBuilderHelper.UseExceptionHandler(const AOptions: TExceptionHandlerOptions): TDextAppBuilder;
+begin
+  TApplicationBuilderMiddlewareExtensions.UseExceptionHandler(Self.Unwrap, AOptions);
+  Result := Self;
+end;
+
+function TDextHttpAppBuilderHelper.UseHttpLogging: TDextAppBuilder;
+begin
+  TApplicationBuilderMiddlewareExtensions.UseHttpLogging(Self.Unwrap);
+  Result := Self;
+end;
+
+function TDextHttpAppBuilderHelper.UseHttpLogging(const AOptions: THttpLoggingOptions): TDextAppBuilder;
+begin
+  TApplicationBuilderMiddlewareExtensions.UseHttpLogging(Self.Unwrap, AOptions);
   Result := Self;
 end;
 

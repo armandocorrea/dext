@@ -20,7 +20,7 @@
 {***************************************************************************}
 {                                                                           }
 {  Author:  Cesar Romero                                                    }
-{  Created: 2025-12-08                                                      }
+{  Created: 2025-12-10                                                      }
 {                                                                           }
 {***************************************************************************}
 unit Dext.WebHost;
@@ -29,48 +29,70 @@ interface
 
 uses
   System.SysUtils,
+  System.Classes,
   Dext.DI.Interfaces,
   Dext.Web.Interfaces,
-  Dext.Web.Core,
-  Dext.Web.Indy.Server;
+  Dext.Web.WebApplication,
+  Dext.Configuration.Interfaces;
 
 type
   TWebHostBuilder = class(TInterfacedObject, IWebHostBuilder)
   private
-    FServices: IServiceCollection;
-    FAppConfig: TProc<IApplicationBuilder>;
-    FUrl: string;
-    
-    function GetPortFromUrl(const Url: string): Integer;
+    FServices: TDextServices;
+    FUrls: TArray<string>;
+    FAppConfig: TProc<IApplicationBuilder>; // Configuration delegate
+    FServicesConfig: TProc<IServiceCollection>;
+
   public
     constructor Create;
+    destructor Destroy; override;
 
+    class function CreateDefault(Args: TArray<string>): IWebHostBuilder;
+    
+    // IWebHostBuilder implementation
     function ConfigureServices(AConfigurator: TProc<IServiceCollection>): IWebHostBuilder;
     function Configure(AConfigurator: TProc<IApplicationBuilder>): IWebHostBuilder;
     function UseUrls(const AUrls: string): IWebHostBuilder;
     function Build: IWebHost;
-    destructor Destroy; override;
+
+    // Fluent API extensions
+    function ConfigureServicesExtended(AConfigurator: TProc<TDextServices>): IWebHostBuilder;
+    function UseUrlsArray(const AUrls: TArray<string>): IWebHostBuilder;
   end;
 
 implementation
-
-uses
-  Dext.DI.Core,
-  System.StrUtils;
 
 { TWebHostBuilder }
 
 constructor TWebHostBuilder.Create;
 begin
-  inherited Create;
-  FServices := TDextServiceCollection.Create;
-  FUrl := 'http://localhost:8080'; // Default
+  inherited;
+  FServices := TDextServices.New;
+  // Default URL
+  SetLength(FUrls, 1);
+  FUrls[0] := 'http://localhost:5000';
+end;
+
+destructor TWebHostBuilder.Destroy;
+begin
+  inherited;
+end;
+
+class function TWebHostBuilder.CreateDefault(Args: TArray<string>): IWebHostBuilder;
+begin
+  Result := TWebHostBuilder.Create;
+  // TODO: Parse args to override settings (like urls)
 end;
 
 function TWebHostBuilder.ConfigureServices(AConfigurator: TProc<IServiceCollection>): IWebHostBuilder;
 begin
-  if Assigned(AConfigurator) then
-    AConfigurator(FServices);
+  FServicesConfig := AConfigurator;
+  Result := Self;
+end;
+
+function TWebHostBuilder.ConfigureServicesExtended(AConfigurator: TProc<TDextServices>): IWebHostBuilder;
+begin
+  AConfigurator(FServices);
   Result := Self;
 end;
 
@@ -80,60 +102,94 @@ begin
   Result := Self;
 end;
 
-function TWebHostBuilder.UseUrls(const AUrls: string): IWebHostBuilder;
+function TWebHostBuilder.UseUrlsArray(const AUrls: TArray<string>): IWebHostBuilder;
 begin
-  FUrl := AUrls;
+  FUrls := AUrls;
   Result := Self;
 end;
 
-function TWebHostBuilder.GetPortFromUrl(const Url: string): Integer;
-var
-  Parts: TArray<string>;
-  PortStr: string;
+function TWebHostBuilder.UseUrls(const AUrls: string): IWebHostBuilder;
 begin
-  // Simple parser: assumes http://domain:port or http://*:port
-  Result := 8080;
-  if Url.IsEmpty then Exit;
-  
-  Parts := Url.Split([':']);
-  if Length(Parts) >= 3 then // http: // domain : port
+  // Simple split by comma or semicolon
+  var Parts := AUrls.Split([',', ';']);
+  var CleanUrls: TArray<string>;
+  for var Part in Parts do
   begin
-    PortStr := Parts[High(Parts)];
-    // remove potential trailing slash
-    if PortStr.EndsWith('/') then
-      PortStr := PortStr.Substring(0, Length(PortStr)-1);
-      
-    Result := StrToIntDef(PortStr, 8080);
+    var Trimmed := Part.Trim;
+    if Trimmed <> '' then
+    begin
+      SetLength(CleanUrls, Length(CleanUrls) + 1);
+      CleanUrls[High(CleanUrls)] := Trimmed;
+    end;
   end;
-end;
-
-destructor TWebHostBuilder.Destroy;
-begin
-  FAppConfig := nil; // Clear reference
-  inherited;
+  
+  if Length(CleanUrls) > 0 then
+    FUrls := CleanUrls;
+    
+  Result := Self;
 end;
 
 function TWebHostBuilder.Build: IWebHost;
 var
   AppBuilder: IApplicationBuilder;
-  Pipeline: TRequestDelegate;
-  ServiceProvider: IServiceProvider;
+  Host: IWebApplication;
   Port: Integer;
+  PortStr: string;
 begin
-  // ? PRIMEIRO construir o ServiceProvider, DEPOIS criar AppBuilder
-  ServiceProvider := FServices.BuildServiceProvider;
+  // 1. Create the Application Builder with the DI Container
+  // The services registered in FServices are transferred/copied to the builder
+  // Note: TDextApplication usually creates its own builder.
+  // We need to bridge TWebHostBuilder -> TDextApplication.
+  
+  // Create the app instance
+  Host := TDextApplication.Create;
+  
+  // Apply service configuration if any
+  if Assigned(FServicesConfig) then
+    FServicesConfig(Host.Services.Unwrap);
 
-  AppBuilder := TApplicationBuilder.Create(ServiceProvider); // ? CORREÇÃO
+  // Register services collected in the builder
+  Host.Services.AddRange(FServices); 
 
+  // Manual copy for now as AddRange might not exist
+  // Ideally, FServices should be passed to Host constructor or Builder
+  
+  // Let's create the AppBuilder manually to configure the pipeline
+  // But TDextApplication encapsulates the builder.
+  // We need to expose a way to configure the internal builder of TDextApplication BEFORE Build.
+  
+  // Actually, TDextApplication IS the Host (IWebHost).
+  // And it exposes AppBuilder via a property or method usually.
+  
+  // In Dext.Web.WebApplication:
+  // TDextApplication = class(TInterfacedObject, IWebApplication, IApplicationBuilder, ...)
+  
+  AppBuilder := Host as IApplicationBuilder;
+
+  // 2. Apply Pipeline Configuration
   if Assigned(FAppConfig) then
     FAppConfig(AppBuilder);
 
-  Pipeline := AppBuilder.Build;
+  // 3. Determine Port from URLs (Naive implementation - takes first URL's port)
+  if Length(FUrls) > 0 then
+  begin
+    var FirstUrl := FUrls[0];
+    // http://localhost:5000
+    // Very basic parsing for now
+    var ColonPos := LastDelimiter(':', FirstUrl);
+    if ColonPos > 0 then
+    begin
+      PortStr := Copy(FirstUrl, ColonPos + 1, Length(FirstUrl));
+      // Removing trailing slash if present
+      if PortStr.EndsWith('/') then
+        PortStr := PortStr.Substring(0, Length(PortStr) - 1);
+      
+      if TryStrToInt(PortStr, Port) then
+        (Host as TDextApplication).DefaultPort := Port;
+    end;
+  end;
 
-  Port := GetPortFromUrl(FUrl);
-
-  Result := TIndyWebServer.Create(Port, Pipeline, ServiceProvider);
+  Result := Host as IWebHost;
 end;
 
 end.
-
