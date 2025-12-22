@@ -364,7 +364,7 @@ begin
      case Meta.Kind of
        TFDRDBMSKinds.PostgreSQL: Result := ddPostgreSQL;
        TFDRDBMSKinds.MySQL: Result := ddMySQL;
-       TFDRDBMSKinds.MSSQL: Result := ddSQLServer; // or ddMSSQL
+       TFDRDBMSKinds.MSSQL: Result := ddSQLServer;
        TFDRDBMSKinds.Firebird: Result := ddFirebird;
        TFDRDBMSKinds.Interbase: Result := ddInterbase;
        TFDRDBMSKinds.SQLite: Result := ddSQLite;

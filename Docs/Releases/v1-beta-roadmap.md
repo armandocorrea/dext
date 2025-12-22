@@ -38,6 +38,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 | **JWT Authentication** | ✅ Pronto | Geração e Validação de Tokens (HS256) |
 | **Validation** | ✅ Pronto | Library de validação com Atributos (`[Required]`, `[Email]`) |
 | **Options Pattern** | ✅ Pronto | Binding de configuração para classes (`IOptions<T>`) |
+| **Zero Alloc HTTP Context** | ✅ Pronto | HTTP Server/Context com zero allocations e consumo sob demanda |
 
 ### 🛠️ Dext.Web Middlewares (Built-in)
 | Middleware | Classe | Função |
@@ -68,6 +69,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 | **Scaffolding** (DB First) | ✅ Pronto | Geração de Entities via Schema do Banco |
 | **Soft Delete** | ✅ Pronto | Atributo `[SoftDelete]` |
 | **Optimistic Concurrency** | ✅ Pronto | Atributo `[Version]` |
+| **FireDAC Phys Driver** | ✅ Pronto | Driver físico para integração transparente com FireDAC |
 
 
 ### ⚙️ Infraestrutura & CLI
@@ -77,6 +79,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 | **Async Tasks** (`TAsyncTask`) | ✅ Pronto | Primitivas modernas de concorrência |
 | **Logging** (`ILogger`) | ✅ Pronto | Abstração de log |
 | **Configuration** (`IConfiguration`) | ✅ Pronto | JSON file provider |
+| **Binary JSON Parser** | ✅ Pronto | Parser JSON binário de alta performance |
 
 ### 🔄 Hosting & Lifecycle
 | Feature | Status | Notas |
@@ -180,5 +183,6 @@ Funcionalidades movidas para v1.1 ou v2.0:
 - **JSON Columns (JSONB Support)**: Implementação do suporte real no ORM para o atributo `[JsonColumn]`.
 - **Suporte a NoSQL** (MongoDB no ORM).
 - **Distributed Caching** (Redis implementation - Em Progresso).
+- **Database as API**: Funcionalidade "Low-Code/No-Code" para expor o banco como API com mapping e segurança configuráveis (Instant APIs).
 
 
