@@ -397,15 +397,17 @@ Inspirado no Dapper para cenários de alta performance onde o controle total do 
 
 ### Expansão Planejada
 
+4. **MySQL/MariaDB**
+   - **Status**: 🟡 **Implementado (Beta)**
+   - *Nota*: Dialeto implementado, aguardando validação via testes automatizados.
+   - *Ação*: Ajuda bem-vinda para criar ambiente de testes Docker.
+
 #### Prioridade 2 - Comunidade (Help Wanted)
 5. **Oracle**
    - **Status**: ⏸️ **Aguardando Voluntários/Contribuição** (Dialeto implementado)
 
-6. **MySQL/MariaDB**
-   - **Status**: ⏸️ **Aguardando Voluntários/Contribuição** (Dialeto implementado)
-
 #### Prioridade 3 - Legado
-7. **Firebird 2.5**
+6. **Firebird 2.5**
    - **Status**: ❌ Não planejado no momento
 
 ---

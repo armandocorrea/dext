@@ -3,7 +3,9 @@
 # Dext Framework - Modern Full-Stack Development for Delphi
 
 > ⚠️ **Status: Beta (v1.0 Preview)**
-> The project has reached the Beta milestone. Core APIs are stable, but minor breaking changes might still occur before the final v1.0 release.
+> > The project has reached the Beta milestone. Core APIs are stable, but minor breaking changes might still occur before the final v1.0 release.
+>
+> 📌 **Check out the [V1.0 Beta Roadmap & Plan](Docs/Releases/v1-beta-roadmap.md)** for a detailed list of features, pending tasks, and future plans.
 
 **Dext** is a complete ecosystem for modern Delphi development, combining a high-performance web framework (inspired by ASP.NET Core) with a robust ORM and advanced infrastructure tooling.
 
