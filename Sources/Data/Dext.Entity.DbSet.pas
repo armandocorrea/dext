@@ -50,6 +50,7 @@ uses
   Dext.Specifications.Types,
   Dext.Entity.TypeConverters,
   Dext.Types.Nullable,
+  Dext.Types.UUID,
   Dext.MultiTenancy,
   Dext.Entity.Tenancy;
 
@@ -605,10 +606,15 @@ var
   Generator: TSqlGenerator<T>;
   Sql: string;
   Cmd: IDbCommand;
-  Prop: TRttiProperty;
+  Prop, AutoIncProp: TRttiProperty;
   PKVal: Variant;
   UseReturning: Boolean;
   RetVal: TValue;
+  AutoIncColumn: string;
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  Attr: TCustomAttribute;
+  PropMap: TPropertyMap;
 begin
   Generator := CreateGenerator;
   try
@@ -619,10 +625,50 @@ begin
              raise;
     end;
 
-    UseReturning := (FPKColumns.Count = 1) and FContext.Dialect.SupportsInsertReturning;
+    // Find AutoInc property and column
+    AutoIncColumn := '';
+    AutoIncProp := nil;
+    Ctx := TRttiContext.Create;
+    Typ := Ctx.GetType(T);
+    
+    for Prop in Typ.GetProperties do
+    begin
+      // Check Fluent Mapping first
+      PropMap := nil;
+      if FMap <> nil then
+        FMap.Properties.TryGetValue(Prop.Name, PropMap);
+        
+      if (PropMap <> nil) and PropMap.IsAutoInc then
+      begin
+        AutoIncProp := Prop;
+        if PropMap.ColumnName <> '' then
+          AutoIncColumn := PropMap.ColumnName
+        else
+          AutoIncColumn := Prop.Name;
+        Break;
+      end;
+      
+      // Check Attribute
+      for Attr in Prop.GetAttributes do
+      begin
+        if Attr is AutoIncAttribute then
+        begin
+          AutoIncProp := Prop;
+          AutoIncColumn := Prop.Name;
+          // Check for Column attribute
+          for var ColAttr in Prop.GetAttributes do
+            if ColAttr is ColumnAttribute then
+              AutoIncColumn := ColumnAttribute(ColAttr).Name;
+          Break;
+        end;
+      end;
+      if AutoIncProp <> nil then Break;
+    end;
+
+    UseReturning := (AutoIncColumn <> '') and FContext.Dialect.SupportsInsertReturning;
     if UseReturning then
     begin
-      var ReturningClause := FContext.Dialect.GetReturningSQL(FPKColumns[0]);
+      var ReturningClause := FContext.Dialect.GetReturningSQL(AutoIncColumn);
       if FContext.Dialect.GetReturningPosition = rpBeforeValues then
       begin
         var ValuesPos := Pos(' VALUES ', UpperCase(Sql));
@@ -648,7 +694,7 @@ begin
     else
     begin
       Cmd.ExecuteNonQuery;
-      if FPKColumns.Count = 1 then
+      if AutoIncColumn <> '' then
       begin
          var LastIdSQL := FContext.Dialect.GetLastInsertIdSQL;
          if LastIdSQL <> '' then
@@ -664,19 +710,36 @@ begin
            PKVal := FContext.Connection.GetLastInsertId;
       end;
     end;
-     if FPKColumns.Count = 1 then
+     if (AutoIncProp <> nil) and (AutoIncColumn <> '') then
      begin
        if VarIsNull(PKVal) or VarIsEmpty(PKVal) then
-         raise Exception.Create('Failed to retrieve ID for ' + GetTableName + '. Entity was not added to IdentityMap (possible memory leak).');
-         
-       if FProps.TryGetValue(FPKColumns[0].ToLower, Prop) then
+         raise Exception.Create('Failed to retrieve AutoInc ID for ' + GetTableName + '.');
+       
+       // Special handling for TUUID type - convert string to TUUID
+       if AutoIncProp.PropertyType.Handle = TypeInfo(TUUID) then
        begin
-         TValueConverter.ConvertAndSet(AEntity, Prop, TValue.FromVariant(PKVal));
-         var NewId := VarToStr(PKVal); 
-         if not FIdentityMap.ContainsKey(NewId) then
-           FIdentityMap.Add(NewId, T(AEntity));
-       end;
+         var UuidVal: TUUID;
+         var StrVal := VarToStr(PKVal);
+         // Remove braces if present
+         if StrVal.StartsWith('{') then
+           StrVal := Copy(StrVal, 2, Length(StrVal) - 2);
+         UuidVal := TUUID.FromString(StrVal);
+         AutoIncProp.SetValue(TObject(AEntity), TValue.From<TUUID>(UuidVal));
+       end
+       else if AutoIncProp.PropertyType.Handle = TypeInfo(TGUID) then
+       begin
+         var GuidVal: TGUID;
+         GuidVal := StringToGUID(VarToStr(PKVal));
+         AutoIncProp.SetValue(TObject(AEntity), TValue.From<TGUID>(GuidVal));
+       end
+       else
+         TValueConverter.ConvertAndSet(AEntity, AutoIncProp, TValue.FromVariant(PKVal));
      end;
+     
+     // Add to identity map using full entity ID
+     var NewId := GetEntityId(T(AEntity)); 
+     if not FIdentityMap.ContainsKey(NewId) then
+       FIdentityMap.Add(NewId, T(AEntity));
   finally
     Generator.Free;
   end;
@@ -1174,8 +1237,28 @@ begin
   end;
 
   // Single key lookup
-  // TODO : Get real mapping id column name
-  var Expr: IExpression := TPropExpression.Create('Id') = TValue.FromVariant(AId);
+  var PropName: string := 'Id';
+  var Val: TValue := TValue.Empty;
+  
+  if FPKColumns.Count > 0 then
+  begin
+    var PKProp: TRttiProperty;
+    // FProps keys are lowercased in MapEntity
+    if FProps.TryGetValue(FPKColumns[0].ToLower, PKProp) then
+    begin
+       PropName := PKProp.Name;
+       // Coerce GUIDs if necessary
+       if (PKProp.PropertyType.Handle = TypeInfo(TGUID)) and VarIsStr(AId) then
+         Val := TValue.From<TGUID>(StringToGUID(VarToStr(AId)))
+       else
+         Val := TValue.FromVariant(AId);
+    end;
+  end;
+  
+  if Val.IsEmpty then
+    Val := TValue.FromVariant(AId);
+
+  var Expr: IExpression := TPropExpression.Create(PropName) = Val;
   var Spec: ISpecification<T> := TSpecification<T>.Create(Expr);
   L := ToList(Spec);
   if L.Count > 0 then

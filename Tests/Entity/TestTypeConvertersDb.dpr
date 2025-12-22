@@ -219,8 +219,9 @@ end;
 
 procedure RegisterConverters;
 begin
-  // Note: GUID converter is already auto-registered in TTypeConverterRegistry constructor
-  // We only need to register custom ones
+  // We use RegisterConverterForType to validly OVERRIDE the default global converter for TGUID
+  // This is required for PostgreSQL + FireDAC to handle endianness correctly
+  TTypeConverterRegistry.Instance.RegisterConverterForType(TypeInfo(TGUID), TGuidConverter.Create(True));
   TTypeConverterRegistry.Instance.RegisterConverter(TEnumConverter.Create(False));
   TTypeConverterRegistry.Instance.RegisterConverterForType(TypeInfo(TJsonMetadata), TJsonConverter.Create(True));
 end;

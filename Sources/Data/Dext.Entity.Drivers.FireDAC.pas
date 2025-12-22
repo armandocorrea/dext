@@ -58,7 +58,8 @@ uses
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.TypeConverters,
   Dext.Entity.Dialects,
-  Dext.Types.Nullable;
+  Dext.Types.Nullable,
+  Dext.Types.UUID;
 
 type
   TFireDACConnection = class;
@@ -333,6 +334,24 @@ begin
       // Convert value using converter
       ConvertedValue := Converter.ToDatabase(AValue, GetDialect);
       
+      // Fix for PostgreSQL UUID "operator does not exist" error
+      // Explicitly handle TGUID, TUUID and String-formatted GUIDs
+      if (AValue.TypeInfo = TypeInfo(TGUID)) or (AValue.TypeInfo = TypeInfo(TUUID)) then
+      begin
+        Param.DataType := ftGuid;
+        Param.AsString := ConvertedValue.AsString;
+      end
+      // aggressive check for GUID strings to handle cases where TValue lost strict type info
+      else if (ConvertedValue.Kind in [tkString, tkUString, tkWString]) and 
+              ((Length(ConvertedValue.AsString) = 36) or (Length(ConvertedValue.AsString) = 38)) and
+              (ConvertedValue.AsString.IndexOf('-') > 0) then // Simple heuristic check
+      begin
+         // Only force ftGuid if it looks like a GUID. Postgres requires this for = operator.
+         // Valid GUID ex: 550e8400-e29b-41d4-a716-446655440000 (36) or {550e8400...} (38)
+         Param.DataType := ftGuid;
+         Param.AsString := ConvertedValue.AsString;
+      end
+      else
       // Set param value (converted value is typically a string or integer)
       case ConvertedValue.Kind of
         tkInteger, tkInt64:
@@ -418,7 +437,16 @@ begin
       end;
       tkString, tkUString, tkWString, tkChar, tkWChar:
       begin
-        Param.AsWideString := AValue.AsString;
+        // Check if this string is a GUID and force ftGuid for PostgreSQL compatibility
+        if (AValue.Kind in [tkString, tkUString, tkWString]) and
+           ((Length(AValue.AsString) = 36) or (Length(AValue.AsString) = 38)) and
+           (AValue.AsString.IndexOf('-') > 0) then
+        begin
+          Param.DataType := ftGuid;
+          Param.AsString := AValue.AsString;
+        end
+        else
+          Param.AsWideString := AValue.AsString;
       end;
       tkDynArray:
       begin

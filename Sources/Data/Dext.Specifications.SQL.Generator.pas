@@ -40,7 +40,8 @@ uses
   Dext.Entity.Attributes,
   Dext.Entity.Mapping,
   Dext.Entity.TypeConverters,
-  Dext.Types.Nullable;
+  Dext.Types.Nullable,
+  Dext.Types.UUID;
 
 type
   ISQLColumnMapper = interface
@@ -343,25 +344,36 @@ begin
         .Append(' ');
 
     // Type converter support for SQL casting in WHERE clause
-    SQLCast := ':' + ParamName;
     Converter := TTypeConverterRegistry.Instance.GetConverter(C.Value.TypeInfo);
-    if Converter <> nil then
+    
+    // Determine Dialect Enum
+    DialectEnum := ddUnknown;
+    Quoted := FDialect.QuoteIdentifier('t');
+    if Quoted.StartsWith('[') then DialectEnum := ddSQLServer
+    else if Quoted.StartsWith('`') then DialectEnum := ddMySQL
+    else if Quoted.StartsWith('"') then
     begin
-      // We need ddPostgreSQL, etc. TSQLWhereGenerator has FDialect: ISQLDialect.
-      // I'll use the same detection logic or refactor it.
-      // For now, let's assume we can get it from FDialect.
-      DialectEnum := ddUnknown;
-      Quoted := FDialect.QuoteIdentifier('t');
-      if Quoted.StartsWith('[') then DialectEnum := ddSQLServer
-      else if Quoted.StartsWith('`') then DialectEnum := ddMySQL
-      else if Quoted.StartsWith('"') then
-      begin
-        if FDialect.BooleanToSQL(True) = 'TRUE' then DialectEnum := ddPostgreSQL
-        else DialectEnum := ddSQLite;
-      end;
-      
-      SQLCast := Converter.GetSQLCast(':' + ParamName, DialectEnum);
+       if SameText(FDialect.BooleanToSQL(True), 'TRUE') then DialectEnum := ddPostgreSQL
+       else DialectEnum := ddSQLite;
     end;
+    
+    // Explicit casting for PostgreSQL UUIDs to avoid "operator does not exist" errors
+    // Handle TGUID, TUUID types AND string-formatted GUIDs
+    if (DialectEnum = ddPostgreSQL) and 
+       ((C.Value.TypeInfo = TypeInfo(TGUID)) or 
+        (C.Value.TypeInfo = TypeInfo(TUUID)) or
+        ((C.Value.Kind in [tkString, tkUString, tkWString]) and
+         ((Length(C.Value.AsString) = 36) or (Length(C.Value.AsString) = 38)) and
+         (C.Value.AsString.IndexOf('-') > 0))) then
+    begin
+       SQLCast := ':' + ParamName + '::uuid';
+    end
+    else if Converter <> nil then
+    begin
+      SQLCast := Converter.GetSQLCast(':' + ParamName, DialectEnum);
+    end
+    else
+      SQLCast := ':' + ParamName;
 
     FSQL.Append(SQLCast).Append(')');
   end;
