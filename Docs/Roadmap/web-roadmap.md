@@ -11,14 +11,15 @@ Este documento foca nas funcionalidades de alto nível do framework web (API, MV
 ### 0. HTTP Abstractions (Refactoring for Performance) 🔥
 Blindagem das interfaces para suportar alta performance (Zero-Copy) no futuro.
 - [ ] **Lazy Headers/Query**: `GetHeader(Name)` ao invés de retornar `TDictionary` completo.
-- [ ] **Items Bag**: Adicionar `Items: TDictionary<string, TValue>` em `IHttpContext` para comunicação entre Middlewares.
+- [x] **Items Bag**: Adicionar `Items: TDictionary<string, TValue>` em `IHttpContext` para comunicação entre Middlewares.
+- [x] **Response Compression**: Suporte a GZip e Brotli (`Accept-Encoding`).
 - [ ] **Stream Writing**: Adicionar `Response.Write(TStream)` para suportar envio eficiente de arquivos.
 - [ ] **Body Abstraction**: Abstrair o acesso ao Body para suportar `Span<Byte>` futuramente.
 
 ### 1. Web API Improvements (Prioridade Alta) 🔥
 Melhorias na experiência de construção de APIs robustas e profissionais.
 
-#### 0. **Object Serialization in Dext.Json** ✅ **CONCLUÍDO** + 🔥 **Deserialization URGENTE**
+#### 0. **Object Serialization & Deserialization in Dext.Json** ✅ **CONCLUÍDO**
 
 **Status da Serialização**: ✅ **COMPLETO**
 - ✅ Adicionado método `SerializeObject(const AValue: TValue): IDextJsonObject`
@@ -32,14 +33,14 @@ Melhorias na experiência de construção de APIs robustas e profissionais.
 
 **Próximos Passos** (por prioridade):
 
-1. **🔥 Object Deserialization (URGENTE)** (6-8 horas)
-   - [ ] Implementar `DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo): TValue`
-   - [ ] Suporte para objetos aninhados (recursivo)
-   - [ ] Suporte para `IList<TObject>` deserialization
-   - [ ] Criar instâncias via `TActivator.CreateInstance<T>` (sem DI)
-   - [ ] Setar propriedades via RTTI (`TRttiProperty.SetValue`)
-   - [ ] Lidar com propriedades null
-   - [ ] Testes abrangentes (POST/PUT endpoints)
+1. **🔥 Object Deserialization (URGENTE)** (6-8 horas) ✅ **CONCLUÍDO**
+   - [x] Implementar `DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo): TValue`
+   - [x] Suporte para objetos aninhados (recursivo)
+   - [x] Suporte para `IList<TObject>` deserialization
+   - [x] Criar instâncias via RTTI (`Create`)
+   - [x] Setar propriedades via RTTI (`TRttiProperty.SetValue`)
+   - [x] Lidar com propriedades null
+   - [x] Testes abrangentes
 
 2. **Circular Reference Detection** (2-3 horas)
    - [ ] Implementar `TDictionary<TObject, Boolean>` para rastrear objetos já serializados
@@ -83,6 +84,8 @@ var Json := TDextJson.Serialize(Person);
   - [x] Via URL: `/v1/users` (Route Constraints).
   - [x] Via Query String: `?api-version=1.0`.
   - [x] Via Header: `X-Version: 1.0` ou `Accept` header.
+- [x] **Multipart/Form-Data**: Suporte a upload de arquivos e formulários complexos (`IFormFile`).
+- [x] **Cookies Support**: Suporte leitura e escrita (`TCookieOptions`).
 - [ ] **OData Support**: Suporte parcial a queryable APIs (integrado com Dext Entity).
 - [ ] **GraphQL Support**: Endpoint `/graphql` nativo com suporte a Queries, Mutations e Subscriptions.
 - [ ] **gRPC Support**: Implementação de serviços gRPC de alta performance (Protobuf).

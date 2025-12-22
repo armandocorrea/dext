@@ -6,6 +6,7 @@ interface
 uses
   System.Classes,
   System.Generics.Collections,
+  System.Generics.Defaults,
   System.SysUtils,
   System.Rtti,
   System.TypInfo,
@@ -23,6 +24,8 @@ type
     FBodyStream: TStream;
     FRouteParams: TDictionary<string, string>;
     FHeaders: TDictionary<string, string>;
+    FCookies: TDictionary<string, string>;
+    FFiles: TList<IFormFile>;
     FRemoteIpAddress: string;
   public
     constructor Create(const AQueryString: string; const AMethod: string = 'GET'; const APath: string = '/api/test');
@@ -38,8 +41,12 @@ type
     function GetRemoteIpAddress: string;
     function GetHeader(const AName: string): string;
     function GetQueryParam(const AName: string): string;
+    function GetCookies: TDictionary<string, string>;
+    function GetFiles: TList<IFormFile>;
 
     property RemoteIpAddress: string read FRemoteIpAddress write FRemoteIpAddress;
+    property Cookies: TDictionary<string, string> read GetCookies;
+    property Files: TList<IFormFile> read GetFiles;
   end;
 
   TMockHttpResponse = class(TInterfacedObject, IHttpResponse)
@@ -62,9 +69,12 @@ type
     procedure Write(const ABuffer: TBytes); overload;
     procedure Json(const AJson: string);
     procedure AddHeader(const AName, AValue: string);
+    procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
+    procedure AppendCookie(const AName, AValue: string); overload;
+    procedure DeleteCookie(const AName: string);
 
     // Propriedades para teste
-    property StatusCode: Integer read FStatusCode;
+    property StatusCode: Integer read GetStatusCode write SetStatusCode;
     property ContentText: string read FContentText;
   end;
 
@@ -177,6 +187,8 @@ begin
 
   // Inicializar outros campos
   FHeaders := TDictionary<string, string>.Create;
+  FCookies := TDictionary<string, string>.Create(TIStringComparer.Ordinal);
+  FFiles := TList<IFormFile>.Create;
   FBodyStream := TMemoryStream.Create;
   FRemoteIpAddress := '127.0.0.1'; // Default mock IP
 
@@ -193,6 +205,8 @@ begin
   FQueryParams.Free;
   FRouteParams.Free;
   FHeaders.Free;
+  FCookies.Free;
+  FFiles.Free;
   FBodyStream.Free;
   inherited Destroy;
 end;
@@ -243,6 +257,16 @@ end;
 function TMockHttpRequest.GetQueryParam(const AName: string): string;
 begin
   Result := FQueryParams.Values[AName];
+end;
+
+function TMockHttpRequest.GetCookies: TDictionary<string, string>;
+begin
+  Result := FCookies;
+end;
+
+function TMockHttpRequest.GetFiles: TList<IFormFile>;
+begin
+  Result := FFiles;
 end;
 
 { TMockHttpResponse }
@@ -306,6 +330,21 @@ end;
 procedure TMockHttpResponse.AddHeader(const AName, AValue: string);
 begin
   FCustomHeaders.AddOrSetValue(AName, AValue);
+end;
+
+procedure TMockHttpResponse.AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions);
+begin
+  // Mock implementation - ignore or store if needed for tests
+end;
+
+procedure TMockHttpResponse.AppendCookie(const AName, AValue: string);
+begin
+  // Mock implementation - ignore
+end;
+
+procedure TMockHttpResponse.DeleteCookie(const AName: string);
+begin
+  // Mock implementation - ignore
 end;
 
 { TMockHttpContext }

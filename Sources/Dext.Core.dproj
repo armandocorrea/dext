@@ -157,13 +157,13 @@
         <DCCReference Include="Core\Dext.Specifications.Types.pas"/>
         <DCCReference Include="Core\Dext.Threading.Async.pas"/>
         <DCCReference Include="Core\Dext.Validation.pas"/>
-        <DCCReference Include="Core\Dext.MM.pas"/>
         <DCCReference Include="Core\Base\Dext.Core.DateUtils.pas"/>
         <DCCReference Include="Core\Dext.Types.UUID.pas"/>
         <DCCReference Include="Core\Dext.MultiTenancy.pas"/>
         <DCCReference Include="Core\Dext.Hosting.AppState.pas"/>
         <DCCReference Include="Core\Dext.Hosting.BackgroundService.pas"/>
         <DCCReference Include="Core\Dext.Hosting.ApplicationLifetime.pas"/>
+        <DCCReference Include="Core\Dext.MM.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

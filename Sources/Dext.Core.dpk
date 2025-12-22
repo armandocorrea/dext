@@ -75,13 +75,13 @@ contains
   Dext.Specifications.Types in 'Core\Dext.Specifications.Types.pas',
   Dext.Threading.Async in 'Core\Dext.Threading.Async.pas',
   Dext.Validation in 'Core\Dext.Validation.pas',
-  Dext.MM in 'Core\Dext.MM.pas',
   Dext.Core.DateUtils in 'Core\Base\Dext.Core.DateUtils.pas',
   Dext.Types.UUID in 'Core\Dext.Types.UUID.pas',
   Dext.MultiTenancy in 'Core\Dext.MultiTenancy.pas',
   Dext.Hosting.AppState in 'Core\Dext.Hosting.AppState.pas',
   Dext.Hosting.BackgroundService in 'Core\Dext.Hosting.BackgroundService.pas',
-  Dext.Hosting.ApplicationLifetime in 'Core\Dext.Hosting.ApplicationLifetime.pas';
+  Dext.Hosting.ApplicationLifetime in 'Core\Dext.Hosting.ApplicationLifetime.pas',
+  Dext.MM in 'Core\Dext.MM.pas';
 
 end.
 

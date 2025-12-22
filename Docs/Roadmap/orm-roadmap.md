@@ -6,7 +6,7 @@ Este documento rastreia o desenvolvimento do **Dext Entity**, o ORM nativo do fr
 
 ---
 
-## 📊 Status Atual: **Alpha 0.7** 🚀
+## 📊 Status Atual: **Beta 0.95** 🚀
 
 O núcleo do ORM está funcional, suportando operações CRUD, mapeamento básico, relacionamentos simples e controle de concorrência.
 
@@ -161,6 +161,7 @@ O objetivo foi permitir consultas complexas de forma tipada e fluente. Concluíd
 - [x] **External Mapping (Fluent Mapping)**: Configuração de mapeamento via código (Startup) para evitar Attributes nas entidades.
 - [x] **ID Retrieval Fixes**: Correção crítica na recuperação de IDs em inserts (Single/Bulk) para garantir integridade referencial (FKs).
 - [x] **CLI Tools**: Comandos para gerar migrations e atualizar banco (`dext.exe`).
+- [x] **Rollback & Generation**: Suporte a `migrate:down` e `migrate:generate`.
 - [x] **Scaffolding**: Gerar classes de entidade a partir de banco existente (Db-First).
 
 ### ✅ Fase 6: Migrations (Concluído)
@@ -420,8 +421,8 @@ Inspirado no Dapper para cenários de alta performance onde o controle total do 
 
 ---
 
-**Última Atualização**: 21 de Dezembro de 2024  
-**Versão**: Alpha 0.8+  
+**Última Atualização**: 21 de Dezembro de 2025  
+**Versão**: Beta 0.95+  
 **Comparativo**: [ORM_COMPARISON_2024.md](ORM_COMPARISON_2024.md)
 
 ---

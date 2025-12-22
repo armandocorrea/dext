@@ -40,13 +40,6 @@ uses
   Dext.Hosting.CLI.Args;
 
 type
-  IConsoleCommand = interface
-    ['{A1B2C3D4-E5F6-4789-0123-456789ABCDEF}']
-    function GetName: string;
-    function GetDescription: string;
-    procedure Execute(const Args: TCommandLineArgs);
-  end;
-
   TDextCLI = class
   private
     FCommands: TDictionary<string, IConsoleCommand>;
@@ -67,7 +60,9 @@ implementation
 
 uses
   Dext.Hosting.CLI.Commands.MigrateUp,
-  Dext.Hosting.CLI.Commands.MigrateList;
+  Dext.Hosting.CLI.Commands.MigrateList,
+  Dext.Hosting.CLI.Commands.MigrateDown,
+  Dext.Hosting.CLI.Commands.MigrateGenerate;
 
 { TDextCLI }
 
@@ -91,6 +86,12 @@ begin
   
   var CmdList := TMigrateListCommand.Create(FContextFactory);
   FCommands.Add(CmdList.GetName, CmdList);
+
+  var CmdDown := TMigrateDownCommand.Create(FContextFactory);
+  FCommands.Add(CmdDown.GetName, CmdDown);
+
+  var CmdGen := TMigrateGenerateCommand.Create;
+  FCommands.Add(CmdGen.GetName, CmdGen);
 end;
 
 procedure TDextCLI.ShowHelp;

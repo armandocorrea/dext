@@ -44,9 +44,11 @@ type
     function GetAppliedMigrations: TList<string>;
     procedure EnsureHistoryTable;
     procedure ApplyMigration(AMigration: IMigration);
+    procedure DownMigration(AMigration: IMigration);
   public
     constructor Create(AContext: IDbContext);
     procedure Migrate;
+    procedure Rollback(const ATargetId: string = '');
     
     /// <summary>
     ///   Checks if the database schema is compatible with the expected version.
@@ -170,6 +172,85 @@ begin
   except
     FContext.Rollback;
     raise;
+  end;
+end;
+
+procedure TMigrator.DownMigration(AMigration: IMigration);
+var
+  Builder: TSchemaBuilder;
+  Op: TMigrationOperation;
+  SQL: string;
+  CmdIntf: IInterface;
+  Cmd: IDbCommand;
+begin
+  WriteLn('   ⏪ Rolling back migration: ' + AMigration.GetId);
+  
+  FContext.BeginTransaction;
+  try
+    Builder := TSchemaBuilder.Create;
+    try
+      AMigration.Down(Builder);
+      
+      for Op in Builder.Operations do
+      begin
+        SQL := FContext.Dialect.GenerateMigration(Op);
+        if SQL <> '' then
+        begin
+          CmdIntf := FContext.Connection.CreateCommand(SQL);
+          Cmd := CmdIntf as IDbCommand;
+          Cmd.ExecuteNonQuery;
+        end;
+      end;
+      
+      // Remove from History
+      SQL := 'DELETE FROM __DextMigrations WHERE Id = ' + 
+             FContext.Dialect.GetParamPrefix + 'Id';
+             
+      CmdIntf := FContext.Connection.CreateCommand(SQL);
+      Cmd := CmdIntf as IDbCommand;
+      Cmd.AddParam('Id', AMigration.GetId);
+      Cmd.ExecuteNonQuery;
+      
+    finally
+      Builder.Free;
+    end;
+    
+    FContext.Commit;
+  except
+    FContext.Rollback;
+    raise;
+  end;
+end;
+
+procedure TMigrator.Rollback(const ATargetId: string);
+var
+  Applied: TList<string>;
+  Available: TArray<IMigration>;
+  Migration: IMigration;
+  i: Integer;
+begin
+  Applied := GetAppliedMigrations;
+  try
+    Available := TMigrationRegistry.Instance.GetMigrations;
+    
+    // Reverse order for rollback
+    for i := High(Available) downto Low(Available) do
+    begin
+      Migration := Available[i];
+      if Applied.Contains(Migration.GetId) then
+      begin
+        if (ATargetId <> '') and (CompareText(Migration.GetId, ATargetId) <= 0) then
+          Break;
+          
+        DownMigration(Migration);
+        
+        // If target ID not specified, rollback only one
+        if ATargetId = '' then
+          Exit;
+      end;
+    end;
+  finally
+    Applied.Free;
   end;
 end;
 

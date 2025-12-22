@@ -155,6 +155,8 @@
         <DCCReference Include="Data\Dext.Entity.Joining.pas"/>
         <DCCReference Include="Hosting\CLI\Dext.Hosting.CLI.Args.pas"/>
         <DCCReference Include="Hosting\CLI\Dext.Hosting.CLI.pas"/>
+        <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateDown.pas"/>
+        <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateGenerate.pas"/>
         <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateList.pas"/>
         <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateUp.pas"/>
         <BuildConfiguration Include="Base">

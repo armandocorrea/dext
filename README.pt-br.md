@@ -2,8 +2,8 @@
 
 # Dext Framework - Modern Full-Stack Development for Delphi
 
-> ⚠️ **Status: Desenvolvimento Ativo**
-> O projeto está em fase de implementação da versão 1.0. A API pública, sintaxe fluente e nomes de métodos estão sujeitos a alterações (breaking changes) sem aviso prévio até o lançamento da primeira versão estável.
+> ⚠️ **Status: Beta (v1.0 Preview)**
+> O projeto alcançou o marco Beta. As APIs principais estão estáveis, mas pequenas alterações (breaking changes) ainda podem ocorrer antes do lançamento final v1.0.
 
 **Dext** é um ecossistema completo para desenvolvimento moderno em Delphi, combinando um framework web de alta performance (inspirado em ASP.NET Core) com um ORM robusto e ferramentas de infraestrutura avançadas.
 
@@ -31,13 +31,16 @@ Um framework HTTP leve e poderoso para construir REST APIs e microserviços.
 - **Middlewares**: Pipeline de requisição modular e extensível.
 - **SSL/HTTPS**: Suporte plugável para OpenSSL e TaurusTLS (OpenSSL 1.1x/3.x).
 - **UUIDs de Primeira Classe**: Suporte nativo para binding de `TUUID` (RFC 9562) em Rotas/Body.
+- **Multipart/Form-Data**: Suporte nativo a upload de arquivos via `IFormFile`.
+- **Response Compression**: Middleware integrado de compressão GZip.
+- **Cookies**: Suporte completo a leitura e escrita com `TCookieOptions`.
 - **OpenAPI**: Integração nativa com Swagger e geração automática de documentação.
 
 ### 🗄️ Dext.Entity (ORM)
 Um ORM moderno focado em produtividade e performance.
 - **Code-First**: Defina seu banco de dados usando classes Delphi.
 - **Scaffolding**: Suporte a Database-First para gerar entidades a partir de esquemas existentes.
-- **Migrations**: Controle de versão do esquema do banco de dados via CLI.
+- **Migrations**: Controle de versão do esquema (`migrate:up`, `migrate:down`, `migrate:generate`).
 - **Fluent Query API**: Consultas fortemente tipadas e expressivas.
 - **Change Tracking**: Controle automático de mudanças e persistência otimizada.
 - **Tipos Avançados**: Suporte nativo para **UUID v7** (Ordenado por Tempo), JSON/JSONB e Arrays.

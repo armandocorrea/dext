@@ -59,6 +59,30 @@ type
     ApiVersions: TArray<string>; // Supported API versions (e.g. '1.0', '2.0')
   end;
 
+  TCookieOptions = record
+    Path: string;
+    Domain: string;
+    Expires: TDateTime;
+    HttpOnly: Boolean;
+    Secure: Boolean;
+    SameSite: string; // 'Lax', 'Strict', 'None'
+    class function Default: TCookieOptions; static;
+  end;
+
+  IFormFile = interface
+    ['{B1A2C3D4-E5F6-4789-0123-456789ABCDEF}']
+    function GetFileName: string;
+    function GetName: string; // Field name
+    function GetContentType: string;
+    function GetLength: Int64;
+    function GetStream: TStream;
+    property FileName: string read GetFileName;
+    property Name: string read GetName;
+    property ContentType: string read GetContentType;
+    property Length: Int64 read GetLength;
+    property Stream: TStream read GetStream;
+  end;
+
   IResult = interface
     ['{D6F5E4A3-9B2C-4D1E-8F7A-6C5B4E3D2F1A}']
     procedure Execute(AContext: IHttpContext);
@@ -75,12 +99,16 @@ type
     function GetRemoteIpAddress: string;
     function GetHeader(const AName: string): string;
     function GetQueryParam(const AName: string): string;
+    function GetCookies: TDictionary<string, string>;
+    function GetFiles: TList<IFormFile>;
     property Method: string read GetMethod;
     property Path: string read GetPath;
     property Query: TStrings read GetQuery;
     property Body: TStream read GetBody;
     property RouteParams: TDictionary<string, string> read GetRouteParams;
     property Headers: TDictionary<string, string> read GetHeaders;
+    property Cookies: TDictionary<string, string> read GetCookies;
+    property Files: TList<IFormFile> read GetFiles;
     property RemoteIpAddress: string read GetRemoteIpAddress;
   end;
 
@@ -92,9 +120,13 @@ type
     procedure SetContentType(const AValue: string);
     procedure SetContentLength(const AValue: Int64); // ? Added
     procedure Write(const AContent: string); overload;
-    procedure Write(const ABuffer: TBytes); overload; // ? Added
+    procedure Write(const ABuffer: TBytes); overload;
+    procedure Write(const AStream: TStream); overload;
     procedure Json(const AJson: string);
     procedure AddHeader(const AName, AValue: string);
+    procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
+    procedure AppendCookie(const AName, AValue: string); overload;
+    procedure DeleteCookie(const AName: string);
     property StatusCode: Integer read GetStatusCode write SetStatusCode;
   end;
 
@@ -229,6 +261,18 @@ end;
 class operator TDextAppBuilder.Implicit(const A: TDextAppBuilder): IApplicationBuilder;
 begin
   Result := A.FBuilder;
+end;
+
+{ TCookieOptions }
+
+class function TCookieOptions.Default: TCookieOptions;
+begin
+  Result.Path := '/';
+  Result.Domain := '';
+  Result.Expires := 0;
+  Result.HttpOnly := True;
+  Result.Secure := False;
+  Result.SameSite := 'Lax';
 end;
 
 end.

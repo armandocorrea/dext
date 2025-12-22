@@ -2,8 +2,8 @@
 
 # Dext Framework - Modern Full-Stack Development for Delphi
 
-> ⚠️ **Status: Active Development**
-> The project is currently implementing version 1.0. The public API, fluent syntax, and method names are subject to breaking changes without prior notice until the first stable release.
+> ⚠️ **Status: Beta (v1.0 Preview)**
+> The project has reached the Beta milestone. Core APIs are stable, but minor breaking changes might still occur before the final v1.0 release.
 
 **Dext** is a complete ecosystem for modern Delphi development, combining a high-performance web framework (inspired by ASP.NET Core) with a robust ORM and advanced infrastructure tooling.
 
@@ -33,13 +33,16 @@ A lightweight and powerful HTTP framework for building REST APIs and microservic
 - **Middlewares**: Modular and extensible request pipeline.
 - **SSL/HTTPS**: Pluggable support for OpenSSL and TaurusTLS (OpenSSL 1.1x/3.x).
 - **First-Class UUID**: Native support for binding `TUUID` (RFC 9562) in Routes/Body.
+- **Multipart/Form-Data**: Native support for file uploads via `IFormFile`.
+- **Response Compression**: Built-in GZip compression middleware.
+- **Cookies**: Full support for reading and writing cookies with `TCookieOptions`.
 - **OpenAPI**: Native Swagger integration with auto-generated documentation.
 
 ### 🗄️ Dext.Entity (ORM)
 A modern ORM focused on productivity and performance.
 - **Code-First**: Define your database using Delphi classes.
 - **Scaffolding**: Database-First support to generate entities from existing schemas.
-- **Migrations**: Database schema version control via CLI.
+- **Migrations**: Database schema version control (`migrate:up`, `migrate:down`, `migrate:generate`).
 - **Fluent Query API**: Strongly typed and expressive queries.
 - **Change Tracking**: Automatic change tracking and optimized persistence.
 - **Advanced Types**: Native support for **UUID v7** (Time-Ordered), JSON/JSONB, and Arrays.

@@ -198,7 +198,6 @@ type
   TWebRouteHelpers = Dext.Web.Extensions.TWebRouteHelpers;
   
   // CLI
-  IConsoleCommand = Dext.Hosting.CLI.IConsoleCommand;
   TDextCLI = Dext.Hosting.CLI.TDextCLI;
   TMigrateUpCommand = Dext.Hosting.CLI.Commands.MigrateUp.TMigrateUpCommand;
   TMigrateListCommand = Dext.Hosting.CLI.Commands.MigrateList.TMigrateListCommand;

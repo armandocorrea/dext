@@ -34,15 +34,55 @@ uses
   Dext.Web.Interfaces, Dext.DI.Interfaces, Dext.Auth.Identity;
 
 type
+  TIndyHttpResponse = class(TInterfacedObject, IHttpResponse)
+  private
+    FResponseInfo: TIdHTTPResponseInfo;
+  public
+    constructor Create(AResponseInfo: TIdHTTPResponseInfo);
+    function Status(AValue: Integer): IHttpResponse;
+    function GetStatusCode: Integer;
+    procedure SetStatusCode(AValue: Integer);
+    procedure SetContentType(const AValue: string);
+    procedure SetContentLength(const AValue: Int64);
+    procedure Write(const AContent: string); overload;
+    procedure Write(const ABuffer: TBytes); overload;
+    procedure Write(const AStream: TStream); overload;
+    procedure Json(const AJson: string);
+    procedure AddHeader(const AName, AValue: string);
+    procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
+    procedure AppendCookie(const AName, AValue: string); overload;
+    procedure DeleteCookie(const AName: string);
+    property StatusCode: Integer read GetStatusCode write SetStatusCode;
+  end;
+
+  TIndyFormFile = class(TInterfacedObject, IFormFile)
+  private
+    FFileName: string;
+    FName: string;
+    FContentType: string;
+    FStream: TStream;
+  public
+    constructor Create(const AName, AFileName, AContentType: string; AStream: TStream);
+    destructor Destroy; override;
+    function GetFileName: string;
+    function GetName: string;
+    function GetContentType: string;
+    function GetLength: Int64;
+    function GetStream: TStream;
+  end;
+
   TIndyHttpRequest = class(TInterfacedObject, IHttpRequest)
   private
     FRequestInfo: TIdHTTPRequestInfo;
     FQuery: TStrings;
     FBodyStream: TStream;
     FRouteParams: TDictionary<string, string>;
-    FHeaders: TDictionary<string, string>; // ? NOVO
+    FHeaders: TDictionary<string, string>;
+    FCookies: TDictionary<string, string>;
+    FFiles: TList<IFormFile>;
     function ParseQueryString(const AQuery: string): TStrings;
-    function ParseHeaders(AHeaderList: TIdHeaderList): TDictionary<string, string>; // ? NOVO
+    function ParseHeaders(AHeaderList: TIdHeaderList): TDictionary<string, string>;
+    procedure ParseMultipart;
   public
     constructor Create(ARequestInfo: TIdHTTPRequestInfo);
     destructor Destroy; override;
@@ -56,22 +96,17 @@ type
     function GetRemoteIpAddress: string;
     function GetHeader(const AName: string): string;
     function GetQueryParam(const AName: string): string;
-  end;
-
-  TIndyHttpResponse = class(TInterfacedObject, IHttpResponse)
-  private
-    FResponseInfo: TIdHTTPResponseInfo;
-  public
-    constructor Create(AResponseInfo: TIdHTTPResponseInfo);
-    function Status(AValue: Integer): IHttpResponse;
-    function GetStatusCode: Integer;
-    procedure SetStatusCode(AValue: Integer);
-    procedure SetContentType(const AValue: string);
-    procedure SetContentLength(const AValue: Int64); // ? Added
-    procedure Write(const AContent: string); overload;
-    procedure Write(const ABuffer: TBytes); overload; // ? Added
-    procedure Json(const AJson: string);
-    procedure AddHeader(const AName, AValue: string); // ? NOVO: Implementação da interface
+    function GetCookies: TDictionary<string, string>;
+    function GetFiles: TList<IFormFile>;
+    property Method: string read GetMethod;
+    property Path: string read GetPath;
+    property Query: TStrings read GetQuery;
+    property Body: TStream read GetBody;
+    property RouteParams: TDictionary<string, string> read GetRouteParams;
+    property Headers: TDictionary<string, string> read GetHeaders;
+    property Cookies: TDictionary<string, string> read GetCookies;
+    property Files: TList<IFormFile> read GetFiles;
+    property RemoteIpAddress: string read GetRemoteIpAddress;
   end;
 
   TIndyHttpContext = class(TInterfacedObject, IHttpContext)
@@ -95,6 +130,11 @@ type
     function GetUser: IClaimsPrincipal;
     procedure SetUser(const AValue: IClaimsPrincipal);
     function GetItems: TDictionary<string, TValue>;
+    property Request: IHttpRequest read GetRequest;
+    property Response: IHttpResponse read GetResponse write SetResponse;
+    property Services: IServiceProvider read GetServices write SetServices;
+    property User: IClaimsPrincipal read GetUser write SetUser;
+    property Items: TDictionary<string, TValue> read GetItems;
   end;
 
 implementation
@@ -106,8 +146,8 @@ begin
   inherited Create;
   FRequestInfo := ARequestInfo;
   FRouteParams := TDictionary<string, string>.Create;
-  // Note: FQuery, FHeaders, FBodyStream are NIL and will be lazy loaded
-
+  FFiles := TList<IFormFile>.Create;
+  // Note: FQuery, FHeaders, FBodyStream, FCookies are NIL and will be lazy loaded
 end;
 
 destructor TIndyHttpRequest.Destroy;
@@ -115,7 +155,9 @@ begin
   FQuery.Free;
   FBodyStream.Free;
   FRouteParams.Free;
-  FHeaders.Free; // ? NOVO: Liberar headers
+  FHeaders.Free;
+  FCookies.Free;
+  FFiles.Free;
   inherited Destroy;
 end;
 
@@ -210,6 +252,162 @@ begin
   Result := FRouteParams;
 end;
 
+function TIndyHttpRequest.GetCookies: TDictionary<string, string>;
+var
+  CookieHeader: string;
+  Pairs: TArray<string>;
+  Pair: string;
+  Parts: TArray<string>;
+begin
+  if FCookies = nil then
+  begin
+    FCookies := TDictionary<string, string>.Create(TIStringComparer.Ordinal);
+    CookieHeader := FRequestInfo.RawHeaders.Values['Cookie'];
+    if CookieHeader <> '' then
+    begin
+      Pairs := CookieHeader.Split([';']);
+      for Pair in Pairs do
+      begin
+        Parts := Pair.Trim.Split(['='], 2);
+        if Length(Parts) = 2 then
+          FCookies.AddOrSetValue(Parts[0].Trim, TIdURI.URLDecode(Parts[1].Trim))
+        else if (Length(Parts) = 1) and (Parts[0] <> '') then
+          FCookies.AddOrSetValue(Parts[0].Trim, '');
+      end;
+    end;
+  end;
+  Result := FCookies;
+end;
+
+function TIndyHttpRequest.GetFiles: TList<IFormFile>;
+begin
+  if FFiles.Count = 0 then
+    ParseMultipart;
+  Result := FFiles;
+end;
+
+procedure TIndyHttpRequest.ParseMultipart;
+var
+  Boundary, ContentTypeStr: string;
+  Stream: TStream;
+  P, NextP: Int64;
+  BoundaryBytes: TBytes;
+
+  function FindBytes(const B: TBytes; Start: Int64): Int64;
+  var
+    J: Integer;
+    Match: Boolean;
+  begin
+    Result := -1;
+    if Length(B) = 0 then Exit;
+    Stream.Position := Start;
+    while Stream.Position <= Stream.Size - Length(B) do
+    begin
+      Match := True;
+      for J := 0 to Length(B) - 1 do
+      begin
+        var Bt: Byte;
+        if (Stream.Read(Bt, 1) <> 1) or (Bt <> B[J]) then
+        begin
+          Match := False;
+          Stream.Position := Stream.Position - J; 
+          Break;
+        end;
+      end;
+      if Match then
+      begin
+        Result := Stream.Position - Length(B);
+        Exit;
+      end;
+    end;
+  end;
+
+  procedure ParsePart(Start, Finish: Int64);
+  var
+    HeaderList: TStringList;
+    S, Line: string;
+    HeaderEndPos: Int64;
+    PartStream: TMemoryStream;
+    PartName, PartFileName, PartContentType: string;
+    ContentDisp: string;
+    B: Byte;
+  begin
+    Stream.Position := Start;
+    HeaderList := TStringList.Create;
+    try
+      while Stream.Position < Finish do
+      begin
+        S := '';
+        if Stream.Read(B, 1) <> 1 then Break;
+        while (B <> 10) and (Stream.Position < Finish) do
+        begin
+          if B <> 13 then S := S + Char(B);
+          if Stream.Read(B, 1) <> 1 then Break;
+        end;
+        if S = '' then Break;
+        HeaderList.Add(S);
+      end;
+      
+      HeaderEndPos := Stream.Position;
+      
+      for Line in HeaderList do
+      begin
+        if Line.ToLower.StartsWith('content-disposition:') then
+        begin
+          ContentDisp := Line;
+          var NamePos := Pos('name="', ContentDisp);
+          if NamePos > 0 then
+          begin
+             PartName := Copy(ContentDisp, NamePos + 6, MaxInt);
+             PartName := Copy(PartName, 1, Pos('"', PartName) - 1);
+          end;
+          var FilePos := Pos('filename="', ContentDisp);
+          if FilePos > 0 then
+          begin
+             PartFileName := Copy(ContentDisp, FilePos + 10, MaxInt);
+             PartFileName := Copy(PartFileName, 1, Pos('"', PartFileName) - 1);
+          end;
+        end
+        else if Line.ToLower.StartsWith('content-type:') then
+          PartContentType := Trim(Copy(Line, 14, MaxInt));
+      end;
+      
+      if PartFileName <> '' then
+      begin
+        PartStream := TMemoryStream.Create;
+        // -2 to exclude CRLF before the boundary
+        PartStream.CopyFrom(Stream, Finish - HeaderEndPos - 2); 
+        PartStream.Position := 0;
+        FFiles.Add(TIndyFormFile.Create(PartName, PartFileName, PartContentType, PartStream));
+      end;
+    finally
+      HeaderList.Free;
+    end;
+  end;
+
+begin
+  ContentTypeStr := FRequestInfo.ContentType;
+  if not ContentTypeStr.ToLower.StartsWith('multipart/form-data') then Exit;
+  
+  var Idx := Pos('boundary=', ContentTypeStr.ToLower);
+  if Idx = 0 then Exit;
+  Boundary := '--' + Copy(ContentTypeStr, Idx + 9, MaxInt);
+  BoundaryBytes := TEncoding.UTF8.GetBytes(Boundary);
+  
+  Stream := GetBody;
+  if (Stream = nil) or (Stream.Size = 0) then Exit;
+  
+  P := FindBytes(BoundaryBytes, 0);
+  while P >= 0 do
+  begin
+    NextP := FindBytes(BoundaryBytes, P + Length(BoundaryBytes));
+    if NextP < 0 then Break;
+    
+    ParsePart(P + Length(BoundaryBytes) + 2, NextP); 
+    P := NextP;
+  end;
+end;
+
 function TIndyHttpRequest.GetBody: TStream;
 var
   FormData: string;
@@ -252,6 +450,41 @@ end;
 procedure TIndyHttpResponse.AddHeader(const AName, AValue: string);
 begin
   FResponseInfo.CustomHeaders.AddValue(AName, AValue);
+end;
+
+procedure TIndyHttpResponse.AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions);
+var
+  CookieStr: string;
+begin
+  CookieStr := Format('%s=%s', [AName, TIdURI.URLEncode(AValue)]);
+  if AOptions.Path <> '' then
+    CookieStr := CookieStr + '; Path=' + AOptions.Path;
+  if AOptions.Domain <> '' then
+    CookieStr := CookieStr + '; Domain=' + AOptions.Domain;
+  if AOptions.Expires <> 0 then
+    CookieStr := CookieStr + '; Expires=' + FormatDateTime('ddd, dd mmm yyyy hh:nn:ss "GMT"', AOptions.Expires, TFormatSettings.Create('en-US'));
+  if AOptions.HttpOnly then
+    CookieStr := CookieStr + '; HttpOnly';
+  if AOptions.Secure then
+    CookieStr := CookieStr + '; Secure';
+  if AOptions.SameSite <> '' then
+    CookieStr := CookieStr + '; SameSite=' + AOptions.SameSite;
+
+  FResponseInfo.CustomHeaders.AddValue('Set-Cookie', CookieStr);
+end;
+
+procedure TIndyHttpResponse.AppendCookie(const AName, AValue: string);
+begin
+  AppendCookie(AName, AValue, TCookieOptions.Default);
+end;
+
+procedure TIndyHttpResponse.DeleteCookie(const AName: string);
+var
+  Opts: TCookieOptions;
+begin
+  Opts := TCookieOptions.Default;
+  Opts.Expires := Now - 1; // Expired yesterday
+  AppendCookie(AName, '', Opts);
 end;
 
 function TIndyHttpResponse.GetStatusCode: Integer;
@@ -302,11 +535,58 @@ begin
   FResponseInfo.FreeContentStream := True; // Indy will free the stream
 end;
 
+procedure TIndyHttpResponse.Write(const AStream: TStream);
+begin
+  FResponseInfo.ContentStream := AStream;
+  FResponseInfo.FreeContentStream := False; // We do not own external stream unless specified, usually caller owns it or it's a TFileStream.
+  // Wait, IHttpResponse usually implies transferring ownership or copying? 
+  // In pure abstraction, Write(Stream) usually copies. But for performance we might want to just assign.
+  // Let's assume we copy for safety unless it's a memory stream we created.
+  // BUT the roadmap says "support envio eficiente", implies no copy.
+  // Dext.Web.Indy usually runs on same thread. 
+  
+  // Safe implementation for now:
+  // If we assign AStream to ContentStream, Indy will read from it. We must ensure AStream stays alive.
+  // Since we don't control AStream lifecycle here easily without taking ownership, copying is safer for general use.
+  // However, for "Stream Writing" feature, we usually want to stream LARGE files.
+  // Let's implement copy for now to be safe and consistent with buffering. 
+  // Optimization to TFileStream can be done if we detect type or add WriteFile().
+  
+  var MemStream := TMemoryStream.Create;
+  MemStream.CopyFrom(AStream, 0);
+  MemStream.Position := 0;
+  FResponseInfo.ContentStream := MemStream;
+  FResponseInfo.FreeContentStream := True;
+end;
+
 procedure TIndyHttpResponse.Json(const AJson: string);
 begin
   FResponseInfo.ContentText := AJson;
   FResponseInfo.ContentType := 'application/json; charset=utf-8';
 end;
+
+{ TIndyFormFile }
+
+constructor TIndyFormFile.Create(const AName, AFileName, AContentType: string; AStream: TStream);
+begin
+  inherited Create;
+  FName := AName;
+  FFileName := AFileName;
+  FContentType := AContentType;
+  FStream := AStream;
+end;
+
+destructor TIndyFormFile.Destroy;
+begin
+  FStream.Free;
+  inherited;
+end;
+
+function TIndyFormFile.GetFileName: string; begin Result := FFileName; end;
+function TIndyFormFile.GetName: string; begin Result := FName; end;
+function TIndyFormFile.GetContentType: string; begin Result := FContentType; end;
+function TIndyFormFile.GetLength: Int64; begin Result := FStream.Size; end;
+function TIndyFormFile.GetStream: TStream; begin Result := FStream; end;
 
 { TIndyHttpContext }
 

@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -147,18 +147,23 @@ type
     constructor Create(AOriginal: IHttpResponse);
     destructor Destroy; override;
     
-    // IHttpResponse
-    function Status(AValue: Integer): IHttpResponse;
+    // IHttpResponse methods
+    function GetStatusCode: Integer;
     procedure SetStatusCode(AValue: Integer);
+    function Status(AValue: Integer): IHttpResponse;
     procedure SetContentType(const AValue: string);
     procedure SetContentLength(const AValue: Int64);
     procedure Write(const AContent: string); overload;
     procedure Write(const ABuffer: TBytes); overload;
     procedure Json(const AJson: string);
     procedure AddHeader(const AName, AValue: string);
+    procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
+    procedure AppendCookie(const AName, AValue: string); overload;
+    procedure DeleteCookie(const AName: string);
+    property StatusCode: Integer read GetStatusCode write SetStatusCode;
 
+    // TResponseCaptureWrapper specific methods
     function GetCapturedBody: string;
-    function GetStatusCode: Integer;
   end;
 
   /// <summary>
@@ -504,7 +509,7 @@ begin
   if TryServeFromCache(AContext, CacheKey) then
     Exit; // response already written, stop pipeline
 
-  // MISS � add cache-control headers
+  // MISS – add cache-control headers
   AContext.Response.AddHeader('X-Cache', 'MISS');
   AContext.Response.AddHeader('Cache-Control',
     Format('public, max-age=%d', [FOptions.DefaultDuration]));
@@ -612,6 +617,21 @@ end;
 procedure TResponseCaptureWrapper.AddHeader(const AName, AValue: string);
 begin
   FOriginal.AddHeader(AName, AValue);
+end;
+
+procedure TResponseCaptureWrapper.AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions);
+begin
+  FOriginal.AppendCookie(AName, AValue, AOptions);
+end;
+
+procedure TResponseCaptureWrapper.AppendCookie(const AName, AValue: string);
+begin
+  FOriginal.AppendCookie(AName, AValue);
+end;
+
+procedure TResponseCaptureWrapper.DeleteCookie(const AName: string);
+begin
+  FOriginal.DeleteCookie(AName);
 end;
 
 function TResponseCaptureWrapper.GetCapturedBody: string;

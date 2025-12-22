@@ -8,6 +8,15 @@ uses
   System.Classes;
 
 type
+  TCommandLineArgs = class;
+
+  IConsoleCommand = interface
+    ['{A1B2C3D4-E5F6-4789-0123-456789ABCDEF}']
+    function GetName: string;
+    function GetDescription: string;
+    procedure Execute(const Args: TCommandLineArgs);
+  end;
+
   /// <summary>
   ///   Parses and stores command line arguments.
   ///   Supports format: command [subcommand] -flag --option=value --option value
@@ -17,6 +26,7 @@ type
     FCommand: string;
     FArguments: TDictionary<string, string>;
     FFlags: THashSet<string>;
+    FValues: TList<string>;
     FRawArgs: TArray<string>; // Remaining arguments (after command)
     FOwnsDicts: Boolean;
     
@@ -46,6 +56,11 @@ type
     property Command: string read FCommand;
     
     /// <summary>
+    ///   Positional values (excluding the command).
+    /// </summary>
+    property Values: TList<string> read FValues;
+
+    /// <summary>
     ///   All raw arguments passed to Parse.
     /// </summary>
     property RawArgs: TArray<string> read FRawArgs;
@@ -62,6 +77,7 @@ constructor TCommandLineArgs.Create;
 begin
   FArguments := TDictionary<string, string>.Create(TIStringComparer.Ordinal);
   FFlags := THashSet<string>.Create(TIStringComparer.Ordinal);
+  FValues := TList<string>.Create;
   FOwnsDicts := True;
 end;
 
@@ -71,6 +87,7 @@ begin
   begin
     FArguments.Free;
     FFlags.Free;
+    FValues.Free;
   end;
   inherited;
 end;
@@ -139,7 +156,8 @@ begin
     end
     else
     begin
-      // Positional argument logic could go here if needed.
+      // Positional argument
+      FValues.Add(Arg);
     end;
     
     Inc(i);

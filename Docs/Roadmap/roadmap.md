@@ -70,6 +70,7 @@ Abaixo, comparamos o Dext com as principais alternativas do mercado Delphi e sua
 - [x] **HTTP Logging**: Logging estruturado de requisições/respostas.
 - [x] **CORS**: Configuração flexível de Cross-Origin Resource Sharing.
 - [x] **Static Files**: Servir arquivos estáticos (HTML, CSS, JS, imagens).
+- [x] **Response Compression**: Middleware para compressão GZip.
 
 ### 4. Funcionalidades Avançadas (✅ Concluído)
 - [x] **Controllers**: Suporte a Controllers baseados em classes com Atributos (`[HttpGet]`, `[Route]`).
@@ -188,6 +189,8 @@ Plano estratégico focado em Dext SO4 (Fórum/Social) e melhorias de Core (Nulla
 - [x] **Model Binding**: Binding inteligente de parâmetros (JSON -> Record/Class).
 - [x] **Case-Insensitive Binding**: Suporte a binding independente de case.
 - [x] **Content Negotiation**: Suporte a JSON nativo (`Dext.Json`).
+- [x] **Multipart/Form-Data**: Suporte a upload de arquivos (`IFormFile`).
+- [x] **Cookies**: Suporte completo a leitura e escrita (`TCookieOptions`).
 
 ### 3. Middleware & Pipeline (✅ Concluído)
 - [x] **Middleware Factory**: Criação e injeção de middlewares tipados.
@@ -196,6 +199,7 @@ Plano estratégico focado em Dext SO4 (Fórum/Social) e melhorias de Core (Nulla
 - [x] **HTTP Logging**: Logging estruturado de requisições/respostas.
 - [x] **CORS**: Configuração flexível de Cross-Origin Resource Sharing.
 - [x] **Static Files**: Servir arquivos estáticos (HTML, CSS, JS, imagens).
+- [x] **Response Compression**: Middleware para compressão GZip.
 
 ### 4. Funcionalidades Avançadas (✅ Concluído)
 - [x] **Controllers**: Suporte a Controllers baseados em classes com Atributos (`[HttpGet]`, `[Route]`).
@@ -269,10 +273,12 @@ Plano estratégico focado em Dext SO4 (Fórum/Social) e melhorias de Core (Nulla
     - ✅ **Automatic Creation**: `EnsureCreated` cria schemas automaticamente.
   - 📚 Documentação: [ORM Type System Guide](../ORM-Type-System-Guide.md)
 - [x] **Migrations**: Sistema de migração de schema (✅ Core Completo).
-  - ✅ **Dext CLI**: Ferramenta `dext.exe` para gerenciamento de migrations.
+  - ✅ **Dext CLI**: Ferramenta `dext.exe` para gerenciamento de migrações.
   - ✅ **Registry**: Sistema de registro de migrações (`IMigration`).
   - ✅ **Runner**: Executor transacional (`TMigrator`) com verificação de histórico.
-  - ✅ **Builder**: API fluente para definição de schema (`CreateTable`, `AddColumn`, etc.).
+  - [x] **Builder**: API fluente para definição de schema (`CreateTable`, `AddColumn`, etc.).
+  - ✅ **Rollback**: Reversão de migrações (`migrate:down`).
+  - ✅ **Generation**: Criação de novas migrações (`migrate:generate`).
   - [ ] **Scaffolding**: Geração automática de classes (Próximo passo).
 - [ ] **Stored Procedures**: Mapeamento e execução de Stored Procedures e Functions.
 
@@ -323,4 +329,4 @@ O projeto é Open Source e aceita contribuições!
 
 ---
 
-*Última atualização: 02 de Dezembro de 2025*
+*Última atualização: 21 de Dezembro de 2025*

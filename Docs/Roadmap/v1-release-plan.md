@@ -64,8 +64,10 @@ Features required for a modern, production-grade API.
     -   Support loading certificates from file/store.
 -   [x] **Content Negotiation**
     -   Implement `IOutputFormatter` architecture.
-    -   Respect `Accept` headers (prioritize JSON, but allow extensibility for XML, Protobuf, etc.).
-    -   (Partial implementation: JSON is default, mechanism exists).
+    -   Respect `Accept` headers.
+-   [x] **Cookies & Multipart/Form-Data**
+    -   Support for reading/writing cookies.
+    -   Basic lightweight multipart parser for file uploads.
 -   [x] **Global Exception Handling**
     -   Implement `UseExceptionHandler` middleware.
     -   Standardize error responses using **RFC 7807 (Problem Details)**.
