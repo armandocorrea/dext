@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # 🐘 PostgreSQL (Estável)
+  postgres:
+    image: postgres:15-alpine
+    container_name: dext_postgres
+    environment:
+      POSTGRES_USER: dext_user
+      POSTGRES_PASSWORD: dext_password
+      POSTGRES_DB: dext_test_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  # 🐬 MySQL / MariaDB (Beta -> Estável)
+  mysql:
+    image: mysql:8.0
+    container_name: dext_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: dext_test_db
+      MYSQL_USER: dext_user
+      MYSQL_PASSWORD: dext_password
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password
+
+  # 🪟 SQL Server (Estável)
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: dext_sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "DextPassword123!" # Senha forte exigida
+    ports:
+      - "1433:1433"
+
+  # 🔥 Firebird 4.0 (Estável)
+  firebird:
+    image: jacobnelson/firebird:4.0
+    container_name: dext_firebird
+    environment:
+      ISC_PASSWORD: masterkey
+    ports:
+      - "3050:3050"
+    # Dica: Mapeie uma pasta para ver o .fdb se precisar
+    # volumes:
+    #   - ./fb_data:/firebird/data
+
+  # 🏛️ Oracle (Beta - Versão XE/Free para testes leves)
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: dext_oracle
+    environment:
+      ORACLE_PASSWORD: dext_password
+      APP_USER: dext_user
+      APP_USER_PASSWORD: dext_password
+    ports:
+      - "1521:1521"
+
+  # ⚡ Redis (Roadmap Futuro - Cache)
+  redis:
+    image: redis:alpine
+    container_name: dext_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  pg_data:
