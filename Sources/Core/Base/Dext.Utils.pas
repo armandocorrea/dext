@@ -32,12 +32,12 @@ uses
   WinApi.Windows;
 {$ENDIF}
 
-procedure SetConsoleCharSet(CharSet: UINT = 65001);
+procedure SetConsoleCharSet(CharSet: Cardinal = 65001);
 procedure DebugLog(const AMessage: string);
 
 implementation
 
-procedure SetConsoleCharSet(CharSet: UINT);
+procedure SetConsoleCharSet(CharSet: Cardinal);
 begin
 {$IFDEF MSWINDOWS}
  SetConsoleOutputCP(65001);

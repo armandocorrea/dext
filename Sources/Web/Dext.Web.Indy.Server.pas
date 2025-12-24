@@ -59,11 +59,19 @@ type
 implementation
 
 uses
-  Dext.Web.Indy, WinApi.Windows;
+  Dext.Web.Indy,
+{$IFDEF MSWINDOWS}
+  Winapi.Windows
+{$ENDIF}
+{$IFDEF POSIX}
+  Posix.Signal
+{$ENDIF}
+  ;
 
 var
   GServerStopping: Boolean;
 
+{$IFDEF MSWINDOWS}
 function ConsoleCtrlHandler(dwCtrlType: DWORD): BOOL; stdcall;
 begin
   if (dwCtrlType = CTRL_C_EVENT) or (dwCtrlType = CTRL_BREAK_EVENT) then
@@ -74,6 +82,14 @@ begin
   else
     Result := False;
 end;
+{$ENDIF}
+
+{$IFDEF POSIX}
+procedure SignalHandler(Signal: Integer); cdecl;
+begin
+  GServerStopping := True;
+end;
+{$ENDIF}
 
 { TIndyWebServer }
 
@@ -165,7 +181,13 @@ begin
     Writeln('Press Ctrl+C to stop the server...');
 
     GServerStopping := False;
+{$IFDEF MSWINDOWS}
     SetConsoleCtrlHandler(@ConsoleCtrlHandler, True);
+{$ENDIF}
+{$IFDEF POSIX}
+    signal(SIGINT, @SignalHandler);
+    signal(SIGTERM, @SignalHandler);
+{$ENDIF}
     // Get Lifetime Service to observe external stop requests
     var LifetimeIntf := FServices.GetServiceAsInterface(TServiceType.FromInterface(IHostApplicationLifetime));
     var Lifetime: IHostApplicationLifetime := nil;
@@ -184,7 +206,9 @@ begin
         end;
       end;
     finally
+{$IFDEF MSWINDOWS}
       SetConsoleCtrlHandler(@ConsoleCtrlHandler, False);
+{$ENDIF}
     end;
   end;
 end;

@@ -24,6 +24,7 @@
 {                                                                           }
 {***************************************************************************}
 unit Dext.Auth.JWT;
+{$I ..\Dext.inc}
 
 interface
 
@@ -35,6 +36,7 @@ uses
   System.NetEncoding,
   System.Rtti,
   System.SysUtils,
+  System.Hash,
   IdGlobal,
   IdHashSHA,
   IdHMAC,
@@ -597,5 +599,7 @@ begin
 end;
 
 end.
+
+
 
 
