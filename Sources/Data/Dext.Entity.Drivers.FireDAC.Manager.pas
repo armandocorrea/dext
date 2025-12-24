@@ -5,7 +5,6 @@ interface
 {$I Dext.inc}
 
 uses
-  Winapi.Windows,
   System.SysUtils,
   System.Classes,
   System.Generics.Collections,
