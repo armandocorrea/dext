@@ -33,7 +33,8 @@ uses
   System.TypInfo,
   System.Rtti,
   System.Variants,
-  Dext.Entity.Attributes;
+  Dext.Entity.Attributes,
+  Dext.Entity.TypeConverters;
 
 type
 
@@ -91,6 +92,7 @@ type
     IsRequired: Boolean;
     MaxLength: Integer;
     IsIgnored: Boolean;
+    Converter: ITypeConverter;
     constructor Create(const APropName: string);
   end;
 
@@ -306,6 +308,16 @@ begin
          if Attr is NotMappedAttribute then PropMap.IsIgnored := True;
          if Attr is ForeignKeyAttribute then PropMap.ForeignKeyColumn := ForeignKeyAttribute(Attr).ColumnName;
        end;
+    end;
+    
+    // Resolve Converter (Optimization)
+    // Even if no attributes, we might want to resolve converter for standard types (like TDateTime or Enums)
+    if PropMap = nil then PropMap := GetOrAddProperty(Prop.Name);
+    
+    if PropMap <> nil then
+    begin
+       if PropMap.Converter = nil then
+         PropMap.Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
     end;
   end;
 end;

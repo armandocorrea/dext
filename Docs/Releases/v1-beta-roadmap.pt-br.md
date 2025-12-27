@@ -190,6 +190,7 @@ Funcionalidades movidas para v1.1 ou v2.0:
 - **JSON Columns (JSONB Support)**: Implementação do suporte real no ORM para o atributo `[JsonColumn]`.
 - **Suporte a NoSQL** (MongoDB no ORM).
 - **Distributed Caching** (Redis implementation - Em Progresso).
+- **Cache de Instruções SQL**: Cache de strings SQL geradas para specifications para pular overhead de geração (Compiled Queries).
 - **SNI / Virtual Hosts**: Suporte a múltiplos domínios e certificados no mesmo IP (Taurus TLS).
 - **Database as API**: Funcionalidade "Low-Code/No-Code" para expor o banco como API com mapping e segurança configuráveis (Instant APIs).
 

@@ -190,5 +190,6 @@ Features moved to v1.1 or v2.0:
 - **JSON Columns (JSONB Support)**: Real ORM support implementation for `[JsonColumn]` attribute.
 - **NoSQL Support** (MongoDB in ORM).
 - **Distributed Caching** (Redis implementation - In Progress).
+- **SQL Statement Caching**: Cache generated SQL strings for specifications to skip generation overhead (Compiled Queries).
 - **SNI / Virtual Hosts**: Support for multiple domains and certificates on the same IP (Taurus TLS).
 - **Database as API**: "Low-Code/No-Code" feature to expose the database as an API with configurable mapping and security (Instant APIs).

@@ -808,7 +808,10 @@ begin
       ParamName := GetNextParamName;
       
       // Check if there's a type converter that needs SQL casting
-      Converter := TTypeConverterRegistry.Instance.GetConverter(Val.TypeInfo);
+      if PropMap <> nil then
+        Converter := PropMap.Converter
+      else
+        Converter := TTypeConverterRegistry.Instance.GetConverter(Val.TypeInfo);
       if Converter <> nil then
       begin
         SQLCast := Converter.GetSQLCast(':' + ParamName, GetDialectEnum);
@@ -1060,7 +1063,10 @@ begin
         FirstSet := False;
         
         SQLCastStr := '';
-        Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+        if PropMap <> nil then
+           Converter := PropMap.Converter
+        else
+           Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
         if Converter <> nil then
            SQLCastStr := Converter.GetSQLCast(':' + ParamName, GetDialectEnum)
         else
