@@ -216,6 +216,7 @@ type
   TModelBuilder = class
   private
     class var FInstance: TModelBuilder;
+  private var
     FMaps: TObjectDictionary<PTypeInfo, TEntityMap>;
     class constructor Create;
     class destructor Destroy;
@@ -587,12 +588,17 @@ end;
 
 constructor TModelBuilder.Create;
 begin
+  inherited;
   FMaps := TObjectDictionary<PTypeInfo, TEntityMap>.Create([doOwnsValues]);
 end;
 
 destructor TModelBuilder.Destroy;
 begin
-  FMaps.Free;
+  if Assigned(FMaps) then
+  begin
+    FMaps.Clear;  // Explicitly clear items first
+    FreeAndNil(FMaps);
+  end;
   inherited;
 end;
 
@@ -603,7 +609,7 @@ end;
 
 class destructor TModelBuilder.Destroy;
 begin
-  FInstance.Free;
+  FreeAndNil(FInstance);
 end;
 
 procedure TModelBuilder.ApplyConfiguration<T>(AConfig: IEntityTypeConfiguration<T>);

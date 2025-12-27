@@ -28,6 +28,7 @@ unit Dext.Web.Results;
 interface
 
 uses
+  System.Classes,
   System.SysUtils,
   System.IOUtils,
   System.Rtti,
@@ -93,6 +94,17 @@ type
     procedure Execute(AContext: IHttpContext); override;
   end;
 
+  TStreamResult = class(TResult)
+  private
+    FStream: TStream;
+    FContentType: string;
+    FStatusCode: Integer;
+  public
+    constructor Create(const AStream: TStream; const AContentType: string; AStatusCode: Integer = 200);
+    destructor Destroy; override;
+    procedure Execute(AContext: IHttpContext); override;
+  end;
+
   Results = class
   private
     class var FViewsPath: string;
@@ -130,6 +142,8 @@ type
     class function Text(const AContent: string; AStatusCode: Integer = 200): IResult;
     class function Html(const AHtml: string; AStatusCode: Integer = 200): IResult; // Added
     class function Content(const AContent: string; const AContentType: string; AStatusCode: Integer = 200): IResult; // Added
+    class function Stream(const AStream: TStream; const AContentType: string; AStatusCode: Integer = 200): IResult; // Added
+    
     
     /// <summary>
     ///   Returns an HTML result by reading the content from a view file.
@@ -278,6 +292,32 @@ begin
     Formatter.Write(Ctx);
 end;
 
+{ TStreamResult }
+
+constructor TStreamResult.Create(const AStream: TStream; const AContentType: string; AStatusCode: Integer);
+begin
+  inherited Create;
+  FStream := AStream;
+  FContentType := AContentType;
+  FStatusCode := AStatusCode;
+end;
+
+destructor TStreamResult.Destroy;
+begin
+  FStream.Free;
+  inherited;
+end;
+
+procedure TStreamResult.Execute(AContext: IHttpContext);
+begin
+  AContext.Response.StatusCode := FStatusCode;
+  AContext.Response.SetContentType(FContentType);
+  // Rewind stream if possible
+  if FStream.Position > 0 then
+    FStream.Position := 0;
+  AContext.Response.Write(FStream);
+end;
+
 { Results }
 
 class function Results.Ok: IResult;
@@ -354,6 +394,11 @@ end;
 class function Results.Content(const AContent: string; const AContentType: string; AStatusCode: Integer = 200): IResult;
 begin
   Result := TContentResult.Create(AContent, AContentType, AStatusCode);
+end;
+
+class function Results.Stream(const AStream: TStream; const AContentType: string; AStatusCode: Integer): IResult;
+begin
+  Result := TStreamResult.Create(AStream, AContentType, AStatusCode);
 end;
 
 class function Results.StatusCode(ACode: Integer): IResult;

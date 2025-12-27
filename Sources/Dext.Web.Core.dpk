@@ -91,6 +91,7 @@ contains
   Dext.Web.MultiTenancy in 'Web\Dext.Web.MultiTenancy.pas',
   Dext.Web.Middleware.StartupLock in 'Web\Middleware\Dext.Web.Middleware.StartupLock.pas',
   Dext.Web.Middleware.Compression in 'Web\Middleware\Dext.Web.Middleware.Compression.pas',
-  Dext.Auth.Middleware in 'Web\Dext.Auth.Middleware.pas';
+  Dext.Auth.Middleware in 'Web\Dext.Auth.Middleware.pas',
+  Dext.Web.DataApi in 'Web\Dext.Web.DataApi.pas';
 
 end.

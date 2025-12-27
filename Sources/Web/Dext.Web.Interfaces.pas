@@ -176,6 +176,12 @@ type
     function GetRoutes: TArray<TEndpointMetadata>; // ? Introspection
     procedure UpdateLastRouteMetadata(const AMetadata: TEndpointMetadata); // ? For fluent API
     procedure SetServiceProvider(const AProvider: IServiceProvider); // ? Update Provider before Build
+    
+    /// <summary>
+    ///   Registers an object to be disposed when the host shuts down.
+    ///   Use for objects that should live for the lifetime of the application.
+    /// </summary>
+    procedure RegisterForDisposal(AObject: TObject);
   end;
 
   IWebHost = interface

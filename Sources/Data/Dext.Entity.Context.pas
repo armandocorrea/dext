@@ -293,8 +293,8 @@ end;
 
 class destructor TDbContext.Destroy;
 begin
-  FModelCache.Free;
-  FCriticalSection.Free;
+  FreeAndNil(FModelCache);
+  FreeAndNil(FCriticalSection);
 end;
 
 constructor TDbContext.Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil);

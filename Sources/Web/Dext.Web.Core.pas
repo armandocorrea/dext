@@ -63,6 +63,7 @@ type
     FMiddlewares: TList<TMiddlewareRegistration>;
     FRoutes: TList<TRouteDefinition>; // ✅ Changed to List of Definitions
     FServiceProvider: IServiceProvider;
+    FDisposables: TList<TObject>; // Objects to dispose on shutdown
 
     function CreateMiddlewarePipeline(const ARegistration: TMiddlewareRegistration; ANext: TRequestDelegate): TRequestDelegate;
   public
@@ -90,6 +91,7 @@ type
     function GetRoutes: TArray<TEndpointMetadata>;
     procedure UpdateLastRouteMetadata(const AMetadata: TEndpointMetadata);
     procedure SetServiceProvider(const AProvider: IServiceProvider);
+    procedure RegisterForDisposal(AObject: TObject);
   end;
 
   TMiddleware = class(TInterfacedObject, IMiddleware)
@@ -199,17 +201,25 @@ begin
   FServiceProvider := AServiceProvider;
   FMiddlewares := TList<TMiddlewareRegistration>.Create;
   FRoutes := TList<TRouteDefinition>.Create;
+  FDisposables := TList<TObject>.Create;
 end;
 
 destructor TApplicationBuilder.Destroy;
 var
   Route: TRouteDefinition;
+  Obj: TObject;
 begin
   FServiceProvider := nil;
   FMiddlewares.Free;
   for Route in FRoutes do
     Route.Free;
   FRoutes.Free;
+  
+  // Dispose all registered objects
+  for Obj in FDisposables do
+    Obj.Free;
+  FDisposables.Free;
+  
   inherited Destroy;
 end;
 
@@ -510,6 +520,12 @@ end;
 procedure TApplicationBuilder.SetServiceProvider(const AProvider: IServiceProvider);
 begin
   FServiceProvider := AProvider;
+end;
+
+procedure TApplicationBuilder.RegisterForDisposal(AObject: TObject);
+begin
+  if Assigned(AObject) and (FDisposables.IndexOf(AObject) < 0) then
+    FDisposables.Add(AObject);
 end;
 
 end.

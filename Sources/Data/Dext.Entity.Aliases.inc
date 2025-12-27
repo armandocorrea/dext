@@ -3,6 +3,19 @@
   // Dext.Entity.Attributes
   TInheritanceStrategy = Dext.Entity.Attributes.TInheritanceStrategy;
   TableAttribute = Dext.Entity.Attributes.TableAttribute;
+  ColumnAttribute = Dext.Entity.Attributes.ColumnAttribute;
+  PKAttribute = Dext.Entity.Attributes.PKAttribute;
+  AutoIncAttribute = Dext.Entity.Attributes.AutoIncAttribute;
+  NotMappedAttribute = Dext.Entity.Attributes.NotMappedAttribute;
+  FieldAttribute = Dext.Entity.Attributes.FieldAttribute;
+  JsonColumnAttribute = Dext.Entity.Attributes.JsonColumnAttribute;
+  VersionAttribute = Dext.Entity.Attributes.VersionAttribute;
+  SoftDeleteAttribute = Dext.Entity.Attributes.SoftDeleteAttribute;
+  TCascadeAction = Dext.Entity.Attributes.TCascadeAction;
+  ForeignKeyAttribute = Dext.Entity.Attributes.ForeignKeyAttribute;
+  InheritanceAttribute = Dext.Entity.Attributes.InheritanceAttribute;
+  DiscriminatorColumnAttribute = Dext.Entity.Attributes.DiscriminatorColumnAttribute;
+  DiscriminatorValueAttribute = Dext.Entity.Attributes.DiscriminatorValueAttribute;
 
   // Dext.Entity.Context
   TFluentExpression = Dext.Entity.Context.TFluentExpression;
@@ -176,11 +189,14 @@
   // FColumnMapper = Dext.Specifications.SQL.Generator.FColumnMapper;
 
 const
-
   // Dext.Entity.Attributes
   None = Dext.Entity.Attributes.None;
   TablePerHierarchy = Dext.Entity.Attributes.TablePerHierarchy;
   TablePerType = Dext.Entity.Attributes.TablePerType;
+  caNoAction = Dext.Entity.Attributes.caNoAction;
+  caCascade = Dext.Entity.Attributes.caCascade;
+  caSetNull = Dext.Entity.Attributes.caSetNull;
+  caRestrict = Dext.Entity.Attributes.caRestrict;
 
   // Dext.Entity.Core
   esDetached = Dext.Entity.Core.esDetached;

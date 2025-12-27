@@ -91,15 +91,6 @@ type
     class procedure AddDbContext<T: TDbContext>(Services: IServiceCollection; Config: TProc<TDbContextOptions>);
   end;
 
-const
-  // Cascade Action Aliases (if not already in inc, but safe to keep or remove if duplicate)
-  // Checking aliases inc content previously... they might be there as TCascadeAction.caNoAction
-  // Let's keep them manually if they map enum values directly for convenience.
-  caNoAction = Dext.Entity.Attributes.TCascadeAction.caNoAction;
-  caCascade = Dext.Entity.Attributes.TCascadeAction.caCascade;
-  caSetNull = Dext.Entity.Attributes.TCascadeAction.caSetNull;
-  caRestrict = Dext.Entity.Attributes.TCascadeAction.caRestrict;
-
 implementation
 
 uses
