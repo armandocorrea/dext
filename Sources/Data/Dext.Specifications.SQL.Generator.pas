@@ -34,6 +34,7 @@ uses
   System.Rtti,
   System.TypInfo,
   System.Variants,
+  Data.DB,
   Dext.Specifications.Interfaces,
   Dext.Specifications.Types,
   Dext.Entity.Dialects,
@@ -1648,15 +1649,37 @@ begin
       
       PropTypeHandle := Prop.PropertyType.Handle;
       
-      // Handle Nullable<T>
-      if IsNullable(Prop.PropertyType.Handle) then
+      // Handle Explicit DbType (Attributes or Fluent)
+      if (PropMap <> nil) and (PropMap.DataType <> ftUnknown) then
       begin
-        Underlying := GetUnderlyingType(Prop.PropertyType.Handle);
-        if Underlying <> nil then
-          PropTypeHandle := Underlying;
+        ColType := FDialect.GetColumnTypeForField(PropMap.DataType, IsAutoInc);
+      end
+      else
+      begin
+        // Handle Nullable<T>
+        if IsNullable(Prop.PropertyType.Handle) then
+        begin
+          Underlying := GetUnderlyingType(Prop.PropertyType.Handle);
+          if Underlying <> nil then
+            PropTypeHandle := Underlying;
+        end
+        // Handle Prop<T> (Smart Types)
+        else if (Prop.PropertyType.TypeKind = tkRecord) then
+        begin
+           // Auto-detect Prop<T> by checking for FValue field.
+           // Modified to be more robust: Check for FValue AND (Name contains Prop< OR has Value property)
+           var FieldFValue := Prop.PropertyType.GetField('FValue');
+           if (FieldFValue <> nil) and 
+              (Prop.PropertyType.Name.Contains('Prop<') or (Prop.PropertyType.GetProperty('Value') <> nil)) then
+           begin
+              // It looks like a Prop<T>
+              PropTypeHandle := FieldFValue.FieldType.Handle;
+           end;
+        end;
+        
+        ColType := FDialect.GetColumnType(PropTypeHandle, IsAutoInc);
       end;
-      
-      ColType := FDialect.GetColumnType(PropTypeHandle, IsAutoInc);
+
       SB.Append(ColType);
       
       // Check if this is a soft delete column and add DEFAULT

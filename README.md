@@ -57,6 +57,7 @@ A modern ORM focused on productivity and performance.
 - **Scaffolding**: Database-First support to generate entities from existing schemas.
 - **Migrations**: Database schema version control (`migrate:up`, `migrate:down`, `migrate:generate`).
 - **Fluent Query API**: Strongly typed and expressive queries.
+- **Smart Properties**: Type-safe query expressions without magic strings. Write `u.Age > 18` and get compile-time checks, IntelliSense, and automatic SQL generation. [Learn more](Docs/smart-properties.md)
 - **Change Tracking**: Automatic change tracking and optimized persistence.
 - **Advanced Types**: Native support for **UUID v7** (Time-Ordered), JSON/JSONB, and Arrays.
 - **Multi-Tenancy**:
@@ -115,6 +116,7 @@ The foundation of the framework, usable in any type of application.
 ### 🗄️ Data Access (ORM)
 - [Database Configuration](Docs/database-config.md)
 - [Fluent Query API](Docs/fluent-query-api.md)
+- [Smart Properties](Docs/smart-properties.md) ⭐ NEW
 - [Migrations](Docs/migrations.md)
 - [Lazy Loading](Docs/lazy-loading-advanced.md)
 - [Bulk Operations](Docs/bulk-operations.md)
@@ -298,6 +300,7 @@ The repository contains practical example projects:
 - **`Examples/Web.SslDemo`**: Demonstrates SSL/HTTPS configuration using OpenSSL or TaurusTLS.
 - **`Examples/Dext.Starter.Admin`**: **(Recommended)** A Modern Admin Panel with HTMX, Service Layer, and Minimal APIs. [Read the Guide](Examples/Dext.Starter.Admin/README.md).
 - **`Examples/06_DatabaseAsApi`**: Demonstrates Database as API feature - zero-code REST endpoints from entities.
+- **`Examples/Web.SmartPropsDemo`**: Demonstrates usage of Smart Properties with Model Binding and ORM persistence.
 
 
 ---

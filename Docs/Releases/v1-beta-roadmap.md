@@ -59,6 +59,7 @@ For technical details and granular status of each module, check:
 |---------|--------|-------|
 | **CRUD Operations** (Add, Update, Remove, Find) | ✅ Ready | Basic functional |
 | **Fluent Query API** (`Where`, `OrderBy`, `Take`) | ✅ Ready | Robust SQL translation |
+| **Smart Properties** (`u.Age > 18`) | ✅ Ready | Type-safe expressions, IntelliSense, SQL Generation |
 | **Relationships** (1:1, 1:N) | ✅ Ready | `Include` (Eager Loading) functional |
 | **Attributes Mapping** (`[Table]`, `[Column]`) | ✅ Ready | |
 | **Migrations** (CLI & Runtime) | ✅ Ready | `migrate:up`, `down`, `generate` |
@@ -194,3 +195,6 @@ Features moved to v1.1 or v2.0:
 - **Distributed Caching** (Redis implementation - In Progress).
 - **SQL Statement Caching**: Cache generated SQL strings for specifications to skip generation overhead (Compiled Queries).
 - **SNI / Virtual Hosts**: Support for multiple domains and certificates on the same IP (Taurus TLS).
+
+## 🖥️ IDE Support
+- **Debug Visualizers**: Create custom visualizers for Dext types (Prop<T>, Smart Types) to show easy-to-read values (e.g., 'Text' instead of internal record structure) during debugging.

@@ -140,6 +140,8 @@ begin
           Col.IsIdentity := PropMap.IsAutoInc;
           Col.IsNullable := not PropMap.IsRequired;
           Col.Length := PropMap.MaxLength;
+          Col.Precision := PropMap.Precision;
+          Col.Scale := PropMap.Scale;
         end;
         
         // Apply Attributes (if not overridden by Fluent)

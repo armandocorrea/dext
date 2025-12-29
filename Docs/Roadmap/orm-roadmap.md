@@ -65,6 +65,9 @@ O objetivo foi permitir consultas complexas de forma tipada e fluente. Concluíd
   - Range: `Between(lower, upper)`
   - Null: `IsNull`, `IsNotNull`
   - Lógicos: `and`, `or`, `not`
+- [x] **Smart Properties**: Expressões de query type-safe (`u.Age > 18`) sem magic strings.
+  - *Status*: ✅ **Implementado e Validado**
+  - *Funcionalidades*: Cache de Prototypes, BooleanExpression, IntelliSense completo.
 - [x] **OrderBy Tipado**: `UserEntity.Name.Asc`, `UserEntity.Age.Desc`
 - [x] **Include (Eager Loading)**: Carregamento antecipado de relacionamentos.
   - *Status*: ✅ **Implementado e Validado**

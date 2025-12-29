@@ -169,6 +169,7 @@
         <DCCReference Include="Core\Json\Dext.Json.Utf8.Serializer.pas"/>
         <DCCReference Include="Core\Dext.Mapper.pas"/>
         <DCCReference Include="Core\Dext.DI.Attributes.pas"/>
+        <DCCReference Include="Core\Dext.Core.SmartTypes.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

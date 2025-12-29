@@ -76,6 +76,7 @@ contains
   Dext.Hosting.CLI.Commands.MigrateDown in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateDown.pas',
   Dext.Hosting.CLI.Commands.MigrateGenerate in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateGenerate.pas',
   Dext.Hosting.CLI.Commands.MigrateList in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateList.pas',
-  Dext.Hosting.CLI.Commands.MigrateUp in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateUp.pas';
+  Dext.Hosting.CLI.Commands.MigrateUp in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateUp.pas',
+  Dext.Entity.Prototype in 'Data\Dext.Entity.Prototype.pas';
 
 end.

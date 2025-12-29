@@ -9,4 +9,5 @@ uses
 
 begin
   RunTest;
+  Readln;
 end.

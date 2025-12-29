@@ -16,12 +16,16 @@ uses
   FireDAC.DApt,
   FireDAC.UI.Intf,
   FireDAC.ConsoleUI.Wait,
+  Dext,
+  Dext.Collections,
+  Dext.Core.SmartTypes,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Core,
   Dext.Entity.Drivers.FireDAC,
   Dext.Entity.DbSet,
   Dext.Entity.Dialects,
   Dext.Entity.Attributes,
+  Dext.Entity.Prototype,
   Dext.Entity;
 
 type
@@ -38,16 +42,29 @@ type
     property Age: Integer read FAge write FAge;
   end;
 
+  [Table('SmartPeople')]
+  TSmartPerson = class
+  private
+    FId: IntType;
+    FName: StringType;
+    FAge: IntType;
+  public
+    [PK, AutoInc]
+    property Id: IntType read FId write FId;
+    property Name: StringType read FName write FName;
+    property Age: IntType read FAge write FAge;
+  end;
+
 procedure RunTest;
 var
   FDConn: TFDConnection;
   Conn: IDbConnection;
   Ctx: TDbContext;
-  SetPerson: IDbSet<TPerson>;
-  P: TPerson;
-  FoundP: TPerson;
+  SetPerson: IDbSet<TSmartPerson>;
+  P: TSmartPerson;
+  List: IList<TSmartPerson>;
 begin
-  Writeln('Starting Test...');
+  Writeln('Starting Smart Properties Test...');
   
   FDConn := TFDConnection.Create(nil);
   try
@@ -57,49 +74,51 @@ begin
     Conn := TFireDACConnection.Create(FDConn, True); 
     
     Ctx := TDbContext.Create(Conn, TSQLiteDialect.Create);
-    P := nil;
     try
       Conn.Connect;
-      Writeln('Connected.');
       
-      SetPerson := Ctx.Entities<TPerson>;
-      Ctx.EnsureCreated;
+      SetPerson := Ctx.Entities<TSmartPerson>;
+      Ctx.EnsureCreated; 
+      // EnsureCreated creates table based on entity. 
+      // Prop<Integer> should be mapped to integer column type via TPropConverter logic?
+      // Actually SQL Generator uses TypeInfo.
+      // If TypeInfo is Prop<Integer>, it needs to know SQL type.
+      // I might need to check if TSqlGenerator handles Prop<T>.
+      
       Writeln('Table Created.');
       
-      P := TPerson.Create;
-      P.Name := 'John Doe';
+      P := TSmartPerson.Create;
+      P.Name := 'Smart John';
       P.Age := 30;
       
       SetPerson.Add(P);
+      Ctx.SaveChanges;
       Writeln('Person Added. ID: ' + IntToStr(P.Id));
+
+      // Test Smart Query using Prototype.Entity<T> - Cached API!
+      // Prototypes are cached per type for performance.
+      var u := Prototype.Entity<TSmartPerson>;
       
-      if P.Id = 0 then
-        Writeln('ERROR: ID should be auto-incremented!');
-        
-      FoundP := SetPerson.Find(P.Id);
-      if FoundP <> nil then
-      begin
-        Writeln('Person Found: ' + FoundP.Name);
-        if FoundP.Name <> 'John Doe' then Writeln('ERROR: Name mismatch');
-      end
-      else
-        Writeln('ERROR: Person not found');
-        
-      P.Age := 31;
-      SetPerson.Update(P);
-      Writeln('Person Updated.');
+      // Simple Query
+      List := SetPerson.Where(u.Age = 30).ToList;
+      Writeln('Query (Age = 30) Result Count: ' + IntToStr(List.Count));
+      if List.Count <> 1 then Writeln('ERROR: Expected 1 result');
       
-      SetPerson.Remove(P);
-      Writeln('Person Removed.');
+      // Another Query
+      List := SetPerson.Where(u.Age > 40).ToList;
+      Writeln('Query (Age > 40) Result Count: ' + IntToStr(List.Count));
+      if List.Count <> 0 then Writeln('ERROR: Expected 0 results');
       
-      FoundP := SetPerson.Find(P.Id);
-      if FoundP = nil then
-        Writeln('Person correctly removed (not found).')
-      else
-        Writeln('ERROR: Person still exists!');
+      // Chaining
+      List := SetPerson.Where(u.Age > 20)
+                       .Where(u.Name = 'Smart John')
+                       .ToList;
+      Writeln('Chained Query Result Count: ' + IntToStr(List.Count));
+      if List.Count <> 1 then Writeln('ERROR: Expected 1 result from chained query');
         
     finally
-      P.Free;
+      // P is owned by the Context (IdentityMap) once added and saved.
+      // Do not free P manually.
       Ctx.Free;
     end;
     

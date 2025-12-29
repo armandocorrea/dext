@@ -31,6 +31,7 @@ uses
   System.SysUtils,
   System.TypInfo,
   System.Generics.Collections,
+  Data.DB,
   Dext.Types.UUID,
   Dext.Entity.Attributes,
   Dext.Entity.Migrations.Operations;
@@ -62,6 +63,7 @@ type
     function GeneratePaging(ASkip, ATake: Integer): string;
     function BooleanToSQL(AValue: Boolean): string;
     function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string;
+    function GetColumnTypeForField(AFieldType: TFieldType; AIsAutoInc: Boolean = False): string;
     function GetCascadeActionSQL(AAction: TCascadeAction): string;
     function GetLastInsertIdSQL: string;
     function GetCreateTableSQL(const ATableName, ABody: string): string;
@@ -107,6 +109,7 @@ type
     function GeneratePaging(ASkip, ATake: Integer): string; virtual; abstract;
     function BooleanToSQL(AValue: Boolean): string; virtual;
     function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; virtual; abstract;
+    function GetColumnTypeForField(AFieldType: TFieldType; AIsAutoInc: Boolean = False): string; virtual;
     function GetCascadeActionSQL(AAction: TCascadeAction): string; virtual;
     function GetLastInsertIdSQL: string; virtual; abstract;
     function GetCreateTableSQL(const ATableName, ABody: string): string; virtual;
@@ -129,7 +132,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
   end;
@@ -142,7 +145,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -160,7 +163,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -176,7 +179,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -196,7 +199,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -211,7 +214,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -225,7 +228,7 @@ type
   TInterBaseDialect = class(TFirebirdDialect)
   public
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
   end;
 
 implementation
@@ -240,6 +243,31 @@ end;
 function TBaseDialect.GetCreateSchemaSQL(const ASchemaName: string): string;
 begin
   Result := '';
+end;
+
+function TBaseDialect.GetColumnTypeForField(AFieldType: TFieldType; AIsAutoInc: Boolean): string;
+begin
+  if AIsAutoInc then
+     // Fallback to integer logic (will be overridden by GetColumnType(PTypeInfo) usually, or specific dialects need to override this)
+     Exit('INTEGER');
+
+  case AFieldType of
+    ftString, ftFixedChar, ftWideString, ftFixedWideChar: Result := 'VARCHAR(255)';
+    ftSmallint, ftWord: Result := 'SMALLINT';
+    ftInteger, ftLongWord, ftAutoInc: Result := 'INTEGER';
+    ftLargeint: Result := 'BIGINT';
+    ftFloat, ftSingle, ftExtended: Result := 'FLOAT';
+    ftCurrency, ftBCD, ftFMTBcd: Result := 'DECIMAL(18,4)';
+    ftBoolean: Result := 'BOOLEAN'; // Some DBs override this
+    ftDate: Result := 'DATE';
+    ftTime: Result := 'TIME';
+    ftDateTime, ftTimeStamp: Result := 'TIMESTAMP';
+    ftBytes, ftVarBytes, ftBlob, ftGraphic, ftParadoxOle, ftDBaseOle, ftTypedBinary, ftCursor, ftOraBlob: Result := 'BLOB';
+    ftMemo, ftFmtMemo, ftWideMemo: Result := 'TEXT';
+    ftGuid: Result := 'CHAR(36)';
+  else
+    Result := 'VARCHAR(255)';
+  end;
 end;
 
 function TBaseDialect.UseSchemaPrefix: Boolean;

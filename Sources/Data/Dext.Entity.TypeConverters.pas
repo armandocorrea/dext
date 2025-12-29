@@ -198,6 +198,16 @@ type
   end;
 
   /// <summary>
+  ///   Converter for Prop<T> types.
+  /// </summary>
+  TPropConverter = class(TTypeConverterBase)
+  public
+    function CanConvert(ATypeInfo: PTypeInfo): Boolean; override;
+    function ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue; override;
+    function FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue; override;
+  end;
+
+  /// <summary>
   ///   Registry for type converters.
   /// </summary>
   TTypeConverterRegistry = class
@@ -229,6 +239,8 @@ type
 implementation
 
 uses
+  System.Variants,
+  Dext.Core.ValueConverters,
   System.SyncObjs,
   Dext.Json;
 
@@ -629,6 +641,7 @@ begin
   RegisterConverter(TDateConverter.Create);
   RegisterConverter(TTimeConverter.Create);
   RegisterConverter(TBytesConverter.Create);
+  RegisterConverter(TPropConverter.Create);
   // Note: Enum, JSON, Array converters are registered dynamically or explicitly
 end;
 
@@ -774,5 +787,80 @@ function TBytesConverter.FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo
 begin
   Result := AValue;
 end;
+
+{ TPropConverter }
+
+function TPropConverter.CanConvert(ATypeInfo: PTypeInfo): Boolean;
+begin
+  Result := (ATypeInfo <> nil) and string(ATypeInfo.Name).StartsWith('Prop<');
+end;
+
+function TPropConverter.ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue;
+var
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  Field: TRttiField;
+  ValPropType: PTypeInfo;
+  InnerConverter: ITypeConverter;
+begin
+  if AValue.IsEmpty then Exit(TValue.Empty);
+
+  Ctx := TRttiContext.Create;
+  Typ := Ctx.GetType(AValue.TypeInfo);
+  // Use Field 'FValue' instead of Property 'Value' to avoid potential RTTI property access issues on generic records
+  Field := Typ.GetField('FValue');
+  
+  if Field <> nil then
+  begin
+    ValPropType := Field.FieldType.Handle;
+    Result := Field.GetValue(AValue.GetReferenceToRawData);
+    
+    // Recursive conversion
+    if Result.IsEmpty then Exit(Result);
+    
+    InnerConverter := TTypeConverterRegistry.Instance.GetConverter(ValPropType);
+    if InnerConverter <> nil then
+      Result := InnerConverter.ToDatabase(Result, ADialect);
+  end
+  else
+    Result := AValue;
+end;
+
+function TPropConverter.FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue;
+var
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  Field: TRttiField;
+  ValPropType: PTypeInfo;
+  UnwrappedValue: TValue;
+begin
+  TValue.Make(nil, ATypeInfo, Result); // Initialize Prop<T> result
+  
+  Ctx := TRttiContext.Create;
+  Typ := Ctx.GetType(ATypeInfo);
+  Field := Typ.GetField('FValue');
+  
+  if Field <> nil then
+  begin
+    ValPropType := Field.FieldType.Handle;
+    
+    begin
+       try
+         // Try standard properties conversion
+         // Now that we registered String->Integer converter, this should work for SQLite strings
+         UnwrappedValue := TValueConverter.Convert(AValue, ValPropType);
+       except
+         UnwrappedValue := AValue;
+       end;
+    end;
+      
+    Field.SetValue(Result.GetReferenceToRawData, UnwrappedValue);
+  end;
+end;
+
+initialization
+  // Register missing converters for loose typing (e.g. SQLite returning strings for Integers)
+  TValueConverterRegistry.RegisterConverter(TypeInfo(string), TypeInfo(Integer), TVariantToIntegerConverter.Create);
+  TValueConverterRegistry.RegisterConverter(TypeInfo(string), TypeInfo(Int64), TVariantToIntegerConverter.Create);
 
 end.

@@ -59,6 +59,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 |---------|--------|-------|
 | **CRUD Operations** (Add, Update, Remove, Find) | ✅ Pronto | Básico funcional |
 | **Fluent Query API** (`Where`, `OrderBy`, `Take`) | ✅ Pronto | Tradução SQL robusta |
+| **Smart Properties** (`u.Age > 18`) | ✅ Pronto | Expressões type-safe, IntelliSense, Geração SQL |
 | **Relationships** (1:1, 1:N) | ✅ Pronto | `Include` (Eager Loading) funcional |
 | **Attributes Mapping** (`[Table]`, `[Column]`) | ✅ Pronto | |
 | **Migrations** (CLI & Runtime) | ✅ Pronto | `migrate:up`, `down`, `generate` |

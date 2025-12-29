@@ -33,6 +33,7 @@ uses
   System.TypInfo,
   System.Rtti,
   System.Variants,
+  Data.DB,
   Dext.Entity.Attributes,
   Dext.Entity.TypeConverters;
 
@@ -67,6 +68,9 @@ type
     function IsRequired(AValue: Boolean = True): IPropertyBuilder<T>;
     function IsAutoInc(AValue: Boolean = True): IPropertyBuilder<T>;
     function HasMaxLength(ALength: Integer): IPropertyBuilder<T>;
+    function HasPrecision(APrecision, AScale: Integer): IPropertyBuilder<T>;
+    function HasDbType(ADataType: TFieldType): IPropertyBuilder<T>;
+    function HasConverter(AConverterClass: TClass): IPropertyBuilder<T>;
   end;
 
   /// <summary>
@@ -91,8 +95,12 @@ type
     IsAutoInc: Boolean;
     IsRequired: Boolean;
     MaxLength: Integer;
+    Precision: Integer;
+    Scale: Integer;
     IsIgnored: Boolean;
     Converter: ITypeConverter;
+    DataType: TFieldType;
+    ConverterClass: TClass;
     constructor Create(const APropName: string);
   end;
 
@@ -162,6 +170,9 @@ type
     function IsRequired(AValue: Boolean = True): TEntityBuilder<T>;
     function IsAutoInc(AValue: Boolean = True): TEntityBuilder<T>;
     function MaxLength(ALength: Integer): TEntityBuilder<T>;
+    function Precision(APrecision, AScale: Integer): TEntityBuilder<T>;
+    function HasDbType(ADataType: TFieldType): TEntityBuilder<T>;
+    function HasConverter(AConverterClass: TClass): TEntityBuilder<T>;
     function Ignore: TEntityBuilder<T>;
     
     // Soft Delete Configuration
@@ -198,6 +209,9 @@ type
     function IsRequired(AValue: Boolean = True): IPropertyBuilder<T>;
     function IsAutoInc(AValue: Boolean = True): IPropertyBuilder<T>;
     function HasMaxLength(ALength: Integer): IPropertyBuilder<T>;
+    function HasPrecision(APrecision, AScale: Integer): IPropertyBuilder<T>;
+    function HasDbType(ADataType: TFieldType): IPropertyBuilder<T>;
+    function HasConverter(AConverterClass: TClass): IPropertyBuilder<T>;
     function HasFieldName(const AName: string): IPropertyBuilder<T>;
     function UseField: IPropertyBuilder<T>;
   end;
@@ -288,7 +302,8 @@ begin
     for Attr in Prop.GetAttributes do
     begin
        if (Attr is ColumnAttribute) or (Attr is PKAttribute) or (Attr is AutoIncAttribute) or 
-          (Attr is ForeignKeyAttribute) or (Attr is NotMappedAttribute) or (Attr is FieldAttribute) then
+          (Attr is ForeignKeyAttribute) or (Attr is NotMappedAttribute) or (Attr is FieldAttribute) or
+          (Attr is RequiredAttribute) or (Attr is MaxLengthAttribute) or (Attr is PrecisionAttribute) then
        begin
          if PropMap = nil then PropMap := GetOrAddProperty(Prop.Name);
          
@@ -306,8 +321,18 @@ begin
            if not FKeys.Contains(Prop.Name) then FKeys.Add(Prop.Name);
          end;
          if Attr is AutoIncAttribute then PropMap.IsAutoInc := True;
-         if Attr is NotMappedAttribute then PropMap.IsIgnored := True;
-         if Attr is ForeignKeyAttribute then PropMap.ForeignKeyColumn := ForeignKeyAttribute(Attr).ColumnName;
+          if Attr is NotMappedAttribute then PropMap.IsIgnored := True;
+          if Attr is ForeignKeyAttribute then PropMap.ForeignKeyColumn := ForeignKeyAttribute(Attr).ColumnName;
+          if Attr is DbTypeAttribute then PropMap.DataType := TFieldType(DbTypeAttribute(Attr).DataType);
+          if Attr is TypeConverterAttribute then PropMap.ConverterClass := TypeConverterAttribute(Attr).ConverterClass;
+          
+          if Attr is RequiredAttribute then PropMap.IsRequired := True;
+          if Attr is MaxLengthAttribute then PropMap.MaxLength := MaxLengthAttribute(Attr).Length;
+          if Attr is PrecisionAttribute then
+          begin
+            PropMap.Precision := PrecisionAttribute(Attr).Precision;
+            PropMap.Scale := PrecisionAttribute(Attr).Scale;
+          end;
        end;
     end;
     
@@ -317,6 +342,37 @@ begin
     
     if PropMap <> nil then
     begin
+       // If a specific converter class is defined (fluent or attribute), use it
+       if (PropMap.ConverterClass <> nil) then
+       begin
+          // We need to instantiate it. For now, assume parameterless constructor or standard pattern.
+          // TValueConverterRegistry helpers often take instances.
+          // Ideally, we should cache these instances or use Dependency Injection.
+          // Simple instantiation via RTTI for now.
+          // Simple instantiation via RTTI for now.
+          var RttiCtx := TRttiContext.Create;
+          try
+             var RType := RttiCtx.GetType(PropMap.ConverterClass);
+             if (RType <> nil) and (RType.IsInstance) then
+             begin
+                 var Method := RType.GetMethod('Create');
+                 if Method <> nil then
+                    PropMap.Converter := Method.Invoke(RType.AsInstance.MetaclassType, []).AsType<ITypeConverter>
+                 else
+                 begin
+                    // Try basic Create
+                    var Obj := PropMap.ConverterClass.Create;
+                    if Supports(Obj, ITypeConverter, PropMap.Converter) then
+                       // OK
+                    else
+                       PropMap.Converter := nil; 
+                 end;
+             end;
+          finally
+             RttiCtx.Free;
+          end;
+       end;
+
        if PropMap.Converter = nil then
          PropMap.Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
     end;
@@ -350,7 +406,12 @@ begin
   IsAutoInc := False;
   IsRequired := False;
   MaxLength := 0;
+  Precision := 0;
+  Scale := 0;
   IsIgnored := False;
+  DataType := ftUnknown;
+  ConverterClass := nil;
+  Converter := nil;
 end;
 
 { TEntityBuilder<T> }
@@ -442,6 +503,13 @@ end;
 function TEntityBuilder<T>.MaxLength(ALength: Integer): TEntityBuilder<T>;
 begin
   GetCurrentProp.MaxLength := ALength;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.Precision(APrecision, AScale: Integer): TEntityBuilder<T>;
+begin
+  GetCurrentProp.Precision := APrecision;
+  GetCurrentProp.Scale := AScale;
   Result := Self;
 end;
 
@@ -543,6 +611,21 @@ end;
 
 { TPropertyBuilder<T> }
 
+
+function TEntityBuilder<T>.HasDbType(ADataType: TFieldType): TEntityBuilder<T>;
+begin
+  GetCurrentProp.DataType := ADataType;
+  Result := Self;
+end;
+
+function TEntityBuilder<T>.HasConverter(AConverterClass: TClass): TEntityBuilder<T>;
+begin
+  GetCurrentProp.ConverterClass := AConverterClass;
+  Result := Self;
+end;
+
+{ TPropertyBuilder<T> }
+
 constructor TPropertyBuilder<T>.Create(APropMap: TPropertyMap);
 begin
   FPropMap := APropMap;
@@ -581,6 +664,25 @@ end;
 function TPropertyBuilder<T>.HasMaxLength(ALength: Integer): IPropertyBuilder<T>;
 begin
   FPropMap.MaxLength := ALength;
+  Result := Self;
+end;
+
+function TPropertyBuilder<T>.HasPrecision(APrecision, AScale: Integer): IPropertyBuilder<T>;
+begin
+  FPropMap.Precision := APrecision;
+  FPropMap.Scale := AScale;
+  Result := Self;
+end;
+
+function TPropertyBuilder<T>.HasDbType(ADataType: TFieldType): IPropertyBuilder<T>;
+begin
+  FPropMap.DataType := ADataType;
+  Result := Self;
+end;
+
+function TPropertyBuilder<T>.HasConverter(AConverterClass: TClass): IPropertyBuilder<T>;
+begin
+  FPropMap.ConverterClass := AConverterClass;
   Result := Self;
 end;
 

@@ -37,7 +37,7 @@ type
   ///   Base class for Specifications.
   ///   Inherit from this class to define reusable query logic.
   /// </summary>
-  TSpecification<T> = class(TInterfacedObject, ISpecification<T>)
+  TSpecification<T: class> = class(TInterfacedObject, ISpecification<T>)
   protected
     FExpression: IExpression;
     FIncludes: TList<string>;
@@ -83,7 +83,7 @@ type
     procedure EnableTracking(const AValue: Boolean);
     procedure AsNoTracking;
   end;
-
+    
 implementation
 
 { TSpecification<T> }

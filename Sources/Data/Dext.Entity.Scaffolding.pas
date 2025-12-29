@@ -567,6 +567,24 @@ begin
               HasAttribute := True;
             end;
             
+            if not Col.IsNullable then
+            begin
+               SB.Append('[Required] ');
+               HasAttribute := True;
+            end;
+
+            if (Col.Length > 0) and (DelphiType = 'string') then
+            begin
+               SB.Append('[MaxLength(' + Col.Length.ToString + ')] ');
+               HasAttribute := True;
+            end;
+            
+            if (Col.Precision > 0) and ((DelphiType = 'Double') or (DelphiType = 'Currency')) then
+            begin
+               SB.Append(Format('[Precision(%d, %d)] ', [Col.Precision, Col.Scale]));
+               HasAttribute := True;
+            end;
+            
             if not SameText(Col.Name, PropName) then
             begin
                SB.Append('[Column(''' + Col.Name + ''')] ');
@@ -682,6 +700,15 @@ begin
                 
              if not SameText(Col.Name, PropName) then
                 SB.AppendLine('    .Prop(''' + PropName + ''').Column(''' + Col.Name + ''')');
+                
+             if not Col.IsNullable then
+                SB.AppendLine('    .Prop(''' + PropName + ''').IsRequired');
+                
+             if (Col.Length > 0) and (CleanName(Col.DataType).Contains('CHAR') or CleanName(Col.DataType).Contains('TEXT')) then
+                SB.AppendLine('    .Prop(''' + PropName + ''').HasMaxLength(' + Col.Length.ToString + ')');
+                
+             if (Col.Precision > 0) then
+                SB.AppendLine(Format('    .Prop(''%s'').HasPrecision(%d, %d)', [PropName, Col.Precision, Col.Scale]));
           end;
           
           // Foreign Keys

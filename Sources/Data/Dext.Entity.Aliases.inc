@@ -16,6 +16,9 @@
   InheritanceAttribute = Dext.Entity.Attributes.InheritanceAttribute;
   DiscriminatorColumnAttribute = Dext.Entity.Attributes.DiscriminatorColumnAttribute;
   DiscriminatorValueAttribute = Dext.Entity.Attributes.DiscriminatorValueAttribute;
+  RequiredAttribute = Dext.Entity.Attributes.RequiredAttribute;
+  MaxLengthAttribute = Dext.Entity.Attributes.MaxLengthAttribute;
+  PrecisionAttribute = Dext.Entity.Attributes.PrecisionAttribute;
 
   // Dext.Entity.Context
   TFluentExpression = Dext.Entity.Context.TFluentExpression;

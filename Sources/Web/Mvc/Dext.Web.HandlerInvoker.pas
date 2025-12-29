@@ -36,8 +36,8 @@ uses
   Dext.Web.ModelBinding;
 
 type
-  { Invoker b·sico - FASE 1.1 }
-  // DefiniÁ„o de tipos de handlers genÈricos
+  { Invoker b√°sico - FASE 1.1 }
+  // Defini√ß√£o de tipos de handlers gen√©ricos
   THandlerProc<T> = reference to procedure(Arg1: T);
   THandlerProc<T1, T2> = reference to procedure(Arg1: T1; Arg2: T2);
   THandlerProc<T1, T2, T3> = reference to procedure(Arg1: T1; Arg2: T2; Arg3: T3);
@@ -65,10 +65,12 @@ type
     FModelBinder: IModelBinder;
     FContext: IHttpContext;
     function Validate(const AValue: TValue): Boolean;
+    // Helper to resolve argument
+    function ResolveArgument<T>: T;
   public
     constructor Create(AContext: IHttpContext; AModelBinder: IModelBinder);
 
-    // InvocaÁ„o est·tica (legado/simples)
+    // Invoca√ß√£o est√°tica (legado/simples)
     /// <summary>
     ///   Invokes a static handler (procedure(Ctx: IHttpContext)).
     /// </summary>
@@ -78,7 +80,7 @@ type
     ///   Invokes a generic handler with 1 argument.
     ///   Performs automatic binding based on argument type:
     ///   - IHttpContext: Injected directly.
-    ///   - Record: Bound from Body (POST/PUT) or Query (GET/DELETE).
+    ///   - Record/Class: Bound from Body (POST/PUT) or Query (GET/DELETE).
     ///   - Interface: Bound from Services (DI).
     ///   - Primitive: Bound from Route (if available) or Query.
     /// </summary>
@@ -141,6 +143,53 @@ begin
   end;
 end;
 
+function THandlerInvoker.ResolveArgument<T>: T;
+begin
+  // 1. Verify if IHttpContext
+  if TypeInfo(T) = TypeInfo(IHttpContext) then
+    Result := TValue.From<IHttpContext>(FContext).AsType<T>
+  // 2. Records AND Classes -> Body OR Query (Smart Binding)
+  else if (PTypeInfo(TypeInfo(T)).Kind = tkRecord) or (PTypeInfo(TypeInfo(T)).Kind = tkClass) then
+  begin
+    var Bound := False;
+    
+    // For Classes, try DI first
+    if PTypeInfo(TypeInfo(T)).Kind = tkClass then
+    begin
+       try
+         var Svc := FModelBinder.BindServices(TypeInfo(T), FContext);
+         if (not Svc.IsEmpty) and (Svc.AsObject <> nil) then
+         begin
+            Result := Svc.AsType<T>;
+            Bound := True;
+         end;
+       except
+         // Ignore service binding errors, cascade to Body/Query
+       end;
+    end;
+
+    if not Bound then
+    begin
+       // Smart Binding: GET/DELETE -> Query, POST/PUT/PATCH -> Body
+       if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
+         Result := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext)
+       else
+         Result := TModelBinderHelper.BindBody<T>(FModelBinder, FContext);
+    end;
+  end
+  // 3. Interfaces -> Services
+  else if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
+    Result := FModelBinder.BindServices(TypeInfo(T), FContext).AsType<T>
+  // 4. Primitives -> Route (if available) or Query
+  else
+  begin
+    if FContext.Request.RouteParams.Count > 0 then
+      Result := TModelBinderHelper.BindRoute<T>(FModelBinder, FContext)
+    else
+      Result := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext);
+  end;
+end;
+
 function THandlerInvoker.Invoke(AHandler: TStaticHandler): Boolean;
 begin
   AHandler(FContext);
@@ -151,29 +200,7 @@ function THandlerInvoker.Invoke<T>(AHandler: THandlerProc<T>): Boolean;
 var
   Arg1: T;
 begin
-  // 1. Verify if IHttpContext
-  if TypeInfo(T) = TypeInfo(IHttpContext) then
-    Arg1 := TValue.From<IHttpContext>(FContext).AsType<T>
-  // 2. Records -> Body OR Query (Smart Binding)
-  else if PTypeInfo(TypeInfo(T)).Kind = tkRecord then
-  begin
-    // Smart Binding: GET/DELETE -> Query, POST/PUT/PATCH -> Body
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg1 := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindBody<T>(FModelBinder, FContext);
-  end
-  // 3. Interfaces -> Services
-  else if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
-    Arg1 := FModelBinder.BindServices(TypeInfo(T), FContext).AsType<T>
-  // 4. Primitives -> Route (if available) or Query
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg1 := TModelBinderHelper.BindRoute<T>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext);
-  end;
+  Arg1 := ResolveArgument<T>;
 
   if not Validate(TValue.From<T>(Arg1)) then Exit(False);
 
@@ -186,45 +213,8 @@ var
   Arg1: T1;
   Arg2: T2;
 begin
-  // Argumento 1
-  if TypeInfo(T1) = TypeInfo(IHttpContext) then
-    Arg1 := TValue.From<IHttpContext>(FContext).AsType<T1>
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindBody<T1>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkInterface then
-    Arg1 := FModelBinder.BindServices(TypeInfo(T1), FContext).AsType<T1>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg1 := TModelBinderHelper.BindRoute<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
-  end;
-
-  // Argumento 2
-  if TypeInfo(T2) = TypeInfo(IHttpContext) then
-    Arg2 := TValue.From<IHttpContext>(FContext).AsType<T2>
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindBody<T2>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkInterface then
-    Arg2 := FModelBinder.BindServices(TypeInfo(T2), FContext).AsType<T2>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg2 := TModelBinderHelper.BindRoute<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
-  end;
+  Arg1 := ResolveArgument<T1>;
+  Arg2 := ResolveArgument<T2>;
 
   if not Validate(TValue.From<T1>(Arg1)) then Exit(False);
   if not Validate(TValue.From<T2>(Arg2)) then Exit(False);
@@ -239,65 +229,9 @@ var
   Arg2: T2;
   Arg3: T3;
 begin
-  // Argumento 1
-  if TypeInfo(T1) = TypeInfo(IHttpContext) then
-    Arg1 := TValue.From<IHttpContext>(FContext).AsType<T1>
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindBody<T1>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkInterface then
-    Arg1 := FModelBinder.BindServices(TypeInfo(T1), FContext).AsType<T1>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg1 := TModelBinderHelper.BindRoute<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
-  end;
-
-  // Argumento 2
-  if TypeInfo(T2) = TypeInfo(IHttpContext) then
-    Arg2 := TValue.From<IHttpContext>(FContext).AsType<T2>
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindBody<T2>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkInterface then
-    Arg2 := FModelBinder.BindServices(TypeInfo(T2), FContext).AsType<T2>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg2 := TModelBinderHelper.BindRoute<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
-  end;
-
-  // Argumento 3
-  if TypeInfo(T3) = TypeInfo(IHttpContext) then
-    Arg3 := TValue.From<IHttpContext>(FContext).AsType<T3>
-  else if PTypeInfo(TypeInfo(T3)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg3 := TModelBinderHelper.BindQuery<T3>(FModelBinder, FContext)
-    else
-      Arg3 := TModelBinderHelper.BindBody<T3>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T3)).Kind = tkInterface then
-    Arg3 := FModelBinder.BindServices(TypeInfo(T3), FContext).AsType<T3>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg3 := TModelBinderHelper.BindRoute<T3>(FModelBinder, FContext)
-    else
-      Arg3 := TModelBinderHelper.BindQuery<T3>(FModelBinder, FContext);
-  end;
+  Arg1 := ResolveArgument<T1>;
+  Arg2 := ResolveArgument<T2>;
+  Arg3 := ResolveArgument<T3>;
 
   if not Validate(TValue.From<T1>(Arg1)) then Exit(False);
   if not Validate(TValue.From<T2>(Arg2)) then Exit(False);
@@ -324,28 +258,7 @@ var
   Res: TResult;
   ResIntf: IResult;
 begin
-  // 1. Verify if IHttpContext
-  if TypeInfo(T) = TypeInfo(IHttpContext) then
-    Arg1 := TValue.From<IHttpContext>(FContext).AsType<T>
-  // 2. Records -> Body OR Query (Smart Binding)
-  else if PTypeInfo(TypeInfo(T)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg1 := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindBody<T>(FModelBinder, FContext);
-  end
-  // 3. Interfaces -> Services
-  else if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
-    Arg1 := FModelBinder.BindServices(TypeInfo(T), FContext).AsType<T>
-  // 4. Primitives -> Route (if available) or Query
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg1 := TModelBinderHelper.BindRoute<T>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext);
-  end;
+  Arg1 := ResolveArgument<T>;
 
   if not Validate(TValue.From<T>(Arg1)) then Exit(False);
 
@@ -362,45 +275,8 @@ var
   Res: TResult;
   ResIntf: IResult;
 begin
-  // Argumento 1
-  if TypeInfo(T1) = TypeInfo(IHttpContext) then
-    Arg1 := TValue.From<IHttpContext>(FContext).AsType<T1>
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindBody<T1>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkInterface then
-    Arg1 := FModelBinder.BindServices(TypeInfo(T1), FContext).AsType<T1>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg1 := TModelBinderHelper.BindRoute<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
-  end;
-
-  // Argumento 2
-  if TypeInfo(T2) = TypeInfo(IHttpContext) then
-    Arg2 := TValue.From<IHttpContext>(FContext).AsType<T2>
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindBody<T2>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkInterface then
-    Arg2 := FModelBinder.BindServices(TypeInfo(T2), FContext).AsType<T2>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg2 := TModelBinderHelper.BindRoute<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
-  end;
+  Arg1 := ResolveArgument<T1>;
+  Arg2 := ResolveArgument<T2>;
 
   if not Validate(TValue.From<T1>(Arg1)) then Exit(False);
   if not Validate(TValue.From<T2>(Arg2)) then Exit(False);
@@ -419,65 +295,9 @@ var
   Res: TResult;
   ResIntf: IResult;
 begin
-  // Argumento 1
-  if TypeInfo(T1) = TypeInfo(IHttpContext) then
-    Arg1 := TValue.From<IHttpContext>(FContext).AsType<T1>
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindBody<T1>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T1)).Kind = tkInterface then
-    Arg1 := FModelBinder.BindServices(TypeInfo(T1), FContext).AsType<T1>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg1 := TModelBinderHelper.BindRoute<T1>(FModelBinder, FContext)
-    else
-      Arg1 := TModelBinderHelper.BindQuery<T1>(FModelBinder, FContext);
-  end;
-
-  // Argumento 2
-  if TypeInfo(T2) = TypeInfo(IHttpContext) then
-    Arg2 := TValue.From<IHttpContext>(FContext).AsType<T2>
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindBody<T2>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T2)).Kind = tkInterface then
-    Arg2 := FModelBinder.BindServices(TypeInfo(T2), FContext).AsType<T2>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg2 := TModelBinderHelper.BindRoute<T2>(FModelBinder, FContext)
-    else
-      Arg2 := TModelBinderHelper.BindQuery<T2>(FModelBinder, FContext);
-  end;
-
-  // Argumento 3
-  if TypeInfo(T3) = TypeInfo(IHttpContext) then
-    Arg3 := TValue.From<IHttpContext>(FContext).AsType<T3>
-  else if PTypeInfo(TypeInfo(T3)).Kind = tkRecord then
-  begin
-    if (FContext.Request.Method = 'GET') or (FContext.Request.Method = 'DELETE') then
-      Arg3 := TModelBinderHelper.BindQuery<T3>(FModelBinder, FContext)
-    else
-      Arg3 := TModelBinderHelper.BindBody<T3>(FModelBinder, FContext);
-  end
-  else if PTypeInfo(TypeInfo(T3)).Kind = tkInterface then
-    Arg3 := FModelBinder.BindServices(TypeInfo(T3), FContext).AsType<T3>
-  else
-  begin
-    if FContext.Request.RouteParams.Count > 0 then
-      Arg3 := TModelBinderHelper.BindRoute<T3>(FModelBinder, FContext)
-    else
-      Arg3 := TModelBinderHelper.BindQuery<T3>(FModelBinder, FContext);
-  end;
+  Arg1 := ResolveArgument<T1>;
+  Arg2 := ResolveArgument<T2>;
+  Arg3 := ResolveArgument<T3>;
 
   if not Validate(TValue.From<T1>(Arg1)) then Exit(False);
   if not Validate(TValue.From<T2>(Arg2)) then Exit(False);
@@ -496,7 +316,7 @@ var
   ResIntf: IResult;
   I: Integer;
 begin
-  // ? VERIFICA«√O DE SEGURAN«A APRIMORADA
+  // ? VERIFICA√á√ÉO DE SEGURAN√áA APRIMORADA
   if not Assigned(AMethod) then
   begin
     FContext.Response.Status(500).Json('{"error": "Internal server error: Method reference lost"}');
@@ -527,11 +347,11 @@ begin
     // ? LIDAR COM PROCEDURES (SEM RETORNO)
     if ResultValue.IsEmpty then
     begin
-      // N„o faz nada - o controller j· setou a resposta via Ctx.Response
+      // N√£o faz nada - o controller j√° setou a resposta via Ctx.Response
     end
     else
     begin
-      // ? VERIFICAR SE RETORNOU IResult (APENAS SE N√O ESTIVER VAZIO)
+      // ? VERIFICAR SE RETORNOU IResult (APENAS SE N√ÉO ESTIVER VAZIO)
       if ResultValue.TryAsType<IResult>(ResIntf) then
       begin
         ResIntf.Execute(FContext);

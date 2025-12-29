@@ -294,12 +294,15 @@ var
   Bytes: TBytes;
   Span: TByteSpan;
 begin
-  if AType.Kind <> tkRecord then
-    raise EBindingException.Create('BindBody currently only supports records');
+  if (AType.Kind <> tkRecord) and (AType.Kind <> tkClass) then
+    raise EBindingException.Create('BindBody currently only supports records and classes');
 
   Stream := Context.Request.Body;
   if (Stream = nil) or (Stream.Size = 0) then
-    raise EBindingException.Create('Request body is empty');
+  begin
+     // For Classes, might be valid to return nil, but generally body is expected.
+     raise EBindingException.Create('Request body is empty');
+  end;
 
   // OPTIMIZATION: Check if we can use Zero-Allocation UTF8 Serializer
   // Currently we just read bytes to avoid String conversion. 
@@ -410,43 +413,92 @@ var
   FieldName: string;
   FieldValue: string;
 begin
-  if AType.Kind <> tkRecord then
-    raise EBindingException.Create('BindQuery currently only supports records');
-
-  TValue.Make(nil, AType, Result);
+  if (AType.Kind <> tkRecord) and (AType.Kind <> tkClass) then
+    raise EBindingException.Create('BindQuery currently only supports records and classes');
 
   ContextRtti := TRttiContext.Create;
   try
     RttiType := ContextRtti.GetType(AType);
     QueryParams := Context.Request.Query;
 
-    for Field in RttiType.GetFields do
+    // 1. Initialize Result
+    if AType.Kind = tkClass then
     begin
-      // Obter nome do campo (com suporte a atributos)
-      var SourceProvider := TBindingSourceProvider.Create;
-      try
-        FieldName := SourceProvider.GetBindingName(Field);
-      finally
-        SourceProvider.Free;
-      end;
+       var MetaClass := (RttiType as TRttiInstanceType).MetaclassType;
+       var FoundCreate := False;
+       
+       // Robustly searching for parameterless constructor
+       for var M in RttiType.GetMethods do
+       begin
+         if (SameText(M.Name, 'Create')) and (M.MethodKind = mkConstructor) and (Length(M.GetParameters) = 0) then
+         begin
+           Result := M.Invoke(MetaClass, []);
+           FoundCreate := True;
+           Break;
+         end;
+       end;
+       
+       if not FoundCreate then
+         raise EBindingException.CreateFmt('Cannot find parameterless constructor "Create" for %s in BindQuery.', [AType.Name]);
+    end
+    else
+    begin
+       TValue.Make(nil, AType, Result);
+    end;
 
-        // Buscar valor do query parameter
+    // 2. Bind Fields (Records)
+    if AType.Kind = tkRecord then
+    begin
+      for Field in RttiType.GetFields do
+      begin
+        var SourceProvider := TBindingSourceProvider.Create;
+        try
+          FieldName := SourceProvider.GetBindingName(Field);
+        finally
+          SourceProvider.Free;
+        end;
+
         if QueryParams.IndexOfName(FieldName) >= 0 then
         begin
-          FieldValue := QueryParams.Values[FieldName];
-          // ✅ CORREÇÃO 1: URL Decode
-          FieldValue := TNetEncoding.URL.Decode(FieldValue);
-
+          FieldValue := TNetEncoding.URL.Decode(QueryParams.Values[FieldName]);
           try
             var Val := ConvertStringToType(FieldValue, Field.FieldType.Handle);
             Field.SetValue(Result.GetReferenceToRawData, Val);
           except
-            on E: Exception do
-              Writeln(Format('⚠️ BindQuery warning: Error converting field "%s" value "%s": %s',
-                [FieldName, FieldValue, E.Message]));
+             on E: Exception do
+               Writeln(Format('BindQuery warning: Error converting field "%s": %s', [FieldName, E.Message]));
           end;
-        end; // if parameter exists
-      end; // for each field
+        end;
+      end;
+    end
+    // 3. Bind Properties (Classes)
+    else if AType.Kind = tkClass then
+    begin
+       for var Prop in RttiType.GetProperties do
+       begin
+          if not Prop.IsWritable then Continue;
+          
+          FieldName := Prop.Name;
+          for var Attr in Prop.GetAttributes do
+             if Attr is FromQueryAttribute then
+             begin
+                var AttrName := FromQueryAttribute(Attr).Name;
+                if AttrName <> '' then FieldName := AttrName;
+             end;
+
+           if QueryParams.IndexOfName(FieldName) >= 0 then
+           begin
+              FieldValue := TNetEncoding.URL.Decode(QueryParams.Values[FieldName]);
+              try
+                var Val := ConvertStringToType(FieldValue, Prop.PropertyType.Handle);
+                Prop.SetValue(Result.AsObject, Val);
+              except
+                 on E: Exception do
+                   Writeln(Format('BindQuery warning: Error converting property "%s": %s', [FieldName, E.Message]));
+              end;
+           end;
+       end;
+    end;
 
   finally
     ContextRtti.Free;
@@ -842,25 +894,36 @@ begin
   end;
 
   // 3. Inference
-  WriteLn('    🤔 No binding attribute - trying inference');
-
   if (AParam.ParamType.TypeKind = tkRecord) then
   begin
     // Smart Binding for Records: GET/DELETE -> Query, Others -> Body
     if (AContext.Request.Method = 'GET') or (AContext.Request.Method = 'DELETE') then
-    begin
-      WriteLn('    📋 Inferring FromQuery (record, GET/DELETE)');
-      Result := BindQuery(AParam.ParamType.Handle, AContext);
-    end
+      Result := BindQuery(AParam.ParamType.Handle, AContext)
     else
-    begin
-      WriteLn('    📦 Inferring FromBody (record, POST/PUT/...)');
       Result := BindBody(AParam.ParamType.Handle, AContext);
-    end;
+  end
+  else if (AParam.ParamType.TypeKind = tkClass) then
+  begin
+     // 1. Try Service Injection First
+     var IsService := False;
+     try
+       Result := BindServices(AParam.ParamType.Handle, AContext);
+       if not Result.IsEmpty and not Result.AsObject.Equals(nil) then
+         IsService := True;
+     except
+       // Service resolution failed, continue to Model Binding
+     end;
+
+     if IsService then Exit;
+
+     // 2. Model Binding (Body vs Query)
+     if (AContext.Request.Method = 'POST') or (AContext.Request.Method = 'PUT') or (AContext.Request.Method = 'PATCH') then
+         Result := BindBody(AParam.ParamType.Handle, AContext)
+     else
+         Result := BindQuery(AParam.ParamType.Handle, AContext);
   end
   else if (AParam.ParamType.TypeKind = tkInterface) then
   begin
-    WriteLn('    ⚡ Inferring FromServices (interface)');
     Result := BindServices(AParam.ParamType.Handle, AContext);
   end
   else
@@ -872,12 +935,10 @@ begin
     
     if TryGetCaseInsensitive(RouteParams, ParamName, RouteValue) then
     begin
-      WriteLn(Format('    🛣️  Inferred FromRoute: %s', [ParamName]));
       Result := ConvertStringToType(RouteValue, AParam.ParamType.Handle);
     end
     else
     begin
-      WriteLn(Format('    📋 Inferred FromQuery: %s', [ParamName]));
       var QueryParams := AContext.Request.Query;
       if QueryParams.IndexOfName(ParamName) >= 0 then
         Result := ConvertStringToType(TNetEncoding.URL.Decode(QueryParams.Values[ParamName]), AParam.ParamType.Handle)
@@ -896,12 +957,28 @@ var
   ServiceInstance: TValue;
   ServiceType: TServiceType;
 begin
-  if (AType.Kind <> tkRecord) and (AType.Kind <> tkInterface) then
-    raise EBindingException.Create('BindServices currently only supports records or interfaces');
+  if (AType.Kind <> tkRecord) and (AType.Kind <> tkInterface) and (AType.Kind <> tkClass) then
+    raise EBindingException.Create('BindServices currently only supports records, classes or interfaces');
 
   ContextRtti := TRttiContext.Create;
   try
     Services := Context.GetServices;
+    
+    // Class Support (Root Level)
+    if AType.Kind = tkClass then
+    begin
+       var ClassType := (ContextRtti.GetType(AType) as TRttiInstanceType).MetaclassType;
+       ServiceType := TServiceType.FromClass(ClassType);
+       var ClassInstance := Services.GetService(ServiceType);
+       
+       if Assigned(ClassInstance) then
+       begin
+         Result := TValue.From<TObject>(ClassInstance);
+         Exit;
+       end
+       else
+          raise EBindingException.CreateFmt('Service not found for class type: %s. Ensure it is registered in DI.', [String(AType.Name)]);
+    end;
 
     // ✅ NOVO: Suporte direto a interfaces
     if AType.Kind = tkInterface then

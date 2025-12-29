@@ -885,11 +885,74 @@ begin
               end
               else
               begin
-                var NestedObj := AJson.GetObject(ActualPropName);
-                if NestedObj <> nil then
-                  PropValue := DeserializeRecord(NestedObj, Prop.PropertyType.Handle)
+                // Handle Prop<T> transparent deserialization
+                // If it's a Prop<T>, the JSON will have the scalar value (e.g. 1999.99), not a nested object {"FValue": 1999.99}.
+                // Handle Prop<T> transparent deserialization
+                var TypeName := Prop.PropertyType.Name;
+                var FieldFValue := Prop.PropertyType.GetField('FValue');
+                var PropValueProp := Prop.PropertyType.GetProperty('Value');
+                
+                if (TypeName.Contains('Prop<') or 
+                    SameText(TypeName, 'StringType') or
+                    SameText(TypeName, 'CurrencyType') or
+                    SameText(TypeName, 'BoolType') or
+                    SameText(TypeName, 'IntType') or
+                    SameText(TypeName, 'Int64Type') or
+                    SameText(TypeName, 'FloatType') or
+                    SameText(TypeName, 'DateType') or
+                    SameText(TypeName, 'TimeType') or
+                    SameText(TypeName, 'DateTimeType')
+                   ) and ((FieldFValue <> nil) or (PropValueProp <> nil)) then
+                begin
+                   // It's a Smart Property!
+                   // Determine Inner Type
+                   var InnerType: TRttiType;
+                   if FieldFValue <> nil then
+                     InnerType := FieldFValue.FieldType
+                   else
+                     InnerType := PropValueProp.PropertyType;
+                     
+                   var InnerTypeKind := InnerType.TypeKind;
+                   var InnerValue: TValue;
+                   
+                   case InnerTypeKind of
+                     tkInteger: InnerValue := TValue.From<Integer>(AJson.GetInteger(ActualPropName));
+                     tkInt64:   InnerValue := TValue.From<Int64>(AJson.GetInt64(ActualPropName));
+                     tkFloat:   InnerValue := TValue.From<Double>(AJson.GetDouble(ActualPropName));
+                     tkString, tkUString, tkLString, tkWString: 
+                                InnerValue := TValue.From<string>(AJson.GetString(ActualPropName));
+                     tkEnumeration:
+                        if InnerType.Handle = TypeInfo(Boolean) then
+                          InnerValue := TValue.From<Boolean>(AJson.GetBoolean(ActualPropName))
+                        else
+                          InnerValue := TValue.FromOrdinal(InnerType.Handle, AJson.GetInteger(ActualPropName));
+                     else
+                        InnerValue := TValue.Empty;
+                   end;
+                   
+                   if not InnerValue.IsEmpty then
+                   begin
+                      // Initialize the record
+                      TValue.Make(nil, Prop.PropertyType.Handle, PropValue);
+                      
+                      if FieldFValue <> nil then
+                        FieldFValue.SetValue(PropValue.GetReferenceToRawData, InnerValue)
+                      else
+                        PropValueProp.SetValue(PropValue.GetReferenceToRawData, InnerValue);
+                   end
+                   else
+                      // If value is missing in JSON (e.g. null), use Empty (default record)
+                      // TValue.Make(nil... creates default initialized record.
+                      TValue.Make(nil, Prop.PropertyType.Handle, PropValue);
+                end
                 else
-                  PropValue := TValue.Empty;
+                begin
+                    var NestedObj := AJson.GetObject(ActualPropName);
+                    if NestedObj <> nil then
+                      PropValue := DeserializeRecord(NestedObj, Prop.PropertyType.Handle)
+                    else
+                      PropValue := TValue.Empty;
+                end;
               end;
            end;
       end;
@@ -1093,11 +1156,53 @@ begin
 
         tkRecord:
           begin
-            var NestedJson := AJson.GetObject(ActualFieldName);
-            if NestedJson <> nil then
-              FieldValue := DeserializeRecord(NestedJson, Field.FieldType.Handle)
+            // Handle Prop<T> transparent deserialization
+            // If it's a Prop<T>, the JSON will have the scalar value (e.g. 1999.99), not a nested object {"FValue": 1999.99}.
+            var TypeName := Field.FieldType.Name;
+            var FieldFValue := Field.FieldType.GetField('FValue');
+            
+            if (FieldFValue <> nil) and (TypeName.Contains('Prop<') or (Field.FieldType.GetProperty('Value') <> nil)) then
+            begin
+               // It's a Smart Property!
+               // Read the value as the INNER type (tkFloat, tkInteger, etc)
+               var InnerTypeKind := FieldFValue.FieldType.TypeKind;
+               var InnerValue: TValue;
+               
+               case InnerTypeKind of
+                 tkInteger: InnerValue := TValue.From<Integer>(AJson.GetInteger(ActualFieldName));
+                 tkInt64:   InnerValue := TValue.From<Int64>(AJson.GetInt64(ActualFieldName));
+                 tkFloat:   InnerValue := TValue.From<Double>(AJson.GetDouble(ActualFieldName));
+                 tkString, tkUString, tkLString, tkWString: 
+                            InnerValue := TValue.From<string>(AJson.GetString(ActualFieldName));
+                 tkEnumeration:
+                    if FieldFValue.FieldType.Handle = TypeInfo(Boolean) then
+                      InnerValue := TValue.From<Boolean>(AJson.GetBoolean(ActualFieldName))
+                    else
+                      InnerValue := TValue.FromOrdinal(FieldFValue.FieldType.Handle, AJson.GetInteger(ActualFieldName)); // Simple enum support
+                 else
+                    // Fallback to empty if unknown inner type
+                    InnerValue := TValue.Empty;
+               end;
+               
+               if not InnerValue.IsEmpty then
+               begin
+                  // Initialize the record
+                  TValue.Make(nil, Field.FieldType.Handle, FieldValue);
+                  // Set FValue on the new record instance
+                  FieldFValue.SetValue(FieldValue.GetReferenceToRawData, InnerValue);
+               end
+               else
+                  FieldValue := TValue.Empty;
+            end
             else
-              FieldValue := TValue.Empty;
+            begin
+                // Standard Record Deserialization (Expects Object)
+                var NestedJson := AJson.GetObject(ActualFieldName);
+                if NestedJson <> nil then
+                  FieldValue := DeserializeRecord(NestedJson, Field.FieldType.Handle)
+                else
+                  FieldValue := TValue.Empty;
+            end;
           end;
         tkClass:
           begin
@@ -1313,6 +1418,15 @@ begin
       FieldName := GetFieldName(Field);
       FieldValue := Field.GetValue(AValue.GetReferenceToRawData);
 
+      // Smart Properties Support: Unwrap Prop<T>
+      if (FieldValue.Kind = tkRecord) and (FieldValue.TypeInfo <> nil) and
+         Context.GetType(FieldValue.TypeInfo).Name.StartsWith('Prop<') then
+      begin
+        var FValField := Context.GetType(FieldValue.TypeInfo).GetField('FValue');
+        if FValField <> nil then
+          FieldValue := FValField.GetValue(FieldValue.GetReferenceToRawData);
+      end;
+
       HasCustomFormat := False;
       CustomFormat := '';
 
@@ -1495,6 +1609,15 @@ begin
         end;
 
       PropValue := Prop.GetValue(Obj);
+
+      // Smart Properties Support: Unwrap Prop<T>
+      if (PropValue.Kind = tkRecord) and (PropValue.TypeInfo <> nil) and
+         Context.GetType(PropValue.TypeInfo).Name.StartsWith('Prop<') then
+      begin
+        var FValField := Context.GetType(PropValue.TypeInfo).GetField('FValue');
+        if FValField <> nil then
+          PropValue := FValField.GetValue(PropValue.GetReferenceToRawData);
+      end;
 
       // Handle null/empty values
       if FSettings.IgnoreNullValues and PropValue.IsEmpty then

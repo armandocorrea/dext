@@ -58,6 +58,36 @@ type
   end;
 
   /// <summary>
+  ///   Marks a property as NOT NULL.
+  /// </summary>
+  RequiredAttribute = class(TCustomAttribute)
+  end;
+
+  /// <summary>
+  ///   Specifies the maximum length of array/string data allowed in a property.
+  /// </summary>
+  MaxLengthAttribute = class(TCustomAttribute)
+  private
+    FLength: Integer;
+  public
+    constructor Create(ALength: Integer);
+    property Length: Integer read FLength;
+  end;
+
+  /// <summary>
+  ///   Specifies the precision and scale for numeric columns.
+  /// </summary>
+  PrecisionAttribute = class(TCustomAttribute)
+  private
+    FPrecision: Integer;
+    FScale: Integer;
+  public
+    constructor Create(APrecision, AScale: Integer);
+    property Precision: Integer read FPrecision;
+    property Scale: Integer read FScale;
+  end;
+
+  /// <summary>
   ///   Marks a property as not mapped to the database.
   /// </summary>
   NotMappedAttribute = class(TCustomAttribute)
@@ -182,6 +212,30 @@ type
     property Value: Variant read FValue;
   end;
 
+  /// <summary>
+  ///   Specifies the database field type for the property.
+  ///   Overrides the default type mapping.
+  /// </summary>
+  DbTypeAttribute = class(TCustomAttribute)
+  private
+    FDataType: Integer; // TFieldType from Data.DB mapped to int to avoid dependency in interface if needed, but usually we use TFieldType
+  public
+    constructor Create(ADataType: Integer);
+    property DataType: Integer read FDataType; // Cast to TFieldType
+  end;
+
+  /// <summary>
+  ///   Specifies a custom type converter for the property.
+  ///   The converter class must implement ITypeConverter.
+  /// </summary>
+  TypeConverterAttribute = class(TCustomAttribute)
+  private
+    FConverterClass: TClass;
+  public
+    constructor Create(AConverterClass: TClass);
+    property ConverterClass: TClass read FConverterClass;
+  end;
+
 implementation
 
 { TableAttribute }
@@ -277,6 +331,35 @@ begin
   FColumnName := AColumnName;
   FDeletedValue := ADeletedValue;
   FNotDeletedValue := ANotDeletedValue;
+end;
+
+{ DbTypeAttribute }
+
+constructor DbTypeAttribute.Create(ADataType: Integer);
+begin
+  FDataType := ADataType;
+end;
+
+{ TypeConverterAttribute }
+
+constructor TypeConverterAttribute.Create(AConverterClass: TClass);
+begin
+  FConverterClass := AConverterClass;
+end;
+
+{ MaxLengthAttribute }
+
+constructor MaxLengthAttribute.Create(ALength: Integer);
+begin
+  FLength := ALength;
+end;
+
+{ PrecisionAttribute }
+
+constructor PrecisionAttribute.Create(APrecision, AScale: Integer);
+begin
+  FPrecision := APrecision;
+  FScale := AScale;
 end;
 
 end.

@@ -154,6 +154,9 @@ begin
   RegisterConverter(TypeInfo(Variant), TypeInfo(string), TVariantToStringConverter.Create);
   RegisterConverter(TypeInfo(Variant), TypeInfo(Boolean), TVariantToBooleanConverter.Create);
   RegisterConverter(TypeInfo(Variant), TypeInfo(Double), TVariantToFloatConverter.Create);
+  RegisterConverter(TypeInfo(Variant), TypeInfo(Single), TVariantToFloatConverter.Create);
+  RegisterConverter(TypeInfo(Variant), TypeInfo(Extended), TVariantToFloatConverter.Create);
+  RegisterConverter(TypeInfo(Variant), TypeInfo(Currency), TVariantToFloatConverter.Create);
   RegisterConverter(TypeInfo(Variant), TypeInfo(TDateTime), TVariantToDateTimeConverter.Create);
   RegisterConverter(TypeInfo(Variant), TypeInfo(TDate), TVariantToDateConverter.Create);
   RegisterConverter(TypeInfo(Variant), TypeInfo(TTime), TVariantToTimeConverter.Create);
@@ -230,14 +233,22 @@ var
   InnerValue: TValue;
   InnerType: PTypeInfo;
 begin
-  if AValue.IsEmpty then
+  if AValue.IsEmpty or ((AValue.Kind = tkVariant) and VarIsNull(AValue.AsVariant)) then
+  begin
+    // For records (Prop<T>, Nullable<T>), return default instance instead of Empty
+    if ATargetType.Kind = tkRecord then
+    begin
+      TValue.Make(nil, ATargetType, Result);
+      Exit;
+    end;
     Exit(TValue.Empty);
+  end;
 
   // If types are same, return value
   if AValue.TypeInfo = ATargetType then
     Exit(AValue);
 
-  // Check if target is Nullable<T>
+  // Check if target is Nullable<T> or Prop<T>
   if ATargetType.Kind = tkRecord then
   begin
     Ctx := TRttiContext.Create;
@@ -284,6 +295,30 @@ begin
             HasValueField.SetValue(NullableInstance, True); // Standard boolean
           
           Exit;
+        end;
+      end
+      // Check if it's a Prop<T> (Smart Type)
+      // Check Contains 'Prop<' for name, OR check for presence of FValue field as fallback
+      else if TypeName.Contains('Prop<') or (TargetRType.GetField('FValue') <> nil) then
+      begin
+        ValueField := TargetRType.GetField('FValue');
+        
+        if ValueField <> nil then
+        begin
+          InnerType := ValueField.FieldType.Handle;
+          try
+            InnerValue := Convert(AValue, InnerType); // Convert raw DB value to T
+            
+            // Create new Prop<T> instance
+            TValue.Make(nil, ATargetType, Result);
+            var PropInstance := Result.GetReferenceToRawData;
+            
+            // Set FValue
+            ValueField.SetValue(PropInstance, InnerValue);
+            Exit;
+          except
+             // If inner conversion fails, let it fall through to registry/cast
+          end;
         end;
       end;
     end;
@@ -372,8 +407,22 @@ end;
 { TVariantToFloatConverter }
 
 function TVariantToFloatConverter.Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue;
+var
+  Val: Extended;
+  V: Variant;
 begin
-  Result := StrToFloatDef(VarToStr(AValue.AsVariant), 0.0);
+  V := AValue.AsVariant;
+  if VarIsNull(V) or VarIsEmpty(V) then
+    Val := 0.0
+  else
+    Val := StrToFloatDef(VarToStr(V), 0.0);
+
+  if ATargetType = TypeInfo(Currency) then
+    Result := TValue.From<Currency>(Val)
+  else if ATargetType = TypeInfo(Single) then
+    Result := TValue.From<Single>(Val)
+  else
+    Result := TValue.From<Double>(Val);
 end;
 
 { TVariantToDateTimeConverter }

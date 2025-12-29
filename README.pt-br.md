@@ -56,6 +56,7 @@ Um ORM moderno focado em produtividade e performance.
 - **Scaffolding**: Suporte a Database-First para gerar entidades a partir de esquemas existentes.
 - **Migrations**: Controle de versão do esquema (`migrate:up`, `migrate:down`, `migrate:generate`).
 - **Fluent Query API**: Consultas fortemente tipadas e expressivas.
+- **Smart Properties**: Expressões de query type-safe sem magic strings. Escreva `u.Age > 18` e ganhe checagem em tempo de compilação, IntelliSense e geração automática de SQL. [Saiba mais](Docs/smart-properties.pt-br.md)
 - **Change Tracking**: Controle automático de mudanças e persistência otimizada.
 - **Tipos Avançados**: Suporte nativo para **UUID v7** (Ordenado por Tempo), JSON/JSONB e Arrays.
 - **Multi-Tenancy**:
@@ -297,6 +298,7 @@ O repositório contém projetos de exemplo práticos:
 - **`Examples/Web.SslDemo`**: Demonstra configuração de SSL/HTTPS usando OpenSSL ou TaurusTLS.
 - **`Examples/Dext.Starter.Admin`**: **(Recomendado)** Um Painel Administrativo Moderno com HTMX, Camada de Serviço e Minimal APIs. [Leia o Guia](Examples/Dext.Starter.Admin/README.md).
 - **`Examples/06_DatabaseAsApi`**: Demonstra a feature Database as API - REST endpoints zero-code a partir de entities.
+- **`Examples/Web.SmartPropsDemo`**: Demonstra o uso de Smart Properties com Model Binding e persistência ORM.
 
 ---
 

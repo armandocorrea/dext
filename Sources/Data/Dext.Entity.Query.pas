@@ -39,7 +39,8 @@ uses
   Dext.Collections,
   Dext.Specifications.Base,
   Dext.Specifications.Interfaces,
-  Dext.Specifications.Types;
+  Dext.Specifications.Types,
+  Dext.Core.SmartTypes; // Add SmartTypes
 
 type
   IPagedResult<T> = interface
@@ -123,6 +124,8 @@ type
     /// </summary>
     function Where(const APredicate: TPredicate<T>): TFluentQuery<T>; overload;
     function WherePredicate(const APredicate: TPredicate<T>): TFluentQuery<T>;
+    function Where(const APredicate: TQueryPredicate<T>): TFluentQuery<T>; overload;
+    function Where(const AValue: BooleanExpression): TFluentQuery<T>; overload;
     function Where(const AExpression: IExpression): TFluentQuery<T>; overload;
 
     /// <summary>
@@ -297,7 +300,8 @@ uses
   System.TypInfo,
   System.Variants,
   Dext.Specifications.Evaluator,
-  Dext.Entity.Joining;
+  Dext.Entity.Joining,
+  Dext.Entity.Prototype; // Add Prototype
 
 { TEmptyIterator<T> }
 
@@ -531,6 +535,19 @@ end;
 function TFluentQuery<T>.Where(const APredicate: TPredicate<T>): TFluentQuery<T>;
 begin
   Result := WherePredicate(APredicate);
+end;
+
+function TFluentQuery<T>.Where(const APredicate: TQueryPredicate<T>): TFluentQuery<T>;
+var
+  SmartRes: BooleanExpression;
+begin
+  SmartRes := APredicate(Dext.Entity.Prototype.Prototype.Entity<T>);
+  Result := Where(TFluentExpression(SmartRes));
+end;
+
+function TFluentQuery<T>.Where(const AValue: BooleanExpression): TFluentQuery<T>;
+begin
+  Result := Where(TFluentExpression(AValue));
 end;
 
 function TFluentQuery<T>.Where(const AExpression: IExpression): TFluentQuery<T>;

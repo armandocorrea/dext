@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -44,11 +44,13 @@ uses
   Dext.Entity.Mapping,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Query,
+  Dext.Core.SmartTypes,
   Dext.Specifications.Base,
   Dext.Specifications.Interfaces,
   Dext.Specifications.SQL.Generator,
   Dext.Specifications.Types,
   Dext.Entity.TypeConverters,
+  Dext.Entity.Prototype,
   Dext.Types.Nullable,
   Dext.Types.UUID,
   Dext.MultiTenancy,
@@ -138,6 +140,10 @@ type
     function FirstOrDefault(const AExpression: IExpression): T; overload;
     function Any(const AExpression: IExpression): Boolean; overload;
     function Count(const AExpression: IExpression): Integer; overload;
+    
+    // Smart Properties Support
+    function Where(const APredicate: TQueryPredicate<T>): TFluentQuery<T>; overload;
+    function Where(const AValue: BooleanExpression): TFluentQuery<T>; overload;
 
     function Query(const ASpec: ISpecification<T>): TFluentQuery<T>; overload;
     function Query(const AExpression: IExpression): TFluentQuery<T>; overload;
@@ -156,6 +162,18 @@ type
     function Restore(const AEntity: T): IDbSet<T>;
 
     property Items[Index: Integer]: T read GetItem; default;
+    
+    /// <summary>
+    ///   Returns a prototype entity of type T for building query expressions.
+    ///   The prototype lifecycle is managed by this DbSet.
+    /// </summary>
+    function Prototype: T; overload;
+    
+    /// <summary>
+    ///   Returns a prototype entity of any type for building query expressions (for Joins).
+    ///   The prototype lifecycle is managed by this DbSet.
+    /// </summary>
+    function Prototype<TEntity: class>: TEntity; overload;
   end;
 
 implementation
@@ -514,8 +532,18 @@ begin
     if FProps.TryGetValue(ColName.ToLower, Prop) then
     begin
       try
-        // Check if there's a type converter for this property type
-        var Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+        // Determine Converter: Check Property Map first (Attributes/Fluent), then Registry default
+        var Converter: ITypeConverter := nil;
+        if FMap <> nil then
+        begin
+          var PropMap: TPropertyMap;
+          if FMap.Properties.TryGetValue(Prop.Name, PropMap) then
+            Converter := PropMap.Converter;
+        end;
+
+        if Converter = nil then
+           Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+           
         if Converter <> nil then
         begin
           // Use type converter to convert from database format
@@ -1480,6 +1508,19 @@ begin
   end;
 end;
 
+function TDbSet<T>.Where(const APredicate: TQueryPredicate<T>): TFluentQuery<T>;
+var
+  SmartRes: BooleanExpression;
+begin
+  SmartRes := APredicate(Dext.Entity.Prototype.Prototype.Entity<T>);
+  Result := Query(TFluentExpression(SmartRes));
+end;
+
+function TDbSet<T>.Where(const AValue: BooleanExpression): TFluentQuery<T>;
+begin
+  Result := Query(TFluentExpression(AValue));
+end;
+
 function TDbSet<T>.Count(const AExpression: IExpression): Integer;
 var
   Generator: TSqlGenerator<T>;
@@ -1640,6 +1681,16 @@ begin
     end;
   end;
   Result := Self;
+end;
+
+function TDbSet<T>.Prototype: T;
+begin
+  Result := Dext.Entity.Prototype.Prototype.Entity<T>;
+end;
+
+function TDbSet<T>.Prototype<TEntity>: TEntity;
+begin
+  Result := Dext.Entity.Prototype.Prototype.Entity<TEntity>;
 end;
 
 end.

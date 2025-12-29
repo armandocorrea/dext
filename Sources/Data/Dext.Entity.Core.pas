@@ -36,8 +36,9 @@ uses
   Dext.Entity.TypeSystem,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Dialects,
-  Dext.Entity.Naming, // Add Naming unit
+  Dext.Entity.Naming,
   Dext.Entity.Query,
+  Dext.Core.SmartTypes, // Add SmartTypes unit
   Dext.Specifications.Base,
   Dext.Specifications.Interfaces,
   Dext.MultiTenancy,
@@ -130,6 +131,10 @@ type
     function Any(const AExpression: IExpression): Boolean; overload;
     function Count(const AExpression: IExpression): Integer; overload;
     
+    // Smart Properties Support
+    function Where(const APredicate: TQueryPredicate<T>): TFluentQuery<T>; overload;
+    function Where(const AValue: BooleanExpression): TFluentQuery<T>; overload;
+
     // Lazy Queries (Deferred Execution) - Returns TFluentQuery<T>
     /// <summary>
     ///   Returns a lazy query that executes only when enumerated.
