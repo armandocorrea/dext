@@ -32,16 +32,23 @@ uses
   WinApi.Windows;
 {$ENDIF}
 
-procedure SetConsoleCharSet(CharSet: Cardinal = 65001);
+function ConsolePause: Boolean;
 procedure DebugLog(const AMessage: string);
+procedure SetConsoleCharSet(CharSet: Cardinal = 65001);
 
 implementation
 
-procedure SetConsoleCharSet(CharSet: Cardinal);
+uses
+  System.SysUtils;
+
+function ConsolePause: Boolean;
 begin
-{$IFDEF MSWINDOWS}
- SetConsoleOutputCP(65001);
-{$ENDIF}
+  Result := not FindCmdLineSwitch('no-wait', True);
+  if Result then
+  begin
+    Write('Press <ENTER> to continue...');
+    ReadLn;
+  end;
 end;
 
 procedure DebugLog(const AMessage: string);
@@ -51,6 +58,14 @@ begin
 {$ENDIF}
   Writeln(AMessage);
 end;
+
+procedure SetConsoleCharSet(CharSet: Cardinal);
+begin
+{$IFDEF MSWINDOWS}
+ SetConsoleOutputCP(65001);
+{$ENDIF}
+end;
+
 
 end.
 
