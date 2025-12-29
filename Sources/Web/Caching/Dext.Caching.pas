@@ -509,7 +509,9 @@ begin
 
   // Try to serve a cached response (HIT)
   if TryServeFromCache(AContext, CacheKey) then
+  begin
     Exit; // response already written, stop pipeline
+  end;
 
   // MISS – add cache-control headers
   AContext.Response.AddHeader('X-Cache', 'MISS');
@@ -729,19 +731,22 @@ end;
 class function TApplicationBuilderCacheExtensions.UseResponseCache(
   const ABuilder: IApplicationBuilder): IApplicationBuilder;
 begin
-  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware, TResponseCacheOptions.Create);
+  // Register as Singleton to persist store
+  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware.Create(TResponseCacheOptions.Create));
 end;
 
 class function TApplicationBuilderCacheExtensions.UseResponseCache(
   const ABuilder: IApplicationBuilder; ADurationSeconds: Integer): IApplicationBuilder;
 begin
-  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware, TResponseCacheOptions.Create(ADurationSeconds));
+  // Register as Singleton
+  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware.Create(TResponseCacheOptions.Create(ADurationSeconds)));
 end;
 
 class function TApplicationBuilderCacheExtensions.UseResponseCache(
   const ABuilder: IApplicationBuilder; const AOptions: TResponseCacheOptions): IApplicationBuilder;
 begin
-  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware, AOptions);
+  // Register as Singleton
+  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware.Create(AOptions));
 end;
 
 class function TApplicationBuilderCacheExtensions.UseResponseCache(
@@ -759,7 +764,8 @@ begin
     Builder.Free;
   end;
 
-  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware, Options);
+  // Register as Singleton
+  Result := ABuilder.UseMiddleware(TResponseCacheMiddleware.Create(Options));
 end;
 
 { TResponseCacheOptionsHelper }
