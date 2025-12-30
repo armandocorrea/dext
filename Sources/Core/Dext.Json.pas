@@ -1650,8 +1650,8 @@ begin
     
     for Prop in RttiType.GetProperties do
     begin
-      // Skip non-public properties
-      if Prop.Visibility <> mvPublic then
+      // Skip non-public/published properties
+      if (Prop.Visibility <> mvPublic) and (Prop.Visibility <> mvPublished) then
         Continue;
         
       // Skip if has JsonIgnore attribute
@@ -2106,6 +2106,15 @@ begin
           Result.Add(ElementValue.AsType<TUUID>.ToString)
         else
           Result.Add(SerializeRecord(ElementValue));
+      tkClass:
+        begin
+          if ElementValue.AsObject = nil then
+            Result.AddNull
+          else
+            Result.Add(SerializeObject(ElementValue));
+        end;
+      tkDynArray:
+        Result.Add(SerializeArray(ElementValue));
     else
       Result.AddNull;
     end;
@@ -2172,6 +2181,8 @@ begin
               else
                 Result.Add(SerializeObject(ElementValue));
             end;
+          tkDynArray:
+            Result.Add(SerializeArray(ElementValue));
           tkInteger, tkInt64:
             Result.Add(ElementValue.AsInt64);
           tkFloat:
@@ -2224,6 +2235,8 @@ begin
                 else
                   Result.Add(SerializeObject(ElementValue));
               end;
+            tkDynArray:
+              Result.Add(SerializeArray(ElementValue));
             tkInteger, tkInt64:
               Result.Add(ElementValue.AsInt64);
             tkFloat:

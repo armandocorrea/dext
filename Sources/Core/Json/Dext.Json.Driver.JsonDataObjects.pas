@@ -376,8 +376,9 @@ begin
     FObj.O[Name] := nil
   else if Value is TJsonDataObjectAdapter then
   begin
-    // Clone to avoid shared ownership issues
-    FObj.O[Name] := (Value as TJsonDataObjectAdapter).FObj.Clone as TJsonObject;
+    NestedObjAdapter := Value as TJsonDataObjectAdapter;
+    FObj.O[Name] := NestedObjAdapter.FObj;
+    NestedObjAdapter.FOwnsObject := False;
   end
   else
   begin
@@ -400,8 +401,8 @@ begin
               if (NestedObj <> nil) and (NestedObj is TJsonDataObjectAdapter) then
               begin
                 NestedObjAdapter := NestedObj as TJsonDataObjectAdapter;
-                // Clone to avoid double-free
-                NewObj.O[PropName] := NestedObjAdapter.FObj.Clone as TJsonObject;
+                NewObj.O[PropName] := NestedObjAdapter.FObj;
+                NestedObjAdapter.FOwnsObject := False;
               end;
             end;
           jntArray:
@@ -410,8 +411,8 @@ begin
               if (NestedArr <> nil) and (NestedArr is TJsonDataArrayAdapter) then
               begin
                 NestedArrAdapter := NestedArr as TJsonDataArrayAdapter;
-                // Clone to avoid double-free
-                NewObj.A[PropName] := NestedArrAdapter.FArr.Clone as TJsonArray;
+                NewObj.A[PropName] := NestedArrAdapter.FArr;
+                NestedArrAdapter.FOwnsObject := False;
               end;
             end;
         end;
@@ -422,13 +423,17 @@ begin
 end;
 
 procedure TJsonDataObjectAdapter.SetArray(const Name: string; Value: IDextJsonArray);
+var
+  NestedAdapter: TJsonDataArrayAdapter;
 begin
   if Value = nil then
     FObj.A[Name] := nil
   else if Value is TJsonDataArrayAdapter then
   begin
     // Don't clone - use direct reference so child modifications are reflected
-    FObj.A[Name] := (Value as TJsonDataArrayAdapter).FArr;
+    NestedAdapter := Value as TJsonDataArrayAdapter;
+    FObj.A[Name] := NestedAdapter.FArr;
+    NestedAdapter.FOwnsObject := False;
   end;
 end;
 
@@ -581,17 +586,29 @@ begin
 end;
 
 procedure TJsonDataArrayAdapter.Add(Value: IDextJsonObject);
+var
+  NestedAdapter: TJsonDataObjectAdapter;
 begin
   if Value is TJsonDataObjectAdapter then
-    FArr.Add((Value as TJsonDataObjectAdapter).FObj.Clone as TJsonObject)
+  begin
+    NestedAdapter := Value as TJsonDataObjectAdapter;
+    FArr.Add(NestedAdapter.FObj);
+    NestedAdapter.FOwnsObject := False;
+  end
   else
     FArr.Add(TJsonObject.Create);
 end;
 
 procedure TJsonDataArrayAdapter.Add(Value: IDextJsonArray);
+var
+  NestedAdapter: TJsonDataArrayAdapter;
 begin
   if Value is TJsonDataArrayAdapter then
-    FArr.Add((Value as TJsonDataArrayAdapter).FArr.Clone as TJsonArray)
+  begin
+    NestedAdapter := Value as TJsonDataArrayAdapter;
+    FArr.Add(NestedAdapter.FArr);
+    NestedAdapter.FOwnsObject := False;
+  end
   else
     FArr.Add(TJsonArray.Create);
 end;

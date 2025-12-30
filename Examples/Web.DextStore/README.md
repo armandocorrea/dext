@@ -1,178 +1,43 @@
-# 🛒 DextStore - Real World Example
+# DextStore Example
 
-**DextStore** is a simplified E-commerce API designed to demonstrate the capabilities of the **Dext Framework** for Delphi. It showcases a modern, clean architecture using Dependency Injection, Controllers, Minimal APIs, and JWT Authentication.
+A comprehensive example of a Web API built with the Dext Framework, demonstrating how to structure a real-world application.
 
-## 🏗️ Architecture
+## 🚀 Features
 
-The project is structured into three main layers:
+*   **MVC Controllers**: Structured API using `[DextController]`, `[DextGet]`, `[DextPost]`.
+*   **Dependency Injection**: Full usage of DI container for Services, Repositories, and Controllers.
+*   **JWT Authentication**: Secure endpoints using `[Authorize]` and Bearer tokens.
+*   **Fluent API**: Modern configuration syntax for Middleware (CORS, Auth).
+*   **Model Binding**: Automatic mapping of JSON bodies to DTOs.
+*   **Service Layer**: Logic separation into `Services`, `Models`, and `Controllers`.
 
-- **Models** (`DextStore.Models.pas`): Defines Entities (`TProduct`, `TOrder`) and DTOs (`TLoginRequest`).
-- **Services** (`DextStore.Services.pas`): Contains business logic and in-memory data repositories. These are registered as Singletons in the DI container.
-- **Controllers** (`DextStore.Controllers.pas`): Handles HTTP requests, validates input, and orchestrates services.
+## 🛠️ Getting Started
 
-## ⚙️ Configuration
+1.  **Compile** the project `Web.DextStore.dproj` using Delphi or MSBuild.
+2.  **Run** the executable `Web.DextStore.exe`.
+    *   The server will start on **http://localhost:9000**.
+3.  **Test** the API using the provided scripts:
+    *   **Full Test (Recommended)**: Login -> Products -> Cart -> Checkout.
+        ```powershell
+        .\Test.Web.DextStore.Full.ps1
+        ```
+    *   **API Suite**: Comprehensive test of all individual endpoints.
+        ```powershell
+        .\Test.Web.DextStore.Api.ps1
+        ```
+    *   **Health Check**: Quick check to see if the server is up.
+        ```powershell
+        .\Test.Web.DextStore.Health.ps1
+        ```
 
-The application supports **Environment-based Configuration**, allowing you to have different settings for Development, QA, and Production.
+## 📂 Structure
 
-### Configuration Files
-- `appsettings.json`: Base configuration shared across all environments.
-- `appsettings.Development.json`: Overrides for the `Development` environment (e.g., Verbose logging).
-- `appsettings.Production.json`: Overrides for the `Production` environment.
+*   **Web.DextStore.dpr**: Application entry point and configuration (DI, Middleware).
+*   **DextStore.Controllers.pas**: API Endpoints definition.
+*   **DextStore.Services.pas**: Business logic and in-memory data storage (simulated DB).
+*   **DextStore.Models.pas**: Data Transfer Objects (DTOs) and Entities.
 
-### Switching Environments
-Set the `DEXT_ENVIRONMENT` environment variable before running the application.
+## 🔐 Credentials (Demo)
 
-**PowerShell:**
-```powershell
-$env:DEXT_ENVIRONMENT="Development"
-.\DextStore.exe
-```
-
-**CMD:**
-```cmd
-set DEXT_ENVIRONMENT=Development
-DextStore.exe
-```
-
-If the variable is not set, it defaults to `Production`.
-
-## 🚀 How to Run
-
-1. Open `DextStore.dpr` in Delphi (12 Athens or newer recommended).
-2. Ensure the **Dext** library paths are configured.
-3. Build and Run the project.
-4. The server will start on `http://localhost:9000`.
-
-## 🔌 API Endpoints
-
-### ❤️ Health Check
-- **GET** `/health`
-  - Returns the API status and server time.
-  - *No Authentication required.*
-
-### 🔐 Authentication
-- **POST** `/api/auth/login`
-  - **Body**: `{"username": "user", "password": "password"}`
-  - **Returns**: A JWT Token to be used in subsequent requests.
-
-### 🛒 Products
-- **GET** `/api/products`
-  - Lists all available products.
-- **GET** `/api/products/{id}`
-  - Gets details of a specific product.
-- **POST** `/api/products`
-  - Creates a new product.
-  - *Requires Authentication (Bearer Token).*
-
-### 🛍️ Cart
-- **GET** `/api/cart`
-  - Shows the current user's cart.
-  - *Requires Authentication.*
-- **POST** `/api/cart/items`
-  - Adds an item to the cart.
-  - **Body**: `{"productId": 1, "quantity": 1}`
-  - *Requires Authentication.*
-- **DELETE** `/api/cart`
-  - Clears the cart.
-  - *Requires Authentication.*
-
-### 📦 Orders
-- **POST** `/api/orders/checkout`
-  - Converts the cart into an order.
-  - *Requires Authentication.*
-- **GET** `/api/orders`
-  - Lists the authenticated user's order history.
-  - *Requires Authentication.*
-
-## 🧪 Testing the API
-
-Run the PowerShell test script to verify all endpoints:
-
-```powershell
-.\test-api.ps1
-```
-
-Or test manually with curl:
-
-```bash
-# 1. Login
-curl -X POST http://localhost:9000/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"user\",\"password\":\"password\"}"
-
-# 2. Get Products (save the token from step 1)
-curl http://localhost:9000/api/products
-
-# 3. Add to Cart (use your token)
-curl -X POST http://localhost:9000/api/cart/items -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d "{\"productId\":1,\"quantity\":2}"
-```
-
-## ✨ Features Demonstrated
-
-### 1. **Dependency Injection**
-Services and controllers are registered in the DI container:
-```pascal
-App.Services
-  .AddSingleton(TServiceType.FromInterface(IJwtTokenHandler), TJwtTokenHandler, ...)
-  .AddSingleton<IProductService, TProductService>
-  .AddControllers;
-```
-
-### 2. **Interface-based Design with Factory**
-Using the new `Factory` DSL for automatic memory management:
-```pascal
-var Builder := Factory.Create<TClaimsBuilder, IClaimsBuilder>;
-var Token := FTokenHandler.GenerateToken(
-  Builder
-    .WithNameIdentifier(Username)
-    .WithRole('customer')
-    .Build
-);
-// Automatic cleanup via ARC!
-```
-
-### 3. **Fluent API**
-Configuration using `App.Builder` and `TDextAppBuilderHelper`:
-```pascal
-var AppBuilder := App.Builder;
-AppBuilder
-  .UseCors(Cors)
-  .UseJwtAuthentication(Auth);
-```
-
-### 4. **Minimal APIs**
-Mixing Controllers with lightweight endpoints:
-```pascal
-AppBuilder.MapGet('/health', 
-  procedure(Ctx: IHttpContext)
-  begin
-    Ctx.Response.Json('{"status": "healthy"}');
-  end
-);
-```
-
-### 5. **Model Binding & Validation**
-Using attributes like `[FromBody]`, `[Required]`, `[StringLength]`:
-```pascal
-[DextPost('/login')]
-procedure Login(Ctx: IHttpContext; const Request: TLoginRequest);
-```
-
-### 6. **JWT Authentication**
-Centralized configuration with DI:
-```pascal
-[Authorize('Bearer')]
-TCartController = class
-  // All methods require authentication
-end;
-```
-
-### 7. **Environment-based Configuration**
-Automatic loading of `appsettings.{Environment}.json` based on `DEXT_ENVIRONMENT` variable.
-
-## 🎯 Key Patterns Used
-
-- **Repository Pattern**: In-memory services (`IProductService`, `ICartService`, `IOrderService`)
-- **Builder Pattern**: `IClaimsBuilder` for fluent claim construction
-- **Factory Pattern**: `Factory.Create<T, I>` for interface-based object creation
-- **Dependency Injection**: Constructor injection throughout
-- **Interface Segregation**: Separate interfaces for each service
-- **Single Responsibility**: Each controller handles one resource
+*   **Username**: `user`
+*   **Password**: `password`

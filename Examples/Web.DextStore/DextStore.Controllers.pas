@@ -4,10 +4,9 @@ interface
 
 uses
   System.SysUtils,
-  System.JSON,
-  JsonDataObjects,
   Dext,
   Dext.Web,
+  Dext.Json,
   DextStore.Models,
   DextStore.Services;
 
@@ -38,13 +37,13 @@ type
   public
     constructor Create(Service: IProductService);
     
-    [DextGet('/')]
+    [DextGet('')]
     procedure GetAll(Ctx: IHttpContext);
     
     [DextGet('/{id}')]
     procedure GetById(Ctx: IHttpContext; [FromRoute] Id: Integer);
     
-    [DextPost('/')]
+    [DextPost('')]
     [Authorize('Bearer')]
     [ValidateModel] // Validates [Required], [StringLength] etc.
     procedure CreateProduct(Ctx: IHttpContext; const Request: TCreateProductRequest);
@@ -61,13 +60,13 @@ type
   public
     constructor Create(Service: ICartService);
     
-    [DextGet('/')]
+    [DextGet('')]
     procedure GetCart(Ctx: IHttpContext);
     
     [DextPost('/items')]
     procedure AddItem(Ctx: IHttpContext; const Request: TAddToCartRequest);
     
-    [DextDelete('/')]
+    [DextDelete('')]
     procedure ClearCart(Ctx: IHttpContext);
   end;
 
@@ -85,7 +84,7 @@ type
     [DextPost('/checkout')]
     procedure Checkout(Ctx: IHttpContext);
     
-    [DextGet('/')]
+    [DextGet('')]
     procedure GetMyOrders(Ctx: IHttpContext);
   end;
 
@@ -128,21 +127,14 @@ end;
 procedure TProductsController.GetAll(Ctx: IHttpContext);
 begin
   var Products := FService.GetAll;
-  var Arr := TJSONArray.Create;
-  try
-    for var P in Products do
-      Arr.Add(TJson.ObjectToJsonObject(P) as TJSONObject);
-    Ctx.Response.Json(Arr.ToString);
-  finally
-    Arr.Free;
-  end;
+  Ctx.Response.Json(TDextJson.Serialize(Products));
 end;
 
 procedure TProductsController.GetById(Ctx: IHttpContext; Id: Integer);
 begin
   var Product := FService.GetById(Id);
   if Product <> nil then
-    Ctx.Response.Json(TJson.ObjectToJsonString(Product))
+    Ctx.Response.Json(TDextJson.Serialize(Product))
   else
     Ctx.Response.Status(404).Json('{"error": "Product not found"}');
 end;
@@ -150,7 +142,7 @@ end;
 procedure TProductsController.CreateProduct(Ctx: IHttpContext; const Request: TCreateProductRequest);
 begin
   var Product := FService.CreateProduct(Request);
-  Ctx.Response.Status(201).Json(TJson.ObjectToJsonString(Product));
+  Ctx.Response.Status(201).Json(TDextJson.Serialize(Product));
 end;
 
 { TCartController }
@@ -166,18 +158,12 @@ begin
   var Items := FService.GetCart(UserId);
   var Total := FService.CalculateTotal(UserId);
   
-  // Custom JSON response structure
-  // In a real app, define a TCartResponse DTO
-  var Json := '{"items": [';
-  for var I := 0 to High(Items) do
-  begin
-    if I > 0 then Json := Json + ',';
-    Json := Json + Format('{"productId": %d, "name": "%s", "quantity": %d, "unitPrice": %f, "total": %f}',
-      [Items[I].ProductId, Items[I].ProductName, Items[I].Quantity, Items[I].UnitPrice, Items[I].Total]);
-  end;
-  Json := Json + Format('], "totalAmount": %f, "userId": "%s"}', [Total, UserId]);
+  var Response: TCartResponse;
+  Response.Items := Items;
+  Response.TotalAmount := Total;
+  Response.UserId := UserId;
   
-  Ctx.Response.Json(Json);
+  Ctx.Response.Json(TDextJson.Serialize(Response));
 end;
 
 procedure TCartController.AddItem(Ctx: IHttpContext; const Request: TAddToCartRequest);
@@ -218,9 +204,7 @@ begin
     Response.Status := Order.Status;
     Response.Message := 'Order placed successfully';
     
-    Ctx.Response.Status(201).Json(Format(
-      '{"orderId": %d, "total": %f, "status": "%s", "message": "%s"}',
-      [Response.OrderId, Response.Total, Response.Status, Response.Message]));
+    Ctx.Response.Status(201).Json(TDextJson.Serialize(Response));
   except
     on E: Exception do
       Ctx.Response.Status(400).Json(Format('{"error": "%s"}', [E.Message]));
@@ -231,14 +215,7 @@ procedure TOrdersController.GetMyOrders(Ctx: IHttpContext);
 begin
   var UserId := Ctx.User.Identity.Name;
   var Orders := FService.GetUserOrders(UserId);
-  var Arr := TJSONArray.Create;
-  try
-    for var O in Orders do
-      Arr.Add(TJson.ObjectToJsonObject(O) as TJSONObject);
-    Ctx.Response.Json(Arr.ToString);
-  finally
-    Arr.Free;
-  end;
+  Ctx.Response.Json(TDextJson.Serialize(Orders));
 end;
 
 initialization
