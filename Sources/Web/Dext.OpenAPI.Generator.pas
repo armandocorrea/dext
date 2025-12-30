@@ -38,7 +38,10 @@ type
     ApiKeyDescription: string;
     
     // Global responses (e.g., 429, 500) applied to all operations
-    GlobalResponses: TArray<TPair<Integer, string>>; // ? Changed to Array for automatic memory management
+    GlobalResponses: TArray<TPair<Integer, string>>; 
+    
+    // Additional Security definitions
+    SecuritySchemes: TArray<TPair<string, TOpenAPISecurityScheme>>;
     
     class function Default: TOpenAPIOptions; static;
     
@@ -50,17 +53,17 @@ type
     /// <summary>
     ///   Enables Bearer token authentication (JWT).
     /// </summary>
-    class function WithBearerAuth(const AFormat: string = 'JWT'; const ADescription: string = 'Bearer token authentication'): TOpenAPIOptions; static;
+    function WithBearerAuth(const AFormat: string = 'JWT'; const ADescription: string = 'Bearer token authentication'): TOpenAPIOptions;
     
     /// <summary>
     ///   Enables API Key authentication.
     /// </summary>
-    class function WithApiKeyAuth(const AKeyName: string = 'X-API-Key'; ALocation: TApiKeyLocation = aklHeader; const ADescription: string = 'API Key authentication'): TOpenAPIOptions; static;
+    function WithApiKeyAuth(const AKeyName: string = 'X-API-Key'; ALocation: TApiKeyLocation = aklHeader; const ADescription: string = 'API Key authentication'): TOpenAPIOptions;
     
     /// <summary>
-    ///   Adds a global response (e.g., 429 Too Many Requests) to all operations.
+    ///   Adds a global response (e.g., 400, 500) to all operations.
     /// </summary>
-    function WithGlobalResponse(AStatusCode: Integer; const ADescription: string): TOpenAPIOptions; // ? Added
+    function WithGlobalResponse(ACode: Integer; const ADescription: string): TOpenAPIOptions;
   end;
 
   /// <summary>
@@ -69,12 +72,14 @@ type
   TOpenAPIGenerator = class
   private
     FOptions: TOpenAPIOptions;
-    FSchemaCache: TDictionary<PTypeInfo, TOpenAPISchema>;
+    FKnownTypes: TDictionary<PTypeInfo, string>;
+    FDefinitions: TDictionary<string, TOpenAPISchema>;
     
     function CreateInfoSection: TOpenAPIInfo;
     function CreatePathItem(const AMetadata: TEndpointMetadata): TOpenAPIPathItem;
     function CreateOperation(const AMetadata: TEndpointMetadata): TOpenAPIOperation;
     function GetOperationId(const AMethod, APath: string): string;
+    function GetSchemaName(ATypeInfo: PTypeInfo): string;
     
     /// <summary>
     ///   Creates security schemes based on options.
@@ -148,34 +153,32 @@ begin
   Result.ApiKeyName := '';
   Result.ApiKeyLocation := aklHeader;
   Result.ApiKeyDescription := '';
-  SetLength(Result.GlobalResponses, 0); // ? Initialize array
+  SetLength(Result.GlobalResponses, 0);
+  SetLength(Result.SecuritySchemes, 0); // Initialize
 end;
 
-function TOpenAPIOptions.WithGlobalResponse(AStatusCode: Integer; const ADescription: string): TOpenAPIOptions;
-var
-  NewLength: Integer;
+function TOpenAPIOptions.WithBearerAuth(const AFormat, ADescription: string): TOpenAPIOptions;
 begin
   Result := Self;
-  NewLength := Length(Result.GlobalResponses) + 1;
-  SetLength(Result.GlobalResponses, NewLength);
-  Result.GlobalResponses[NewLength - 1] := TPair<Integer, string>.Create(AStatusCode, ADescription);
-end;
-
-class function TOpenAPIOptions.WithBearerAuth(const AFormat, ADescription: string): TOpenAPIOptions;
-begin
-  Result := Default;
   Result.EnableBearerAuth := True;
   Result.BearerFormat := AFormat;
   Result.BearerDescription := ADescription;
 end;
 
-class function TOpenAPIOptions.WithApiKeyAuth(const AKeyName: string; ALocation: TApiKeyLocation; const ADescription: string): TOpenAPIOptions;
+function TOpenAPIOptions.WithApiKeyAuth(const AKeyName: string; ALocation: TApiKeyLocation; const ADescription: string): TOpenAPIOptions;
 begin
-  Result := Default;
+  Result := Self;
   Result.EnableApiKeyAuth := True;
   Result.ApiKeyName := AKeyName;
   Result.ApiKeyLocation := ALocation;
   Result.ApiKeyDescription := ADescription;
+end;
+
+function TOpenAPIOptions.WithGlobalResponse(ACode: Integer; const ADescription: string): TOpenAPIOptions;
+begin
+  Result := Self;
+  SetLength(Result.GlobalResponses, Length(Result.GlobalResponses) + 1);
+  Result.GlobalResponses[High(Result.GlobalResponses)] := TPair<Integer, string>.Create(ACode, ADescription);
 end;
 
 function TOpenAPIOptions.WithServer(const AUrl, ADescription: string): TOpenAPIOptions;
@@ -198,16 +201,18 @@ constructor TOpenAPIGenerator.Create(const AOptions: TOpenAPIOptions);
 begin
   inherited Create;
   FOptions := AOptions;
-  FSchemaCache := TDictionary<PTypeInfo, TOpenAPISchema>.Create;
+  FKnownTypes := TDictionary<PTypeInfo, string>.Create;
+  FDefinitions := TDictionary<string, TOpenAPISchema>.Create;
 end;
 
 destructor TOpenAPIGenerator.Destroy;
 var
   Schema: TOpenAPISchema;
 begin
-  for Schema in FSchemaCache.Values do
+  FKnownTypes.Free;
+  for Schema in FDefinitions.Values do
     Schema.Free;
-  FSchemaCache.Free;
+  FDefinitions.Free;
   inherited;
 end;
 
@@ -236,29 +241,40 @@ end;
 
 
 procedure TOpenAPIGenerator.CreateSecuritySchemes(ADocument: TOpenAPIDocument);
-var
-  Scheme: TOpenAPISecurityScheme;
 begin
-  // Add Bearer authentication if enabled
   if FOptions.EnableBearerAuth then
   begin
-    Scheme := TOpenAPISecurityScheme.Create;
+    var Scheme := TOpenAPISecurityScheme.Create;
     Scheme.SchemeType := sstHttp;
     Scheme.Scheme := 'bearer';
     Scheme.BearerFormat := FOptions.BearerFormat;
     Scheme.Description := FOptions.BearerDescription;
-    ADocument.SecuritySchemes.Add('bearerAuth', Scheme);
+    if not ADocument.SecuritySchemes.ContainsKey('bearerAuth') then
+      ADocument.SecuritySchemes.Add('bearerAuth', Scheme)
+    else
+      Scheme.Free;
   end;
   
-  // Add API Key authentication if enabled
   if FOptions.EnableApiKeyAuth then
   begin
-    Scheme := TOpenAPISecurityScheme.Create;
+    var Scheme := TOpenAPISecurityScheme.Create;
     Scheme.SchemeType := sstApiKey;
     Scheme.Name := FOptions.ApiKeyName;
     Scheme.Location := FOptions.ApiKeyLocation;
     Scheme.Description := FOptions.ApiKeyDescription;
-    ADocument.SecuritySchemes.Add('apiKeyAuth', Scheme);
+    if not ADocument.SecuritySchemes.ContainsKey('apiKeyAuth') then
+      ADocument.SecuritySchemes.Add('apiKeyAuth', Scheme)
+    else
+      Scheme.Free;
+  end;
+  
+  if FOptions.SecuritySchemes <> nil then
+  begin
+     for var Pair in FOptions.SecuritySchemes do
+     begin
+        if not ADocument.SecuritySchemes.ContainsKey(Pair.Key) then
+          ADocument.SecuritySchemes.Add(Pair.Key, Pair.Value);
+     end;
   end;
 end;
 
@@ -286,6 +302,36 @@ begin
     Result[I] := Matches[I].Groups[1].Value;
 end;
 
+function TOpenAPIGenerator.GetSchemaName(ATypeInfo: PTypeInfo): string;
+var
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  Attr: TCustomAttribute;
+begin
+  Result := string(ATypeInfo.Name);
+  if Result.StartsWith('T') and (Result.Length > 1) then
+    Result := Result.Substring(1); // Standard Delphi convention TUser -> User
+    
+  // Check for override
+  Ctx := TRttiContext.Create;
+  try
+    Typ := Ctx.GetType(ATypeInfo);
+    if Assigned(Typ) then
+    begin
+      for Attr in Typ.GetAttributes do
+      begin
+        if Attr is SwaggerSchemaAttribute then
+        begin
+          if SwaggerSchemaAttribute(Attr).Title <> '' then
+            Exit(SwaggerSchemaAttribute(Attr).Title);
+        end;
+      end;
+    end;
+  finally
+    Ctx.Free;
+  end;
+end;
+
 function TOpenAPIGenerator.TypeToSchema(ATypeInfo: PTypeInfo): TOpenAPISchema;
 var
   RttiContext: TRttiContext;
@@ -295,11 +341,110 @@ var
   FieldSchema: TOpenAPISchema;
   ArrayType: TRttiDynamicArrayType;
   ElementType: TRttiType;
+  SchemaName: string;
+  DefinitionSchema: TOpenAPISchema;
+  PropName: string;
 begin
-  // Check cache first to avoid infinite recursion
-  if FSchemaCache.ContainsKey(ATypeInfo) then
-    Exit(FSchemaCache[ATypeInfo]);
+  // Handle complex types (Record/Class) with References
+  if (ATypeInfo.Kind in [tkRecord, tkMRecord, tkClass]) then
+  begin
+    // Check if we already know this type
+    if FKnownTypes.TryGetValue(ATypeInfo, SchemaName) then
+    begin
+      Result := TOpenAPISchema.Create;
+      Result.Ref := '#/components/schemas/' + SchemaName;
+      Exit;
+    end;
     
+    // Register new type
+    SchemaName := GetSchemaName(ATypeInfo);
+    
+    // Handle specific generic types or collisions if needed, for now assume unique names
+    if FDefinitions.ContainsKey(SchemaName) then
+    begin
+       // Simple collision handling or assume same type
+       // In strict mode we might check if PTypeInfo matches
+       Result := TOpenAPISchema.Create;
+       Result.Ref := '#/components/schemas/' + SchemaName;
+       Exit;
+    end;
+    
+    FKnownTypes.Add(ATypeInfo, SchemaName);
+    
+    // Create the definition
+    DefinitionSchema := TOpenAPISchema.Create;
+    DefinitionSchema.DataType := odtObject;
+    FDefinitions.Add(SchemaName, DefinitionSchema);
+    
+    // Now populate the definition (recursively)
+    RttiContext := TRttiContext.Create;
+    try
+      RttiType := RttiContext.GetType(ATypeInfo);
+      if Assigned(RttiType) then
+      begin
+        ProcessTypeAttributes(RttiType, DefinitionSchema);
+        
+        // Fields
+        for Field in RttiType.GetFields do
+        begin
+          if Field.Visibility in [mvPublic, mvPublished] then
+          begin
+            var ShouldIgnore: Boolean;
+            FieldSchema := TypeToSchema(Field.FieldType.Handle);
+            ProcessFieldAttributes(Field, FieldSchema, ShouldIgnore);
+            
+            PropName := Field.Name;
+            for var Attr in Field.GetAttributes do
+              if Attr is SwaggerPropertyAttribute then
+                   if SwaggerPropertyAttribute(Attr).Name <> '' then
+                      PropName := SwaggerPropertyAttribute(Attr).Name;
+
+            if (not ShouldIgnore) and (not DefinitionSchema.Properties.ContainsKey(PropName)) then
+              DefinitionSchema.Properties.Add(PropName, FieldSchema)
+            else
+              FieldSchema.Free;
+          end;
+        end;
+        
+        // Properties
+        if ATypeInfo.Kind = tkClass then
+        begin
+          for Prop in RttiType.GetProperties do
+          begin
+            if (Prop.Visibility in [mvPublic, mvPublished]) and Prop.IsReadable then
+            begin
+               var ShouldIgnore: Boolean;
+               
+               PropName := Prop.Name;
+               for var Attr in Prop.GetAttributes do
+                  if Attr is SwaggerPropertyAttribute then
+                       if SwaggerPropertyAttribute(Attr).Name <> '' then
+                          PropName := SwaggerPropertyAttribute(Attr).Name;
+
+               if not DefinitionSchema.Properties.ContainsKey(PropName) then
+               begin
+                  FieldSchema := TypeToSchema(Prop.PropertyType.Handle);
+                  ProcessFieldAttributes(Prop, FieldSchema, ShouldIgnore);
+                  if not ShouldIgnore then
+                    DefinitionSchema.Properties.Add(PropName, FieldSchema)
+                  else
+                    FieldSchema.Free;
+               end;
+            end;
+          end;
+        end;
+      end;
+    finally
+      RttiContext.Free;
+    end;
+    
+    // Return reference to the newly created definition
+    Result := TOpenAPISchema.Create;
+    Result.Ref := '#/components/schemas/' + SchemaName;
+    Exit;
+  end;
+
+  // Simple Types and Arrays
   Result := TOpenAPISchema.Create;
   
   case ATypeInfo.Kind of
@@ -312,7 +457,6 @@ begin
     tkFloat:
     begin
       Result.DataType := odtNumber;
-      // Check if it's a TDateTime
       if ATypeInfo = TypeInfo(TDateTime) then
       begin
         Result.Format := 'date-time';
@@ -344,7 +488,6 @@ begin
       else
       begin
         Result.DataType := odtString;
-        // Extract enum values
         var TypeData := GetTypeData(ATypeInfo);
         if Assigned(TypeData) then
         begin
@@ -357,68 +500,9 @@ begin
       end;
     end;
     
-    tkRecord, tkClass:
-    begin
-      Result.DataType := odtObject;
-      
-      // Add to cache before processing fields to prevent infinite recursion
-      FSchemaCache.Add(ATypeInfo, Result);
-      
-      RttiContext := TRttiContext.Create;
-      try
-        RttiType := RttiContext.GetType(ATypeInfo);
-        if Assigned(RttiType) then
-        begin
-          // Process type-level attributes
-          ProcessTypeAttributes(RttiType, Result);
-          
-          // Process fields (for records and classes)
-          for Field in RttiType.GetFields do
-          begin
-            if Field.Visibility in [mvPublic, mvPublished] then
-            begin
-              var ShouldIgnore: Boolean;
-              FieldSchema := TypeToSchema(Field.FieldType.Handle);
-              ProcessFieldAttributes(Field, FieldSchema, ShouldIgnore);
-              
-              if not ShouldIgnore then
-                Result.Properties.Add(Field.Name, FieldSchema);
-            end;
-          end;
-          
-          // Process properties (for classes)
-          if ATypeInfo.Kind = tkClass then
-          begin
-            for Prop in RttiType.GetProperties do
-            begin
-              if (Prop.Visibility in [mvPublic, mvPublished]) and Prop.IsReadable then
-              begin
-                // Avoid duplicates if property has same name as field
-                if not Result.Properties.ContainsKey(Prop.Name) then
-                begin
-                  var ShouldIgnore: Boolean;
-                  FieldSchema := TypeToSchema(Prop.PropertyType.Handle);
-                  ProcessFieldAttributes(Prop, FieldSchema, ShouldIgnore);
-                  
-                  if not ShouldIgnore then
-                    Result.Properties.Add(Prop.Name, FieldSchema);
-                end;
-              end;
-            end;
-          end;
-        end;
-      finally
-        RttiContext.Free;
-      end;
-      
-      Exit; // Already added to cache above
-    end;
-    
     tkDynArray:
     begin
       Result.DataType := odtArray;
-      
-      // Try to determine array element type
       RttiContext := TRttiContext.Create;
       try
         RttiType := RttiContext.GetType(ATypeInfo);
@@ -427,17 +511,13 @@ begin
           ArrayType := TRttiDynamicArrayType(RttiType);
           ElementType := ArrayType.ElementType;
           if Assigned(ElementType) then
-          begin
             Result.Items := TypeToSchema(ElementType.Handle);
-          end;
         end;
       finally
         RttiContext.Free;
       end;
     end;
   end;
-  
-  FSchemaCache.Add(ATypeInfo, Result);
 end;
 
 function TOpenAPIGenerator.SchemaToJson(ASchema: TOpenAPISchema): TJsonObject;
@@ -449,6 +529,12 @@ var
   EnumValue: string;
 begin
   Result := TJsonObject.Create;
+  
+  if ASchema.Ref <> '' then
+  begin
+    Result.S['$ref'] := ASchema.Ref;
+    Exit;
+  end;
   
   // Type
   case ASchema.DataType of
@@ -651,25 +737,90 @@ begin
     Result.RequestBody := TOpenAPIRequestBody.Create;
     Result.RequestBody.Required := True;
     
-    var Schema := TOpenAPISchema.Create;
-    Schema.DataType := odtObject;
+    var Schema: TOpenAPISchema;
+    if Assigned(AMetadata.RequestType) then
+      Schema := TypeToSchema(AMetadata.RequestType)
+    else
+    begin
+      Schema := TOpenAPISchema.Create;
+      Schema.DataType := odtObject;
+    end;
+    
     Result.RequestBody.Content.Add('application/json', Schema);
   end;
   
-  // Add default responses
+  // Add appropriate responses based on method and metadata
+  
+  // Determine success status code
+  var SuccessCode := '200';
+  var SuccessDesc := 'Successful response';
+  
+  if AMetadata.Method.ToUpper.Equals('POST') then
+  begin
+    SuccessCode := '201'; // Default to 201 for POST
+    SuccessDesc := 'Created'; 
+  end
+  else if AMetadata.Method.ToUpper.Equals('DELETE') then
+  begin
+    SuccessCode := '204';
+    SuccessDesc := 'No Content';
+  end;
+
+  // Add primary success response
   Response := TOpenAPIResponse.Create;
-  Response.Description := 'Successful response';
+  Response.Description := SuccessDesc;
   
-  var ResponseSchema := TOpenAPISchema.Create;
-  ResponseSchema.DataType := odtObject;
-  Response.Content.Add('application/json', ResponseSchema);
+  // Only add content schema for non-204 responses
+  if SuccessCode <> '204' then
+  begin
+    if Assigned(AMetadata.ResponseType) then
+    begin
+      var ResponseSchema := TypeToSchema(AMetadata.ResponseType);
+      Response.Content.Add('application/json', ResponseSchema);
+    end;
+  end;
   
-  Result.Responses.Add('200', Response);
+  Result.Responses.Add(SuccessCode, Response);
+  
+  // Add explicitly documented responses
+  for var RespMeta in AMetadata.Responses do
+  begin
+    var CodeStr := IntToStr(RespMeta.StatusCode);
+    
+    // If it's the success code we already added, arguably we should merge or skip.
+    // However, explicit metadata usually overrides default.
+    // For now, let's only add if not present, OR overwrite if explicit.
+    // Let's overwrite/add.
+    
+    var ExtraResp := TOpenAPIResponse.Create;
+    ExtraResp.Description := RespMeta.Description;
+    if ExtraResp.Description = '' then
+      ExtraResp.Description := 'Response ' + CodeStr;
+      
+    // Schema
+    // Schema
+    if RespMeta.StatusCode <> 204 then
+    begin
+       var ContentType := RespMeta.MediaType;
+       if ContentType = '' then ContentType := 'application/json';
+       
+       if Assigned(RespMeta.SchemaType) then
+       begin
+         var ExtraSchema := TypeToSchema(RespMeta.SchemaType);
+         ExtraResp.Content.Add(ContentType, ExtraSchema);
+       end;
+    end;
+    
+    if Result.Responses.ContainsKey(CodeStr) then
+      Result.Responses[CodeStr].Free; // Free old one
+      
+    Result.Responses.AddOrSetValue(CodeStr, ExtraResp);
+  end;
   
   // ? Add Global Responses (e.g., 429, 500)
   for var GlobalResp in FOptions.GlobalResponses do
   begin
-    // Don't overwrite if specific response exists (though unlikely for 200 here)
+    // Don't overwrite if specific response exists
     if not Result.Responses.ContainsKey(IntToStr(GlobalResp.Key)) then
     begin
       var GResponse := TOpenAPIResponse.Create;
@@ -724,6 +875,10 @@ var
   ExistingPathItem: TOpenAPIPathItem;
   Operation: TOpenAPIOperation;
 begin
+  // Reset state to ensure clean generation
+  FKnownTypes.Clear;
+  FDefinitions.Clear;
+
   Result := TOpenAPIDocument.Create;
   if Result.Info <> nil then Result.Info.Free; // Free default instance to avoid leak
   Result.Info := CreateInfoSection;
@@ -763,6 +918,17 @@ begin
       Result.Paths.Add(Metadata.Path, PathItem);
     end;
   end;
+  
+  // Transfer definitions (Schemas)
+  for var Pair in FDefinitions do
+  begin
+    if not Result.Schemas.ContainsKey(Pair.Key) then
+      Result.Schemas.Add(Pair.Key, Pair.Value);
+  end;
+  
+  // We cleared definitions list in the object, but we transferring ownership
+  // DO NOT Free the values here as they are now owned by Document
+  FDefinitions.Clear;
 end;
 
 function TOpenAPIGenerator.GenerateJson(const AEndpoints: TArray<TEndpointMetadata>): string;
@@ -898,7 +1064,10 @@ begin
             for var SchemaPair in Op.RequestBody.Content do
             begin
               Schema := SchemaPair.Value;
-              ContentJson.O[SchemaPair.Key] := SchemaToJson(Schema);
+              // OpenAPI 3.0 requires: content -> mediaType -> schema -> {schema definition}
+              var MediaTypeJson := TJsonObject.Create;
+              MediaTypeJson.O['schema'] := SchemaToJson(Schema);
+              ContentJson.O[SchemaPair.Key] := MediaTypeJson;
             end;
             
             RequestBodyJson.O['content'] := ContentJson;
@@ -919,7 +1088,10 @@ begin
               for var SchemaPair in Response.Content do
               begin
                 Schema := SchemaPair.Value;
-                ContentJson.O[SchemaPair.Key] := SchemaToJson(Schema);
+                // OpenAPI 3.0 requires: content -> mediaType -> schema -> {schema definition}
+                var MediaTypeJson := TJsonObject.Create;
+                MediaTypeJson.O['schema'] := SchemaToJson(Schema);
+                ContentJson.O[SchemaPair.Key] := MediaTypeJson;
               end;
               ResponseJson.O['content'] := ContentJson;
             end;
@@ -960,52 +1132,61 @@ begin
       end;
       Json.O['paths'] := PathsJson;
       
-      // Components (Security Schemes)
-      if Doc.SecuritySchemes.Count > 0 then
+      // Components
+      if (Doc.Schemas.Count > 0) or (Doc.SecuritySchemes.Count > 0) then
       begin
-        var ComponentsJson := TJsonObject.Create;
-        var SecuritySchemesJson := TJsonObject.Create;
-        
-        for var SchemePair in Doc.SecuritySchemes do
-        begin
-          var Scheme := SchemePair.Value;
-          var SchemeJson := TJsonObject.Create;
-          
-          case Scheme.SchemeType of
-            sstApiKey:
-            begin
-              SchemeJson.S['type'] := 'apiKey';
-              SchemeJson.S['name'] := Scheme.Name;
-              case Scheme.Location of
-                aklQuery: SchemeJson.S['in'] := 'query';
-                aklHeader: SchemeJson.S['in'] := 'header';
-                aklCookie: SchemeJson.S['in'] := 'cookie';
-              end;
-            end;
-            
-            sstHttp:
-            begin
-              SchemeJson.S['type'] := 'http';
-              SchemeJson.S['scheme'] := Scheme.Scheme;
-              if Scheme.BearerFormat <> '' then
-                SchemeJson.S['bearerFormat'] := Scheme.BearerFormat;
-            end;
-            
-            sstOAuth2: SchemeJson.S['type'] := 'oauth2';
-            sstOpenIdConnect: SchemeJson.S['type'] := 'openIdConnect';
-          end;
-          
-          if Scheme.Description <> '' then
-            SchemeJson.S['description'] := Scheme.Description;
-            
-          SecuritySchemesJson.O[SchemePair.Key] := SchemeJson;
-        end;
-        
-        ComponentsJson.O['securitySchemes'] := SecuritySchemesJson;
-        Json.O['components'] := ComponentsJson;
+         var ComponentsJson := TJsonObject.Create;
+         
+         if Doc.Schemas.Count > 0 then
+         begin
+           var SchemasJson := TJsonObject.Create;
+           for var SchemaPair in Doc.Schemas do
+             SchemasJson.O[SchemaPair.Key] := SchemaToJson(SchemaPair.Value);
+           ComponentsJson.O['schemas'] := SchemasJson;
+         end;
+         
+         if Doc.SecuritySchemes.Count > 0 then
+         begin
+           var SecSchemesJson := TJsonObject.Create;
+           for var SecSchemePair in Doc.SecuritySchemes do
+           begin
+             var Scheme := SecSchemePair.Value;
+             var SchemeJson := TJsonObject.Create;
+             
+             case Scheme.SchemeType of
+               sstHttp: 
+               begin
+                 SchemeJson.S['type'] := 'http';
+                 SchemeJson.S['scheme'] := Scheme.Scheme;
+                 if Scheme.BearerFormat <> '' then
+                   SchemeJson.S['bearerFormat'] := Scheme.BearerFormat;
+               end;
+               sstApiKey:
+               begin
+                 SchemeJson.S['type'] := 'apiKey';
+                 SchemeJson.S['name'] := Scheme.Name;
+                 case Scheme.Location of
+                   aklQuery: SchemeJson.S['in'] := 'query';
+                   aklHeader: SchemeJson.S['in'] := 'header';
+                   aklCookie: SchemeJson.S['in'] := 'cookie';
+                 end;
+               end;
+               sstOAuth2: SchemeJson.S['type'] := 'oauth2';
+               sstOpenIdConnect: SchemeJson.S['type'] := 'openIdConnect';
+             end;
+             
+             if Scheme.Description <> '' then
+               SchemeJson.S['description'] := Scheme.Description;
+               
+             SecSchemesJson.O[SecSchemePair.Key] := SchemeJson;
+           end;
+           ComponentsJson.O['securitySchemes'] := SecSchemesJson;
+         end;
+         
+         Json.O['components'] := ComponentsJson;
       end;
-      
-      Result := Json.ToJSON(True);
+
+      Result := Json.ToJSON;
     finally
       Json.Free;
     end;

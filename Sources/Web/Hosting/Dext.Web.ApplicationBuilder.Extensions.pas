@@ -29,6 +29,7 @@ interface
 
 uses
   System.SysUtils,
+  System.TypInfo,
   Dext.Web.Interfaces,
   Dext.Web.HandlerInvoker,
   Dext.Web.ModelBinding;
@@ -138,7 +139,24 @@ type
       Handler: THandlerResultFunc<T1, T2, T3, TResult>): IApplicationBuilder; overload;
   end;
 
+procedure UpdateRouteMetadata(App: IApplicationBuilder; RequestType: PTypeInfo; ResponseType: PTypeInfo);
+
 implementation
+
+procedure UpdateRouteMetadata(App: IApplicationBuilder; RequestType: PTypeInfo; ResponseType: PTypeInfo);
+var
+  Routes: TArray<TEndpointMetadata>;
+  Metadata: TEndpointMetadata;
+begin
+  Routes := App.GetRoutes;
+  if Length(Routes) > 0 then
+  begin
+    Metadata := Routes[High(Routes)];
+    if RequestType <> nil then Metadata.RequestType := RequestType;
+    if ResponseType <> nil then Metadata.ResponseType := ResponseType;
+    App.UpdateLastRouteMetadata(Metadata);
+  end;
+end;
 
 { TApplicationBuilderExtensions }
 
@@ -216,6 +234,7 @@ begin
         Invoker.Free;
       end;
     end);
+  UpdateRouteMetadata(App, TypeInfo(T), nil);
 end;
 
 class function TApplicationBuilderExtensions.MapPost<T1, T2>(App: IApplicationBuilder;
@@ -235,6 +254,7 @@ begin
         Invoker.Free;
       end;
     end);
+  UpdateRouteMetadata(App, TypeInfo(T1), nil);
 end;
 
 class function TApplicationBuilderExtensions.MapPost<T1, T2, T3>(App: IApplicationBuilder;
@@ -273,6 +293,7 @@ begin
         Invoker.Free;
       end;
     end);
+  UpdateRouteMetadata(App, TypeInfo(T), nil);
 end;
 
 class function TApplicationBuilderExtensions.MapPut<T1, T2>(App: IApplicationBuilder;
@@ -292,6 +313,7 @@ begin
         Invoker.Free;
       end;
     end);
+  UpdateRouteMetadata(App, TypeInfo(T1), nil);
 end;
 
 class function TApplicationBuilderExtensions.MapPut<T1, T2, T3>(App: IApplicationBuilder;
@@ -444,6 +466,7 @@ begin
         Invoker.Free;
       end;
     end);
+  UpdateRouteMetadata(App, TypeInfo(T), TypeInfo(TResult));
 end;
 
 class function TApplicationBuilderExtensions.MapPost<T1, T2, TResult>(App: IApplicationBuilder;

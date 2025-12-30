@@ -29,6 +29,7 @@ interface
 
 uses
   System.SysUtils,
+  System.TypInfo,
   Dext.Web.Interfaces;
 
 type
@@ -67,6 +68,21 @@ type
     /// </summary>
     class function RequireAuthorization(App: IApplicationBuilder; const ASchemes: array of string): IApplicationBuilder; overload;
     class function RequireAuthorization(App: IApplicationBuilder; const AScheme: string): IApplicationBuilder; overload;
+    
+    /// <summary>
+    ///   Adds a documented response to the endpoint.
+    /// </summary>
+    class function WithResponse(App: IApplicationBuilder; Code: Integer; const Description: string = ''; ASchemaType: PTypeInfo = nil; const AMediaType: string = ''): IApplicationBuilder; overload;
+    
+    /// <summary>
+    ///   explicitly sets the request type for OpenAPI documentation.
+    /// </summary>
+    class function WithRequestType(App: IApplicationBuilder; ATypeInfo: PTypeInfo): IApplicationBuilder;
+    
+    /// <summary>
+    ///   Update the last registered route's metadata. Internal/Helper use.
+    /// </summary>
+    class procedure UpdateRouteMetadata(App: IApplicationBuilder; RequestType: PTypeInfo; ResponseType: PTypeInfo);
   end;
 
 implementation
@@ -202,5 +218,83 @@ begin
   Result := RequireAuthorization(App, [AScheme]);
 end;
 
-end.
+class function TEndpointMetadataExtensions.WithResponse(App: IApplicationBuilder; 
+  Code: Integer; const Description: string; ASchemaType: PTypeInfo; const AMediaType: string): IApplicationBuilder;
+var
+  Routes: TArray<TEndpointMetadata>;
+  Metadata: TEndpointMetadata;
+  Responses: TArray<TOpenAPIResponseMetadata>;
+begin
+  Result := App;
+  
+  Routes := App.GetRoutes;
+  if Length(Routes) > 0 then
+  begin
+    Metadata := Routes[High(Routes)];
+    Responses := Metadata.Responses;
+    SetLength(Responses, Length(Responses) + 1);
+    
+    with Responses[High(Responses)] do
+    begin
+      StatusCode := Code;
+      
+      // Default description for common codes if not provided
+      if Description = '' then
+      begin
+        case Code of
+          200: Description := 'OK';
+          201: Description := 'Created';
+          204: Description := 'No Content';
+          400: Description := 'Bad Request';
+          401: Description := 'Unauthorized';
+          403: Description := 'Forbidden';
+          404: Description := 'Not Found';
+          500: Description := 'Internal Server Error';
+          else Description := 'Response ' + IntToStr(Code);
+        end;
+      end
+      else
+        Description := Description;
+        
+      SchemaType := ASchemaType;
+      MediaType := AMediaType;
+    end;
+    
+    Metadata.Responses := Responses;
+    App.UpdateLastRouteMetadata(Metadata);
+  end;
+end;
 
+class function TEndpointMetadataExtensions.WithRequestType(App: IApplicationBuilder; ATypeInfo: PTypeInfo): IApplicationBuilder;
+begin
+  Result := App;
+  UpdateRouteMetadata(App, ATypeInfo, nil);
+end;
+
+class procedure TEndpointMetadataExtensions.UpdateRouteMetadata(App: IApplicationBuilder; RequestType: PTypeInfo; ResponseType: PTypeInfo);
+var
+  Routes: TArray<TEndpointMetadata>;
+  Metadata: TEndpointMetadata;
+begin
+  Routes := App.GetRoutes;
+  if Length(Routes) > 0 then
+  begin
+    Metadata := Routes[High(Routes)];
+    
+    if RequestType <> nil then 
+    begin
+      Writeln('DEBUG: Setting RequestType for ' + Metadata.Path + ' to ' + string(RequestType.Name));
+      Metadata.RequestType := RequestType;
+    end;
+      
+    if ResponseType <> nil then 
+    begin
+      Writeln('DEBUG: Setting ResponseType for ' + Metadata.Path + ' to ' + string(ResponseType.Name));
+      Metadata.ResponseType := ResponseType;
+    end;
+      
+    App.UpdateLastRouteMetadata(Metadata);
+  end;
+end;
+
+end.

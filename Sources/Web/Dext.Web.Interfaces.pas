@@ -31,6 +31,7 @@ uses
   System.Classes,
   System.Rtti,
   System.SysUtils,
+  System.TypInfo,
   System.Generics.Collections,
   Dext.DI.Interfaces,
   Dext.Auth.Identity,
@@ -48,6 +49,13 @@ type
   TStaticHandler = reference to procedure(AContext: IHttpContext);
   TMiddlewareDelegate = reference to procedure(AContext: IHttpContext; ANext: TRequestDelegate);
 
+  TOpenAPIResponseMetadata = record
+    StatusCode: Integer;
+    Description: string;
+    MediaType: string;
+    SchemaType: PTypeInfo;
+  end;
+
   TEndpointMetadata = record
     Method: string;
     Path: string;
@@ -57,6 +65,9 @@ type
     Parameters: TArray<string>; // Added parameters
     Security: TArray<string>;   // Security schemes required
     ApiVersions: TArray<string>; // Supported API versions (e.g. '1.0', '2.0')
+    RequestType: PTypeInfo;      // Type info for request body
+    ResponseType: PTypeInfo;     // Type info for response body
+    Responses: TArray<TOpenAPIResponseMetadata>; // Documented responses
   end;
 
   TCookieOptions = record

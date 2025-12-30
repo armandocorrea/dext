@@ -36,7 +36,7 @@ type
     Email: string;
   end;
 
-  [SwaggerSchema('Create User Request', 'Request body for creating a new user')]
+  [SwaggerSchema('CreateUserRequest', 'Request body for creating a new user')]
   TCreateUserRequest = record
     [SwaggerProperty('Full name of the user')]
     [SwaggerRequired]
@@ -50,7 +50,6 @@ type
     [SwaggerProperty('User password')]
     [SwaggerFormat('password')]
     [SwaggerRequired]
-    [SwaggerIgnoreProperty]  // Don't show password in schema
     Password: string;
   end;
 
@@ -64,14 +63,34 @@ type
 
     [SwaggerProperty('Product price in USD')]
     [SwaggerExample('99.99')]
-    Price: Double;
+    Price: Currency;
 
-    [SwaggerProperty('Whether the product is in stock')]
+    [SwaggerProperty('Availability status')]
     InStock: Boolean;
   end;
 
+  TProductArray = TArray<TProduct>;
+  
+  [SwaggerSchema('ErrorResponse', 'Standard error response')]
+  TErrorResponse = record
+    [SwaggerProperty('Error message description')]
+    error: string;
+  end;
+
+  [SwaggerSchema('HealthResponse', 'Health check status information')]
+  THealthResponse = record
+    [SwaggerProperty('Service status')]
+    [SwaggerExample('healthy')]
+    status: string;
+    
+    [SwaggerProperty('API version')]
+    [SwaggerExample('1.0.0')]
+    version: string;
+  end;
+
 var
-  Users: TArray<TUser>;
+  Users: TArray<TUser>; // Simple in-memory storage
+  //DummyHealth: THealthResponse; // Force RTTI generation
 
 procedure InitializeSampleData;
 begin
@@ -103,7 +122,7 @@ begin
     Options.LicenseUrl := 'https://opensource.org/licenses/MIT';
 
     // Configure servers (fluent API)
-    Options := Options.WithServer('http://localhost:8080', 'Development server');
+    Options := Options.WithServer('http://localhost:5000', 'Development server');
     // You can add more servers:
     // Options := Options.WithServer('https://staging.example.com', 'Staging server');
     // Options := Options.WithServer('https://api.example.com', 'Production server');
@@ -121,11 +140,6 @@ begin
       end)
       .Configure(procedure(App: IApplicationBuilder)
       begin
-        Writeln('📚 Configuring Swagger...');
-
-        // Add Swagger middleware
-        TSwaggerExtensions.UseSwagger(App, Options);
-
         Writeln('📚 Configuring routes...');
         Writeln('');
 
@@ -177,6 +191,8 @@ begin
           'Get user by ID',
           'Retrieves detailed information about a specific user by their unique identifier. Returns 404 if the user is not found.',
           ['Users']);
+        TEndpointMetadataExtensions.WithResponse(App, 200, 'User found', TypeInfo(TUser));
+        TEndpointMetadataExtensions.WithResponse(App, 404, 'User not found');
 
         // POST /api/users - Create new user
         Writeln('3. POST /api/users');
@@ -208,6 +224,10 @@ begin
           'Create a new user',
           'Creates a new user account with the provided information. Returns the created user with assigned ID.',
           ['Users']);
+        TEndpointMetadataExtensions.WithResponse(App, 201, 'User created', TypeInfo(TUser));
+        TEndpointMetadataExtensions.WithResponse(App, 400, 'Invalid input', TypeInfo(TErrorResponse));
+        // Ensure Request body is documented
+        TEndpointMetadataExtensions.WithRequestType(App, TypeInfo(TCreateUserRequest));
 
         // DELETE /api/users/{id} - Delete user
         Writeln('4. DELETE /api/users/{id}');
@@ -246,6 +266,8 @@ begin
           'Delete user',
           'Deletes a user from the system. Returns 204 on success, 404 if user not found.',
           ['Users']);
+        TEndpointMetadataExtensions.WithResponse(App, 204, 'User deleted');
+        TEndpointMetadataExtensions.WithResponse(App, 404, 'User not found', TypeInfo(TErrorResponse));
 
         // ========================================
         // Product Endpoints
@@ -275,6 +297,7 @@ begin
           'Get all products',
           'Retrieves a list of all available products in the catalog',
           ['Products']);
+        TEndpointMetadataExtensions.WithResponse(App, 200, 'Successful response', TypeInfo(TProductArray));
 
         // ========================================
         // Health Check
@@ -290,6 +313,7 @@ begin
           'Health check',
           'Returns the health status of the API',
           ['System']);
+        TEndpointMetadataExtensions.WithResponse(App, 200, 'Successful response', TypeInfo(THealthResponse));
 
         // ========================================
         // Protected Endpoint
@@ -308,14 +332,18 @@ begin
             'Retrieves sensitive data. Requires Bearer authentication.',
             ['Admin']),
           'bearerAuth');
+
+        Writeln('📚 Configuring Swagger...');
+        // Add Swagger middleware after routes are defined so it can discover them
+        TSwaggerExtensions.UseSwagger(App, Options);
       end)
       .Build;
 
     Writeln('');
     Writeln('✅ Server configured successfully!');
     Writeln('');
-    Writeln('📖 Swagger UI available at: http://localhost:8080/swagger');
-    Writeln('📄 OpenAPI JSON available at: http://localhost:8080/swagger.json');
+    Writeln('📖 Swagger UI available at: http://localhost:5000/swagger');
+    Writeln('📄 OpenAPI JSON available at: http://localhost:5000/swagger.json');
     Writeln('');
     Writeln('🔗 Available endpoints:');
     Writeln('   GET    /api/users');
