@@ -375,7 +375,11 @@ O framework define constantes para claims comuns em `TClaimTypes`:
 - [ ] Atributos `[Authorize]` e `[AllowAnonymous]` automáticos
 - [ ] Integração com Identity providers (OAuth2, OpenID Connect)
 
+## 📁 Exemplo de Projeto
 
+Veja o projeto de exemplo completo com código funcional:
+
+- **[Web.JwtAuthDemo](../Examples/Web.JwtAuthDemo)** - Demonstração completa de autenticação JWT com login, endpoints protegidos e controle de acesso baseado em roles.
 
 ---
 
