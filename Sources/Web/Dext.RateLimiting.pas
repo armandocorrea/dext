@@ -195,6 +195,9 @@ begin
     end;
     
     // Allow request
+    AContext.Response.AddHeader('X-RateLimit-Limit', IntToStr(LimitResult.Limit));
+    AContext.Response.AddHeader('X-RateLimit-Remaining', IntToStr(LimitResult.Remaining));
+    
     try
       ANext(AContext);
     finally

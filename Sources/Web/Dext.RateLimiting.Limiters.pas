@@ -171,7 +171,7 @@ begin
         Entry.RequestCount := 1;
         Entry.WindowStart := Now;
         FEntries.AddOrSetValue(APartitionKey, Entry);
-        Result := TRateLimitResult.Allow;
+        Result := TRateLimitResult.Allow(FPermitLimit - Entry.RequestCount, FPermitLimit);
       end
       else
       begin
@@ -185,7 +185,7 @@ begin
         begin
           Inc(Entry.RequestCount);
           FEntries.AddOrSetValue(APartitionKey, Entry);
-          Result := TRateLimitResult.Allow;
+          Result := TRateLimitResult.Allow(FPermitLimit - Entry.RequestCount, FPermitLimit);
         end;
       end;
     end
@@ -195,7 +195,7 @@ begin
       Entry.RequestCount := 1;
       Entry.WindowStart := Now;
       FEntries.Add(APartitionKey, Entry);
-      Result := TRateLimitResult.Allow;
+      Result := TRateLimitResult.Allow(FPermitLimit - Entry.RequestCount, FPermitLimit);
     end;
   finally
     FLock.Leave;
@@ -296,7 +296,7 @@ begin
     begin
       NewRequest.Timestamp := Now;
       RequestList.Add(NewRequest);
-      Result := TRateLimitResult.Allow;
+      Result := TRateLimitResult.Allow(FPermitLimit - (ValidCount + 1), FPermitLimit);
     end;
   finally
     FLock.Leave;
@@ -392,7 +392,7 @@ begin
     begin
       Entry.Tokens := Entry.Tokens - 1.0;
       FEntries.AddOrSetValue(APartitionKey, Entry);
-      Result := TRateLimitResult.Allow;
+      Result := TRateLimitResult.Allow(Floor(Entry.Tokens), FTokenLimit);
     end
     else
     begin
@@ -472,7 +472,7 @@ begin
     else
     begin
       FCurrentCount.AddOrSetValue(APartitionKey, Count + 1);
-      Result := TRateLimitResult.Allow;
+      Result := TRateLimitResult.Allow(FConcurrencyLimit - (Count + 1), FConcurrencyLimit);
     end;
   finally
     FLock.Leave;

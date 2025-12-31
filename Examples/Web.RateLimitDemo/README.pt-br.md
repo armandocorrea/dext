@@ -31,5 +31,11 @@ var Policy := TRateLimitPolicy.FixedWindow(10, 60) // 10 requisições por 60 se
   .WithRejectionMessage('{"error":"Too many requests!"}')
   .WithRejectionStatusCode(429);
   
-TApplicationBuilderRateLimitExtensions.UseRateLimiting(Builder, Policy);
+// Registrar middleware
+TApplicationBuilderRateLimitExtensions.UseRateLimiting(App.Builder, Policy);
 ```
+
+## 📚 Veja Também
+
+*   [Documentação de Rate Limiting](../../Docs/rate-limiting.md)
+*   [README do Framework Dext](../../README.pt-br.md)

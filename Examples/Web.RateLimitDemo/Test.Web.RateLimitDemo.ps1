@@ -10,23 +10,56 @@ $limited = 0
 for ($i = 1; $i -le 15; $i++) {
     try {
         $resp = Invoke-WebRequest "$baseUrl/api/test" -UseBasicParsing
-        $rem = $resp.Headers["X-RateLimit-Remaining"]
         
-        # Se rem for nulo, maybe headers não estão vindo
+        # Try to extract header safely (PS Core / Desktop compatibility)
+        $headers = $resp.Headers
+        if ($null -eq $headers["X-RateLimit-Remaining"] -and $null -ne $resp.BaseResponse) {
+            $headers = $resp.BaseResponse.Headers
+        }
+
+        if ($i -eq 1) {
+            Write-Host "DEBUG: Headers received on first request:" -ForegroundColor Gray
+            if ($headers -is [System.Collections.Specialized.NameValueCollection]) {
+                foreach ($key in $headers.AllKeys) {
+                    Write-Host "  $key - $($headers[$key])" -ForegroundColor Gray
+                }
+            }
+            else {
+                # Fallback for Dictionary or other types
+                $headers.GetEnumerator() | ForEach-Object { Write-Host "  $($_.Key) - $($_.Value)" -ForegroundColor Gray }
+            }
+        }
+
+        $rem = $headers["X-RateLimit-Remaining"]
+        
+        # Handle case-sensitivity issues if dictionary is case-sensitive
+        if ($null -eq $rem) { $rem = $headers["x-ratelimit-remaining"] }
+        
         if ($null -eq $rem) { $rem = "?" }
         
-        Write-Host "Req #$i: OK (Remaining: $rem)"
+        Write-Host "Req #$i - OK (Remaining: $rem)"
         $success++
     }
     catch {
-        if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::TooManyRequests) {
-            # 429
-            $retry = $_.Exception.Response.Headers["Retry-After"]
-            Write-Host "Req #$i: BLOCKED (429) - Retry After: $retry sec" -ForegroundColor Magenta
+        $ex = $_.Exception
+        $statusCode = 0
+        
+        if ($null -ne $ex.Response) {
+            $statusCode = [int]$ex.Response.StatusCode
+        }
+
+        if ($statusCode -eq 429) {
+            # 429 Too Many Requests
+            $retry = "?"
+            if ($null -ne $ex.Response.Headers["Retry-After"]) {
+                $retry = $ex.Response.Headers["Retry-After"]
+            }
+            
+            Write-Host "Req #$i - BLOCKED (429) - Retry After: $retry sec" -ForegroundColor Magenta
             $limited++
         }
         else {
-            Write-Error "Req #$i: Failed with $($_.Exception.Message)"
+            Write-Error "Req #$i - Failed with $($ex.Message) (Status: $statusCode)"
         }
     }
 }

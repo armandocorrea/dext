@@ -5,48 +5,43 @@
 uses
   Dext.MM,
   System.SysUtils,
-  Dext.Web.WebApplication,
-  Dext,
-  Dext.Web.ApplicationBuilder.Extensions,
-  Dext.Web.Interfaces,
-  Dext.Web.Results,
+  Dext.Web, // Includes Dext.Web.WebApplication, Results, Interfaces
   Dext.RateLimiting,
-  Dext.RateLimiting.Policy,
-  Dext.Web.HandlerInvoker;
+  Dext.RateLimiting.Policy;
 
 var
   App: IWebApplication;
 begin
-
   try
     WriteLn('🚦 Dext Rate Limiting Demo');
     WriteLn('===========================');
     WriteLn;
 
     App := TDextApplication.Create;
-    var Builder := App.GetApplicationBuilder;
 
-    // ✅ Configurar Rate Limiting
+    // ✅ Configure Rate Limiting
     WriteLn('📦 Configuring Rate Limiting...');
     
     var Policy := TRateLimitPolicy.FixedWindow(10, 60)
       .WithRejectionMessage('{"error":"Too many requests! Please slow down."}')
       .WithRejectionStatusCode(429);
       
-    TApplicationBuilderRateLimitExtensions.UseRateLimiting(Builder, Policy);
+    // Fluent middleware registration
+    TApplicationBuilderRateLimitExtensions.UseRateLimiting(App.Builder, Policy);
 
     WriteLn('   ✅ Rate limiting configured: 10 requests per minute');
     WriteLn;
 
-    // ✅ Endpoint de teste
-    TApplicationBuilderExtensions.MapGetR<IResult>(Builder, '/api/test',
+    // ✅ Test Endpoint
+    App.Builder.MapGet<IResult>('/api/test',
       function: IResult
       begin
         Result := Results.Ok('{"message":"Request successful!","timestamp":"' + 
           DateTimeToStr(Now) + '"}');
       end);
 
-    TApplicationBuilderExtensions.MapGetR<IResult>(Builder, '/',
+    // ✅ Root Endpoint
+    App.Builder.MapGet<IResult>('/',
       function: IResult
       begin
         Result := Results.Ok('{"message":"Rate Limiting Demo - Try /api/test"}');

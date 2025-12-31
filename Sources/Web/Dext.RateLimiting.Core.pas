@@ -66,9 +66,11 @@ type
   TRateLimitResult = record
     IsAllowed: Boolean;
     RetryAfter: Integer;  // Seconds until retry
+    Remaining: Integer;   // Requests remaining in window
+    Limit: Integer;       // Total limit
     Reason: string;
     
-    class function Allow: TRateLimitResult; static;
+    class function Allow(ARemaining, ALimit: Integer): TRateLimitResult; static;
     class function Deny(const AReason: string; ARetryAfter: Integer = 0): TRateLimitResult; static;
   end;
 
@@ -137,10 +139,12 @@ implementation
 
 { TRateLimitResult }
 
-class function TRateLimitResult.Allow: TRateLimitResult;
+class function TRateLimitResult.Allow(ARemaining, ALimit: Integer): TRateLimitResult;
 begin
   Result.IsAllowed := True;
   Result.RetryAfter := 0;
+  Result.Remaining := ARemaining;
+  Result.Limit := ALimit;
   Result.Reason := '';
 end;
 
