@@ -27,7 +27,7 @@ begin
       .WithRejectionStatusCode(429);
       
     // Fluent middleware registration
-    TApplicationBuilderRateLimitExtensions.UseRateLimiting(App.Builder, Policy);
+    App.Builder.UseRateLimiting(Policy);
 
     WriteLn('   ✅ Rate limiting configured: 10 requests per minute');
     WriteLn;

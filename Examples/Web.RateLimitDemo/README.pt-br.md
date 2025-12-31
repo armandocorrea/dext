@@ -32,7 +32,7 @@ var Policy := TRateLimitPolicy.FixedWindow(10, 60) // 10 requisições por 60 se
   .WithRejectionStatusCode(429);
   
 // Registrar middleware
-TApplicationBuilderRateLimitExtensions.UseRateLimiting(App.Builder, Policy);
+App.Builder.UseRateLimiting(Policy);
 ```
 
 ## 📚 Veja Também

@@ -173,6 +173,11 @@ type
     function UseHttpLogging(const AOptions: THttpLoggingOptions): TDextAppBuilder; overload;
 
     // -------------------------------------------------------------------------
+    // 🚦 Rate Limiting
+    // -------------------------------------------------------------------------
+    function UseRateLimiting(const APolicy: TRateLimitPolicy): TDextAppBuilder; overload;
+
+    // -------------------------------------------------------------------------
     // 🛣️ Routing - POST
     // -------------------------------------------------------------------------
     
@@ -346,6 +351,12 @@ end;
 function TDextHttpAppBuilderHelper.UseHttpLogging(const AOptions: THttpLoggingOptions): TDextAppBuilder;
 begin
   TApplicationBuilderMiddlewareExtensions.UseHttpLogging(Self.Unwrap, AOptions);
+  Result := Self;
+end;
+
+function TDextHttpAppBuilderHelper.UseRateLimiting(const APolicy: TRateLimitPolicy): TDextAppBuilder;
+begin
+  TApplicationBuilderRateLimitExtensions.UseRateLimiting(Self.Unwrap, APolicy);
   Result := Self;
 end;
 
