@@ -26,9 +26,18 @@ Para que a IDE encontre os arquivos compilados do framework:
 
 > **Nota:** Se você alternar entre as configurações de Debug e Release ou Plataformas (Win32/Win64), lembre-se de ajustar este caminho ou adicionar ambos.
 
-## 3. Configuração dos Fontes (Browsing/Library Path)
+## 3. Configuração do Browsing Path (Arquivos Fonte)
 
-Para permitir a navegação no código fonte (Ctrl+Click) e debugging detalhado, adicione os seguintes diretórios ao **Library Path** (ou Browsing Path) da sua IDE.
+Para permitir a navegação no código fonte (Ctrl+Click) e debugging detalhado, adicione os seguintes diretórios ao **Browsing Path** da sua IDE.
+
+> [!IMPORTANT]
+> **NÃO adicione estas pastas de Source (Fontes) ao Library Path!**  
+> O Library Path deve conter apenas os arquivos `.dcu` compilados (a pasta `Output` do Passo 2).  
+> Adicionar pastas de Fontes ao Library Path causará conflitos de compilação (veja [Resolução de Problemas](#resolução-de-problemas) abaixo).
+
+1.  No Delphi, vá em **Tools** > **Options** > **Language** > **Delphi** > **Library**.
+2.  Selecione a **Platform** desejada (ex: Windows 32-bit).
+3.  No campo **Browsing Path**, adicione os diretórios de Fontes listados abaixo.
 
 Substitua `[Raiz]` pelo caminho onde você clonou o repositório (ex: `C:\dev\Dext\DextRepository\`).
 
@@ -75,3 +84,59 @@ Para confirmar que a instalação está correta:
     *   `Examples\DextExamples.groupproj`
 3.  Execute **Build All**.
 4.  Se todos os projetos compilarem com sucesso, o ambiente está configurado corretamente.
+
+---
+
+## Resolução de Problemas (Troubleshooting)
+
+### F2051: Unit was compiled with a different version
+
+**Exemplo do Erro:**
+```
+[dcc32 Fatal Error] Dext.WebHost.pas(35): F2051 Unit Dext.Web.HandlerInvoker was compiled with a different version of Dext.Json.TDextSerializer.Serialize
+```
+
+**Causa:**  
+Este erro ocorre quando o compilador Delphi encontra um conflito entre arquivos `.dcu` pré-compilados e arquivos fonte `.pas` crus. Tipicamente, isso acontece quando as pastas `Sources` são incorretamente adicionadas ao **Library Path** em vez do **Browsing Path**.
+
+**Solução:**
+
+1.  Vá em **Tools** > **Options** > **Language** > **Delphi** > **Library**.
+2.  Selecione a **Platform** correta (ex: Windows 32-bit).
+3.  Verifique seu **Library Path**:
+    *   ✅ Deve conter **apenas** a pasta `Output` com os DCUs compilados (ex: `C:\dev\Dext\DextRepository\Output\Win32\Debug`).
+    *   ❌ Remova quaisquer pastas `Sources\*` do Library Path.
+4.  Verifique seu **Browsing Path**:
+    *   ✅ Deve conter as pastas `Sources\*` (conforme listado no Passo 3 acima).
+5.  Limpe e recompile:
+    *   Delete quaisquer arquivos `.dcu` da pasta de saída do seu projeto.
+    *   Recompile o Dext framework (`Sources\DextFramework.groupproj` > **Build All**).
+    *   Recompile seu projeto.
+
+### Compilação falha com erros "File not found"
+
+**Causa:**  
+O Library Path não contém a pasta dos DCUs compilados, ou o framework não foi compilado para a plataforma/configuração alvo.
+
+**Solução:**
+
+1.  Certifique-se de que você compilou o framework Dext para a plataforma correta (Win32/Win64) e configuração (Debug/Release).
+2.  Verifique se o Library Path aponta para a pasta `Output\$(Platform)\$(Config)` correta.
+3.  Se estiver alternando entre Debug e Release, atualize o Library Path de acordo ou adicione ambos os caminhos.
+
+### Debug stepping não funciona / Não consigo navegar para o fonte
+
+**Causa:**  
+As pastas de Fontes (`Sources`) não estão no Browsing Path.
+
+**Solução:**
+
+1.  Adicione todas as pastas `Sources\*` ao **Browsing Path** (não ao Library Path).
+2.  Garanta que a opção "Use debug DCUs" esteja ativada nas opções do seu projeto se desejar debugar também códigos da RTL/VCL.
+
+### Referência Rápida: Resumo da Configuração de Paths
+
+| Tipo de Path        | O Que Adicionar                                  | Objetivo                         |
+|---------------------|--------------------------------------------------|----------------------------------|
+| **Library Path**    | `Output\Win32\Debug` (ou sua config alvo)        | Localizar arquivos `.dcu` compilados |
+| **Browsing Path**   | Todas as pastas `Sources\*`                      | Navegação no código e debugging  |

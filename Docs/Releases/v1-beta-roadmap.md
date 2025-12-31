@@ -180,6 +180,11 @@ Features moved to v1.1 or v2.0:
 - **Background Jobs/Queues**: Robust queue system for asynchronous processing (Redis/RabbitMQ integration).
 - **Scheduled Jobs (CRON)**: Scheduling recurrent tasks (e.g., daily reports, data cleanup).
 
+- **Developer Experience (DevX)**:
+  - **CLI REST Runner**: Support for executing `.http` / `.rest` files via `dext.exe run-requests file.http`. Compatibility with the VS Code/IntelliJ format.
+  - **Fluent REST Client**: High-performance HTTP Client with a fluent API (`Client.Get('url').WithHeader('x', 'y').RetrieveJson<T>`). It will serve as the engine for the CLI Runner and integration tests.
+  - **IDE Integration**: Future plugin to run requests directly from the Delphi IDE editor.
+
 - **Docker Tooling**: `Dockerfile` templates and `dext docker init` command to simplify deployment. (Priority)
 - **Telemetry & Observability**: Support for OpenTelemetry (Tracing/Metrics) and native dashboards.
 - **Testing Ecosystem**: `Dext.Mock` framework and Fluent Assertions (`Expect(X).Should.Be(Y)`).

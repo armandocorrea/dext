@@ -129,6 +129,10 @@ The foundation of the framework, usable in any type of application.
 - [Async Programming](Docs/async-api.md)
 - [Caching](Docs/caching.md)
 
+### 📰 Articles & Tutorials
+- [Domain Model & CQRS: Modernizing your Delphi Architecture](https://www.cesarromero.com.br/en/blog/enterprise-patterns-delphi/)
+- [Database as API: High Performance without Controllers](https://www.cesarromero.com.br/en/blog/database-as-api-cqrs/)
+
 ---
 
 ## 💻 Requirements
