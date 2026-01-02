@@ -17,7 +17,7 @@ For technical details and granular status of each module, check:
 ### 🌐 Dext.Web
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Minimal APIs** (`MapGet`, `MapPost`) | ✅ Ready | Tested in `Dext.Starter.Admin` |
+| **Minimal APIs** (`MapGet`, `MapPost`) | ✅ Ready | Tested in `Web.Dext.Starter.Admin` |
 | **Controllers** (`TController`) | ✅ Ready | Tested in `Web.ControllerExample` |
 | **Model Binding** (JSON Body -> Record/Class) | ✅ Ready | Support for nesting and lists |
 | **Dependency Injection** (Scoped/Singleton/Transient) | ✅ Ready | Full integration with HttpContext |
@@ -113,7 +113,7 @@ The focus now is to create **one example for each feature** and unify the docume
 
 ### Updating Existing Examples
 - [ ] Update `Web.TaskFlowAPI` to use new Cookie and Compression features.
-- [ ] Review `Dext.Starter.Admin` to ensure use of current best practices.
+- [ ] Review `Web.Dext.Starter.Admin` to ensure use of current best practices.
 
 ---
 

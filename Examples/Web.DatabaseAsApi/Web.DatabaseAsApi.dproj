@@ -1,10 +1,10 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{32172AD6-B438-4077-87BA-230C3065822E}</ProjectGuid>
-        <MainSource>Dext.Starter.Admin.dpr</MainSource>
+        <ProjectGuid>{CEE59EF6-2CA5-4E9E-90CE-78B5D8B6B8B4}</ProjectGuid>
+        <MainSource>Web.DatabaseAsApi.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
-        <ProjectName Condition="'$(ProjectName)'==''">Dext.Starter.Admin</ProjectName>
+        <ProjectName Condition="'$(ProjectName)'==''">Web.DatabaseAsApi</ProjectName>
         <TargetedPlatforms>32897</TargetedPlatforms>
         <AppType>Console</AppType>
         <FrameworkType>None</FrameworkType>
@@ -58,15 +58,15 @@
         <DCC_N>false</DCC_N>
         <DCC_S>false</DCC_S>
         <DCC_ImageBase>00400000</DCC_ImageBase>
-        <SanitizedProjectName>Dext_Starter_Admin</SanitizedProjectName>
+        <SanitizedProjectName>Web_DatabaseAsApi</SanitizedProjectName>
         <VerInfo_Locale>1046</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=;CFBundleName=</VerInfo_Keys>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
-        <DCC_ExeOutput>..\Output</DCC_ExeOutput>
         <DCC_UnitSearchPath>..\..\Output\$(Platform)\$(Config);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcuOutput>..\Output\$(Platform)\$(Config)</DCC_DcuOutput>
+        <DCC_ExeOutput>..\Output</DCC_ExeOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Android)'!=''">
         <VerInfo_Keys>package=com.embarcadero.$(MSBuildProjectName);label=$(MSBuildProjectName);versionCode=1;versionName=1.0.0;persistent=False;restoreAnyVersion=False;installLocation=auto;largeHeap=False;theme=TitleBar;hardwareAccelerated=true;apiKey=;minSdkVersion=23;targetSdkVersion=35</VerInfo_Keys>
@@ -131,32 +131,12 @@
         <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
         <DCC_DebugDCUs>true</DCC_DebugDCUs>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
-        <DCC_LargeAddressAware>true</DCC_LargeAddressAware>
         <DCC_MapFile>3</DCC_MapFile>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="AppStartup.pas"/>
-        <DCCReference Include="Features\Auth\Auth.Endpoints.pas"/>
-        <DCCReference Include="Features\Dashboard\Dashboard.Endpoints.pas"/>
-        <DCCReference Include="Features\Customers\Customer.Endpoints.pas"/>
-        <DCCReference Include="Features\Settings\Settings.Endpoints.pas"/>
-        <DCCReference Include="Domain\Entities\User.pas"/>
-        <DCCReference Include="Domain\Entities\Customer.pas"/>
-        <DCCReference Include="Domain\Entities\Order.pas"/>
-        <DCCReference Include="Domain\DbContext.pas"/>
-        <DCCReference Include="Domain\DbSeeder.pas"/>
-        <DCCReference Include="Features\Auth\Auth.Service.pas"/>
-        <DCCReference Include="Features\Customers\Customer.Service.pas"/>
-        <DCCReference Include="Features\Dashboard\Dashboard.Service.pas"/>
-        <DCCReference Include="Features\Settings\Settings.Service.pas"/>
-        <DCCReference Include="Features\Shared\Admin.Middleware.pas"/>
-        <DCCReference Include="Features\Shared\Admin.Utils.pas"/>
-        <DCCReference Include="Features\Customers\Customer.Dto.pas"/>
-        <DCCReference Include="Features\Auth\Auth.Dto.pas"/>
-        <DCCReference Include="Features\Settings\Settings.Dto.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -175,7 +155,7 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">Dext.Starter.Admin.dpr</Source>
+                    <Source Name="MainSource">Web.DatabaseAsApi.dpr</Source>
                 </Source>
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dcloffice2k370.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -205,9 +185,9 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="..\Output\Dext.Starter.Admin.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="..\Output\Web.DatabaseAsApi.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>Dext.Starter.Admin.exe</RemoteName>
+                        <RemoteName>Web.DatabaseAsApi.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

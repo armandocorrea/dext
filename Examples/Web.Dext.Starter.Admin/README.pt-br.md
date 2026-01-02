@@ -36,7 +36,7 @@ Um template profissional "SaaS Admin" full-stack construído com **Delphi (Dext)
 A aplicação segue uma arquitetura modular baseada em features (Vertical Slice Architecture), mantendo a lógica relacionada junta.
 
 ```
-Dext.Starter.Admin/
+Web.Dext.Starter.Admin/
 ├── AppStartup.pas          # Configuração de DI & Middleware
 ├── AppResponseConsts.pas   # Templates HTML/JSON Centralizados
 ├── Domain/                 # Entidades & Regras de Negócio Core
@@ -62,7 +62,7 @@ Dext.Starter.Admin/
 
 ### Executando a Aplicação
 
-1.  **Abrir Projeto**: Abra `Dext.Starter.Admin.dpr` no Delphi.
+1.  **Abrir Projeto**: Abra `Web.Dext.Starter.Admin.dpr` no Delphi.
 2.  **Compilar**: Compile o projeto (Console Application).
 3.  **Executar**: Execute o binário. Ele iniciará um servidor web em `http://localhost:8080`.
     *   *Nota*: A primeira execução criará automaticamente o banco de dados SQLite e o populará com dados de demonstração.
@@ -239,7 +239,7 @@ Use os scripts PowerShell incluídos:
 
 ### Porta Já em Uso
 **Problema**: Erro "Address already in use"
-**Solução**: Altere a porta em `Dext.Starter.Admin.dpr` linha 54:
+**Solução**: Altere a porta em `Web.Dext.Starter.Admin.dpr` linha 54:
 ```delphi
 App.Run(8080); // Mude para outra porta, ex: 8081
 ```

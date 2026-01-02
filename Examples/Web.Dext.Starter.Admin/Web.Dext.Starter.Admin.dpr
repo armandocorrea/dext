@@ -1,4 +1,4 @@
-program Dext.Starter.Admin;
+program Web.Dext.Starter.Admin;
 
 {$APPTYPE CONSOLE}
 

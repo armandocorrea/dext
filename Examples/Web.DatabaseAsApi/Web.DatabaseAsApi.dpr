@@ -1,4 +1,4 @@
-program DatabaseAsApi;
+program Web.DatabaseAsApi;
 
 {$APPTYPE CONSOLE}
 

@@ -300,8 +300,8 @@ O repositório contém projetos de exemplo práticos:
 - **`Examples/Web.SwaggerExample`**: Mostra como integrar e customizar a documentação OpenAPI/Swagger.
 - **`Examples/Web.TaskFlowAPI`**: Uma API REST "Mundo Real" completa demonstrando arquitetura em camadas, ORM, Auth e DI.
 - **`Examples/Web.SslDemo`**: Demonstra configuração de SSL/HTTPS usando OpenSSL ou TaurusTLS.
-- **`Examples/Dext.Starter.Admin`**: **(Recomendado)** Um Painel Administrativo Moderno com HTMX, Camada de Serviço e Minimal APIs. [Leia o Guia](Examples/Dext.Starter.Admin/README.md).
-- **`Examples/DatabaseAsApi`**: Demonstra a feature Database as API - REST endpoints zero-code a partir de entities.
+- **`Examples/Web.Dext.Starter.Admin`**: **(Recomendado)** Um Painel Administrativo Moderno com HTMX, Camada de Serviço e Minimal APIs. [Leia o Guia](Examples/Web.Dext.Starter.Admin/README.md).
+- **`Examples/Web.DatabaseAsApi`**: Demonstra a feature Database as API - REST endpoints zero-code a partir de entities.
 - **`Examples/Web.SmartPropsDemo`**: Demonstra o uso de Smart Properties com Model Binding e persistência ORM.
 
 ---

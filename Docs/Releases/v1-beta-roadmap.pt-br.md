@@ -17,7 +17,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 ### 🌐 Dext.Web
 | Feature | Status | Notas |
 |---------|--------|-------|
-| **Minimal APIs** (`MapGet`, `MapPost`) | ✅ Pronto | Testado em `Dext.Starter.Admin` |
+| **Minimal APIs** (`MapGet`, `MapPost`) | ✅ Pronto | Testado em `Web.Dext.Starter.Admin` |
 | **Controllers** (`TController`) | ✅ Pronto | Testado em `Web.ControllerExample` |
 | **Model Binding** (JSON Body -> Record/Class) | ✅ Pronto | Suporte a aninhamento e listas |
 | **Dependency Injection** (Scoped/Singleton/Transient) | ✅ Pronto | Integração total com HttpContext |
@@ -113,7 +113,7 @@ O foco agora é criar **um exemplo para cada funcionalidade** e unificar a docum
 
 ### Atualização de Exemplos Existentes
 - [ ] Atualizar `Web.TaskFlowAPI` para usar os novos recursos de Cookies e Compression.
-- [ ] Revisar `Dext.Starter.Admin` para garantir uso das melhores práticas atuais.
+- [ ] Revisar `Web.Dext.Starter.Admin` para garantir uso das melhores práticas atuais.
 
 ---
 
