@@ -263,5 +263,5 @@ begin
   end;
   
   WriteLn('Press ENTER to exit...');
-  ReadLn;
+  ConsolePause;
 end.

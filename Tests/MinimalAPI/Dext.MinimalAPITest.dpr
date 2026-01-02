@@ -6,6 +6,7 @@ uses
   Dext.MM,
   System.SysUtils,
   System.IOUtils,
+  Dext.Utils,
   Dext.Caching,
   Dext.Web.ApplicationBuilder.Extensions,
   Dext.Web.HandlerInvoker,
@@ -350,13 +351,10 @@ begin
     WriteLn('curl http://localhost:8080/api/request-context');
     WriteLn;
     WriteLn('Press Enter to stop the server...');
-    WriteLn;
-
     Host.Run;
-    Readln;
+    Dext.Utils.ConsolePause;
     Host.Stop;
-    
-    Host := nil; // Explicitly release reference to allow cleanup
+    Host := nil;
 
     WriteLn;
     WriteLn('Server stopped successfully');
@@ -368,8 +366,7 @@ begin
       WriteLn('Exception Class: ', E.ClassName);
       if E.StackTrace <> '' then
         WriteLn('Stack Trace: ', E.StackTrace);
-      WriteLn('Press Enter to exit...');
-      Readln;
+      Dext.Utils.ConsolePause;
     end;
   end;
 end.

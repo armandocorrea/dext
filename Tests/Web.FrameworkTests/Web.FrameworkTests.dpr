@@ -4,6 +4,7 @@
 
 uses
   Dext.MM,
+  Dext.Utils,
   System.SysUtils,
   WebFrameworkTests.Tests.Base in 'WebFrameworkTests.Tests.Base.pas',
   WebFrameworkTests.Tests.Routing in 'WebFrameworkTests.Tests.Routing.pas',
@@ -48,9 +49,5 @@ begin
   end;
 
   // Only pause if not running in automated mode
-  if not FindCmdLineSwitch('no-wait', True) then
-  begin
-    WriteLn('Press Enter to exit...');
-    ReadLn;
-  end;
+  ConsolePause;
 end.

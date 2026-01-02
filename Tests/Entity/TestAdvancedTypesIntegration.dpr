@@ -35,7 +35,8 @@ uses
   Dext.Entity.TypeConverters,
   Dext.Entity.Dialects,
   Dext.Specifications.Interfaces,
-  Dext.Specifications.Base;
+  Dext.Specifications.Base,
+  Dext.Utils;
 
 type
   [Table('test_advanced_entities')]
@@ -202,6 +203,5 @@ begin
   end;
   WriteLn('Done.');
 
-  if (DebugHook <> 0) then
-    ReadLn;
+  ConsolePause;
 end.

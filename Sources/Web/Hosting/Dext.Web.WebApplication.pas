@@ -43,6 +43,7 @@ type
     FScanner: IControllerScanner;
     FConfiguration: IConfiguration;
     FDefaultPort: Integer;
+    FActiveHost: IWebHost; // ✅ Track active host
   public
     constructor Create;
     destructor Destroy; override;
@@ -335,10 +336,16 @@ begin
   end;
 
   WebHost := TIndyWebServer.Create(Port, RequestHandler, FServiceProvider, SSLHandler);
+  
+  // ✅ Store active host so Stop() can access it
+  FActiveHost := WebHost;
 
   try
     WebHost.Run;
   finally
+    // ✅ Release active host reference
+    FActiveHost := nil;
+
     // Update State: Running -> Stopping
     if StateControl <> nil then
       StateControl.SetState(asStopping);
@@ -388,8 +395,11 @@ end;
 
 procedure TDextApplication.Stop;
 begin
-  // Implementation of Stop if needed by IWebHost
-  // In Indy implementation, we might need a way to stop the loop
+  if FActiveHost <> nil then
+  begin
+    Writeln('Stopping active host...');
+    FActiveHost.Stop;
+  end;
 end;
 
 procedure TDextApplication.SetDefaultPort(Port: Integer);

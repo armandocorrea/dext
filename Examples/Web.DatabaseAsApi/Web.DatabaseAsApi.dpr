@@ -207,6 +207,5 @@ begin
   end;
   
   // Only pause if not running in automated mode
-  if not FindCmdLineSwitch('no-wait', True) then
-    ReadLn;
+  ConsolePause;
 end.

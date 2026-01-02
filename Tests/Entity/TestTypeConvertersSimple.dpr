@@ -1,4 +1,4 @@
-program TestTypeConvertersSimple;
+﻿program TestTypeConvertersSimple;
 
 {$APPTYPE CONSOLE}
 
@@ -10,6 +10,7 @@ uses
   FireDAC.Stan.Param,
   FireDAC.Phys.PG,
   Dext.Utils,
+  Dext.Entity.Drivers.FireDAC,
   Dext.Entity.TypeConverters,
   Dext.Entity.Dialects;
 
@@ -33,7 +34,7 @@ begin
     Conn.Params.Values['Port'] := '5432';
     Conn.Params.Values['Database'] := 'dext_test';
     Conn.Params.Values['User_Name'] := 'postgres';
-    Conn.Params.Values['Password'] := 'postgres';
+    Conn.Params.Values['Password'] := 'root';
     Conn.Connected := True;
     
     WriteLn('  ✓ Connected to PostgreSQL');
@@ -44,7 +45,7 @@ begin
     WriteLn('  ✓ Table created');
     
     // Test converter
-    Converter := TGuidConverter.Create;
+    Converter := TGuidConverter.Create(True); // PG requires endian swap
     try
       CreateGUID(TestGuid);
       TValue.Make(@TestGuid, TypeInfo(TGUID), Value);
@@ -113,7 +114,7 @@ begin
     Conn.Params.Values['Port'] := '5432';
     Conn.Params.Values['Database'] := 'dext_test';
     Conn.Params.Values['User_Name'] := 'postgres';
-    Conn.Params.Values['Password'] := 'postgres';
+    Conn.Params.Values['Password'] := 'root';
     Conn.Connected := True;
     
     // Create table
@@ -197,5 +198,5 @@ begin
   end;
   
   WriteLn('Press ENTER to exit...');
-  ReadLn;
+  ConsolePause;
 end.

@@ -132,7 +132,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
   end;
@@ -145,7 +145,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -163,7 +163,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -179,7 +179,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -199,7 +199,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -214,7 +214,7 @@ type
     function QuoteIdentifier(const AName: string): string; override;
     function GeneratePaging(ASkip, ATake: Integer): string; override;
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
@@ -228,7 +228,7 @@ type
   TInterBaseDialect = class(TFirebirdDialect)
   public
     function BooleanToSQL(AValue: Boolean): string; override;
-    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean): string; override;
+    function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
   end;
 
 implementation

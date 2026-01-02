@@ -196,12 +196,6 @@ begin
 
     // 🚀 INICIAR SERVIDOR REAL!
     Host.Run;
-
-    // Manter servidor rodando até Enter
-    Readln;
-
-    Host.Stop;
-
   except
     on E: Exception do
       Writeln('Server error: ', E.ClassName, ': ', E.Message);

@@ -155,8 +155,7 @@ begin
     App.Run(8080);
     
     // Only pause if not running in automated mode
-    if not FindCmdLineSwitch('no-wait', True) then
-      ReadLn;
+    ConsolePause;
 
   except
     on E: Exception do
@@ -165,8 +164,7 @@ begin
       WriteLn('💀 Application terminated');
       
       // Only pause if not running in automated mode
-      if not FindCmdLineSwitch('no-wait', True) then
-        ReadLn;
+      ConsolePause;
     end;
   end;
 end.

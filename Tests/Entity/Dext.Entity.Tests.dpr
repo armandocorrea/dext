@@ -8,15 +8,15 @@ uses
   Dext.MM,
   System.SysUtils,
   Dext.Utils,
-  Dext.Entity.Dialects in '..\Entity\Dext.Entity.Dialects.pas',
-  Dext.Entity.Dialect.PostgreSQL.Test in 'Dext.Entity.Dialect.PostgreSQL.Test.pas',
-  Dext.Entity.Dialect.Firebird.Test in 'Dext.Entity.Dialect.Firebird.Test.pas',
-  Dext.Entity.Dialect.MSSQL.Test in 'Dext.Entity.Dialect.MSSQL.Test.pas',
-  Dext.Entity.Dialect.MySQL.Test in 'Dext.Entity.Dialect.MySQL.Test.pas',
-  Dext.Entity.Dialect.Oracle.Test in 'Dext.Entity.Dialect.Oracle.Test.pas',
-  Dext.Entity.Naming.Test in 'Dext.Entity.Naming.Test.pas',
-  Dext.Entity.Pooling.Test in 'Dext.Entity.Pooling.Test.pas',
-  Dext.Entity.Mapping.Test in 'Dext.Entity.Mapping.Test.pas';
+  Dext.Entity.Dialects,
+  Dext.Entity.Dialect.PostgreSQL.Test,
+  Dext.Entity.Dialect.Firebird.Test,
+  Dext.Entity.Dialect.MSSQL.Test,
+  Dext.Entity.Dialect.MySQL.Test,
+  Dext.Entity.Dialect.Oracle.Test,
+  Dext.Entity.Naming.Test,
+  Dext.Entity.Pooling.Test,
+  Dext.Entity.Mapping.Test;
 
 procedure RunTests;
 var
@@ -105,5 +105,5 @@ begin
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
   end;
-  ReadLn;
+  ConsolePause;
 end.

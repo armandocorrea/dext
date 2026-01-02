@@ -17,6 +17,7 @@ program Web.MinimalAPIExample;
 
 uses
   Dext.MM,
+  Dext.Utils,
   System.DateUtils,
   System.SysUtils,
   Dext.WebHost,
@@ -135,7 +136,7 @@ begin
     Host := Builder.Build;
     Host.Run;
     
-    ReadLn; 
+    ConsolePause;
     Host.Stop;
     
   except

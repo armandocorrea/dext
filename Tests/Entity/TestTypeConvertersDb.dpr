@@ -35,7 +35,8 @@ uses
   Dext.Entity.TypeConverters,
   Dext.Entity.Dialects,
   Dext.Specifications.Interfaces,
-  Dext.Specifications.Base;
+  Dext.Specifications.Base,
+  Dext.Utils;
 
 type
   TUserRole = (urUser, urAdmin, urSuperAdmin);
@@ -728,5 +729,5 @@ begin
   end;
   WriteLn;
   WriteLn('Press ENTER to exit...');
-  ReadLn;
+  ConsolePause;
 end.

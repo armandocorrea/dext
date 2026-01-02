@@ -5,8 +5,7 @@ program TestFireDACPhysDriver;
 uses
   System.SysUtils,
   FireDAC.Stan.Def,
-  FireDAC.Phys.Intf,
-  Dext.Entity.Drivers.FireDAC.Phys in '..\..\Sources\Data\Dext.Entity.Drivers.FireDAC.Phys.pas';
+  FireDAC.Phys.Intf;
 
 begin
   try

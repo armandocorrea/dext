@@ -109,7 +109,7 @@ begin
     // 🚀 INICIAR SERVIDOR REAL!
     Host.Run;
     // Manter servidor rodando até Enter
-    //Readln;
+    ConsolePause;
     Host.Stop;
   except
     on E: Exception do

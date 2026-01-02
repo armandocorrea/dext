@@ -4,6 +4,7 @@ program TestJsonCore;
 
 uses
   Dext.MM,
+  Dext.Utils,
   System.SysUtils,
   System.Generics.Collections,
   Dext.Json;
@@ -22,13 +23,14 @@ type
   private
     FId: Integer;
     FName: string;
-    FPosts: TObjectList<TPost>;
+    FInternalPosts: TObjectList<TPost>;
+    procedure SetPosts(const Value: TObjectList<TPost>);
   public
     constructor Create;
     destructor Destroy; override;
     property Id: Integer read FId write FId;
     property Name: string read FName write FName;
-    property Posts: TObjectList<TPost> read FPosts write FPosts;
+    property Posts: TObjectList<TPost> read FInternalPosts write SetPosts;
   end;
 
   TEntityWithGuid = class
@@ -42,13 +44,22 @@ type
 
 constructor TThread.Create;
 begin
-  FPosts := TObjectList<TPost>.Create;
+  FInternalPosts := TObjectList<TPost>.Create;
 end;
 
 destructor TThread.Destroy;
 begin
-  FPosts.Free;
+  FInternalPosts.Free;
   inherited;
+end;
+
+procedure TThread.SetPosts(const Value: TObjectList<TPost>);
+begin
+  if FInternalPosts <> Value then
+  begin
+    FInternalPosts.Free;
+    FInternalPosts := Value;
+  end;
 end;
 
 procedure TestDeserialization;
@@ -166,5 +177,5 @@ begin
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
   end;
-  ReadLn;
+  ConsolePause;
 end.

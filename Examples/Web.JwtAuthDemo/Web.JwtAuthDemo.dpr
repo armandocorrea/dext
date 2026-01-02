@@ -188,8 +188,7 @@ begin
     App.Run(8080);
     
     // Only pause if not running in automated mode
-    if not FindCmdLineSwitch('no-wait', True) then
-      ReadLn;
+    ConsolePause;
 
     JwtHandler.Free;
 
@@ -202,11 +201,7 @@ begin
       WriteLn('❌ Error: ', E.Message);
       
       // Only pause if not running in automated mode
-      if not FindCmdLineSwitch('no-wait', True) then
-      begin
-        WriteLn('Press Enter to exit...');
-        ReadLn;
-      end;
+      ConsolePause;
     end;
   end;
 end.

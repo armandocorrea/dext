@@ -3,6 +3,9 @@
         <ProjectGuid>{11223344-5566-7788-9900-AABBCCDDEEFF}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
+        <Projects Include="AppBuilder\Dext.AppBuilderTest.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="DI\Dext.DITest.dproj">
             <Dependencies/>
         </Projects>
@@ -15,16 +18,46 @@
         <Projects Include="RouteParams\Dext.RouteParamsTest.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="ServerCors\Dext.ServerTest.Cors.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="ScopedServices\Dext.ScopedServicesTest.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="Server\Dext.ServerTest.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="Entity\InspectDatS.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Entity\TestAdvancedTypesIntegration.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Core\TestCustomConstructors.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Entity\TestFireDACPhysDriver.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="TestJsonCore.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="Core\TestJsonUUID.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Core\TestMapper.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Entity\TestMetadataCache.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Entity\TestMultiTenancy.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="TestOrmInheritance.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Entity\TestSqlGenerationAdv.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="Entity\TestTypeConverters.dproj">
@@ -33,16 +66,7 @@
         <Projects Include="Entity\TestTypeConvertersDb.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="ServerCors\Dext.ServerTest.Cors.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="AppBuilder\Dext.AppBuilderTest.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="Core\TestUUID.dproj">
-            <Dependencies/>
-        </Projects>
-        <Projects Include="Core\TestJsonUUID.dproj">
+        <Projects Include="Entity\TestTypeConvertersSimple.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="Core\TestUtf8Json.dproj">
@@ -51,10 +75,10 @@
         <Projects Include="Core\TestUtf8Serializer.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="Core\TestMapper.dproj">
+        <Projects Include="Core\TestUUID.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="Core\TestCustomConstructors.dproj">
+        <Projects Include="Web.FrameworkTests\Web.FrameworkTests.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -65,6 +89,15 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
+    <Target Name="Dext_AppBuilderTest">
+        <MSBuild Projects="AppBuilder\Dext.AppBuilderTest.dproj"/>
+    </Target>
+    <Target Name="Dext_AppBuilderTest:Clean">
+        <MSBuild Projects="AppBuilder\Dext.AppBuilderTest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Dext_AppBuilderTest:Make">
+        <MSBuild Projects="AppBuilder\Dext.AppBuilderTest.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Dext_DITest">
         <MSBuild Projects="DI\Dext.DITest.dproj"/>
     </Target>
@@ -101,6 +134,15 @@
     <Target Name="Dext_RouteParamsTest:Make">
         <MSBuild Projects="RouteParams\Dext.RouteParamsTest.dproj" Targets="Make"/>
     </Target>
+    <Target Name="Dext_ServerTest_Cors">
+        <MSBuild Projects="ServerCors\Dext.ServerTest.Cors.dproj"/>
+    </Target>
+    <Target Name="Dext_ServerTest_Cors:Clean">
+        <MSBuild Projects="ServerCors\Dext.ServerTest.Cors.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Dext_ServerTest_Cors:Make">
+        <MSBuild Projects="ServerCors\Dext.ServerTest.Cors.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Dext_ScopedServicesTest">
         <MSBuild Projects="ScopedServices\Dext.ScopedServicesTest.dproj"/>
     </Target>
@@ -119,6 +161,42 @@
     <Target Name="Dext_ServerTest:Make">
         <MSBuild Projects="Server\Dext.ServerTest.dproj" Targets="Make"/>
     </Target>
+    <Target Name="InspectDatS">
+        <MSBuild Projects="Entity\InspectDatS.dproj"/>
+    </Target>
+    <Target Name="InspectDatS:Clean">
+        <MSBuild Projects="Entity\InspectDatS.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="InspectDatS:Make">
+        <MSBuild Projects="Entity\InspectDatS.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestAdvancedTypesIntegration">
+        <MSBuild Projects="Entity\TestAdvancedTypesIntegration.dproj"/>
+    </Target>
+    <Target Name="TestAdvancedTypesIntegration:Clean">
+        <MSBuild Projects="Entity\TestAdvancedTypesIntegration.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestAdvancedTypesIntegration:Make">
+        <MSBuild Projects="Entity\TestAdvancedTypesIntegration.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestCustomConstructors">
+        <MSBuild Projects="Core\TestCustomConstructors.dproj"/>
+    </Target>
+    <Target Name="TestCustomConstructors:Clean">
+        <MSBuild Projects="Core\TestCustomConstructors.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestCustomConstructors:Make">
+        <MSBuild Projects="Core\TestCustomConstructors.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestFireDACPhysDriver">
+        <MSBuild Projects="Entity\TestFireDACPhysDriver.dproj"/>
+    </Target>
+    <Target Name="TestFireDACPhysDriver:Clean">
+        <MSBuild Projects="Entity\TestFireDACPhysDriver.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestFireDACPhysDriver:Make">
+        <MSBuild Projects="Entity\TestFireDACPhysDriver.dproj" Targets="Make"/>
+    </Target>
     <Target Name="TestJsonCore">
         <MSBuild Projects="TestJsonCore.dproj"/>
     </Target>
@@ -128,6 +206,42 @@
     <Target Name="TestJsonCore:Make">
         <MSBuild Projects="TestJsonCore.dproj" Targets="Make"/>
     </Target>
+    <Target Name="TestJsonUUID">
+        <MSBuild Projects="Core\TestJsonUUID.dproj"/>
+    </Target>
+    <Target Name="TestJsonUUID:Clean">
+        <MSBuild Projects="Core\TestJsonUUID.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestJsonUUID:Make">
+        <MSBuild Projects="Core\TestJsonUUID.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestMapper">
+        <MSBuild Projects="Core\TestMapper.dproj"/>
+    </Target>
+    <Target Name="TestMapper:Clean">
+        <MSBuild Projects="Core\TestMapper.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestMapper:Make">
+        <MSBuild Projects="Core\TestMapper.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestMetadataCache">
+        <MSBuild Projects="Entity\TestMetadataCache.dproj"/>
+    </Target>
+    <Target Name="TestMetadataCache:Clean">
+        <MSBuild Projects="Entity\TestMetadataCache.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestMetadataCache:Make">
+        <MSBuild Projects="Entity\TestMetadataCache.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestMultiTenancy">
+        <MSBuild Projects="Entity\TestMultiTenancy.dproj"/>
+    </Target>
+    <Target Name="TestMultiTenancy:Clean">
+        <MSBuild Projects="Entity\TestMultiTenancy.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestMultiTenancy:Make">
+        <MSBuild Projects="Entity\TestMultiTenancy.dproj" Targets="Make"/>
+    </Target>
     <Target Name="TestOrmInheritance">
         <MSBuild Projects="TestOrmInheritance.dproj"/>
     </Target>
@@ -136,6 +250,15 @@
     </Target>
     <Target Name="TestOrmInheritance:Make">
         <MSBuild Projects="TestOrmInheritance.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestSqlGenerationAdv">
+        <MSBuild Projects="Entity\TestSqlGenerationAdv.dproj"/>
+    </Target>
+    <Target Name="TestSqlGenerationAdv:Clean">
+        <MSBuild Projects="Entity\TestSqlGenerationAdv.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestSqlGenerationAdv:Make">
+        <MSBuild Projects="Entity\TestSqlGenerationAdv.dproj" Targets="Make"/>
     </Target>
     <Target Name="TestTypeConverters">
         <MSBuild Projects="Entity\TestTypeConverters.dproj"/>
@@ -155,41 +278,14 @@
     <Target Name="TestTypeConvertersDb:Make">
         <MSBuild Projects="Entity\TestTypeConvertersDb.dproj" Targets="Make"/>
     </Target>
-    <Target Name="Dext_ServerTest_Cors">
-        <MSBuild Projects="ServerCors\Dext.ServerTest.Cors.dproj"/>
+    <Target Name="TestTypeConvertersSimple">
+        <MSBuild Projects="Entity\TestTypeConvertersSimple.dproj"/>
     </Target>
-    <Target Name="Dext_ServerTest_Cors:Clean">
-        <MSBuild Projects="ServerCors\Dext.ServerTest.Cors.dproj" Targets="Clean"/>
+    <Target Name="TestTypeConvertersSimple:Clean">
+        <MSBuild Projects="Entity\TestTypeConvertersSimple.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="Dext_ServerTest_Cors:Make">
-        <MSBuild Projects="ServerCors\Dext.ServerTest.Cors.dproj" Targets="Make"/>
-    </Target>
-    <Target Name="Dext_AppBuilderTest">
-        <MSBuild Projects="AppBuilder\Dext.AppBuilderTest.dproj"/>
-    </Target>
-    <Target Name="Dext_AppBuilderTest:Clean">
-        <MSBuild Projects="AppBuilder\Dext.AppBuilderTest.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="Dext_AppBuilderTest:Make">
-        <MSBuild Projects="AppBuilder\Dext.AppBuilderTest.dproj" Targets="Make"/>
-    </Target>
-    <Target Name="TestUUID">
-        <MSBuild Projects="Core\TestUUID.dproj"/>
-    </Target>
-    <Target Name="TestUUID:Clean">
-        <MSBuild Projects="Core\TestUUID.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="TestUUID:Make">
-        <MSBuild Projects="Core\TestUUID.dproj" Targets="Make"/>
-    </Target>
-    <Target Name="TestJsonUUID">
-        <MSBuild Projects="Core\TestJsonUUID.dproj"/>
-    </Target>
-    <Target Name="TestJsonUUID:Clean">
-        <MSBuild Projects="Core\TestJsonUUID.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="TestJsonUUID:Make">
-        <MSBuild Projects="Core\TestJsonUUID.dproj" Targets="Make"/>
+    <Target Name="TestTypeConvertersSimple:Make">
+        <MSBuild Projects="Entity\TestTypeConvertersSimple.dproj" Targets="Make"/>
     </Target>
     <Target Name="TestUtf8Json">
         <MSBuild Projects="Core\TestUtf8Json.dproj"/>
@@ -209,32 +305,32 @@
     <Target Name="TestUtf8Serializer:Make">
         <MSBuild Projects="Core\TestUtf8Serializer.dproj" Targets="Make"/>
     </Target>
-    <Target Name="TestMapper">
-        <MSBuild Projects="Core\TestMapper.dproj"/>
+    <Target Name="TestUUID">
+        <MSBuild Projects="Core\TestUUID.dproj"/>
     </Target>
-    <Target Name="TestMapper:Clean">
-        <MSBuild Projects="Core\TestMapper.dproj" Targets="Clean"/>
+    <Target Name="TestUUID:Clean">
+        <MSBuild Projects="Core\TestUUID.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="TestMapper:Make">
-        <MSBuild Projects="Core\TestMapper.dproj" Targets="Make"/>
+    <Target Name="TestUUID:Make">
+        <MSBuild Projects="Core\TestUUID.dproj" Targets="Make"/>
     </Target>
-    <Target Name="TestCustomConstructors">
-        <MSBuild Projects="Core\TestCustomConstructors.dproj"/>
+    <Target Name="Web_FrameworkTests">
+        <MSBuild Projects="Web.FrameworkTests\Web.FrameworkTests.dproj"/>
     </Target>
-    <Target Name="TestCustomConstructors:Clean">
-        <MSBuild Projects="Core\TestCustomConstructors.dproj" Targets="Clean"/>
+    <Target Name="Web_FrameworkTests:Clean">
+        <MSBuild Projects="Web.FrameworkTests\Web.FrameworkTests.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="TestCustomConstructors:Make">
-        <MSBuild Projects="Core\TestCustomConstructors.dproj" Targets="Make"/>
+    <Target Name="Web_FrameworkTests:Make">
+        <MSBuild Projects="Web.FrameworkTests\Web.FrameworkTests.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="Dext_DITest;Dext_Entity_Tests;Dext_MinimalAPITest;Dext_RouteParamsTest;Dext_ScopedServicesTest;Dext_ServerTest;TestJsonCore;TestOrmInheritance;TestTypeConverters;TestTypeConvertersDb;Dext_ServerTest_Cors;Dext_AppBuilderTest;TestUUID;TestJsonUUID;TestUtf8Json;TestUtf8Serializer;TestMapper;TestCustomConstructors"/>
+        <CallTarget Targets="Dext_AppBuilderTest;Dext_DITest;Dext_Entity_Tests;Dext_MinimalAPITest;Dext_RouteParamsTest;Dext_ServerTest_Cors;Dext_ScopedServicesTest;Dext_ServerTest;InspectDatS;TestAdvancedTypesIntegration;TestCustomConstructors;TestFireDACPhysDriver;TestJsonCore;TestJsonUUID;TestMapper;TestMetadataCache;TestMultiTenancy;TestOrmInheritance;TestSqlGenerationAdv;TestTypeConverters;TestTypeConvertersDb;TestTypeConvertersSimple;TestUtf8Json;TestUtf8Serializer;TestUUID;Web_FrameworkTests"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Dext_DITest:Clean;Dext_Entity_Tests:Clean;Dext_MinimalAPITest:Clean;Dext_RouteParamsTest:Clean;Dext_ScopedServicesTest:Clean;Dext_ServerTest:Clean;TestJsonCore:Clean;TestOrmInheritance:Clean;TestTypeConverters:Clean;TestTypeConvertersDb:Clean;Dext_ServerTest_Cors:Clean;Dext_AppBuilderTest:Clean;TestUUID:Clean;TestJsonUUID:Clean;TestUtf8Json:Clean;TestUtf8Serializer:Clean;TestMapper:Clean;TestCustomConstructors:Clean"/>
+        <CallTarget Targets="Dext_AppBuilderTest:Clean;Dext_DITest:Clean;Dext_Entity_Tests:Clean;Dext_MinimalAPITest:Clean;Dext_RouteParamsTest:Clean;Dext_ServerTest_Cors:Clean;Dext_ScopedServicesTest:Clean;Dext_ServerTest:Clean;InspectDatS:Clean;TestAdvancedTypesIntegration:Clean;TestCustomConstructors:Clean;TestFireDACPhysDriver:Clean;TestJsonCore:Clean;TestJsonUUID:Clean;TestMapper:Clean;TestMetadataCache:Clean;TestMultiTenancy:Clean;TestOrmInheritance:Clean;TestSqlGenerationAdv:Clean;TestTypeConverters:Clean;TestTypeConvertersDb:Clean;TestTypeConvertersSimple:Clean;TestUtf8Json:Clean;TestUtf8Serializer:Clean;TestUUID:Clean;Web_FrameworkTests:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Dext_DITest:Make;Dext_Entity_Tests:Make;Dext_MinimalAPITest:Make;Dext_RouteParamsTest:Make;Dext_ScopedServicesTest:Make;Dext_ServerTest:Make;TestJsonCore:Make;TestOrmInheritance:Make;TestTypeConverters:Make;TestTypeConvertersDb:Make;Dext_ServerTest_Cors:Make;Dext_AppBuilderTest:Make;TestUUID:Make;TestJsonUUID:Make;TestUtf8Json:Make;TestUtf8Serializer:Make;TestMapper:Make;TestCustomConstructors:Make"/>
+        <CallTarget Targets="Dext_AppBuilderTest:Make;Dext_DITest:Make;Dext_Entity_Tests:Make;Dext_MinimalAPITest:Make;Dext_RouteParamsTest:Make;Dext_ServerTest_Cors:Make;Dext_ScopedServicesTest:Make;Dext_ServerTest:Make;InspectDatS:Make;TestAdvancedTypesIntegration:Make;TestCustomConstructors:Make;TestFireDACPhysDriver:Make;TestJsonCore:Make;TestJsonUUID:Make;TestMapper:Make;TestMetadataCache:Make;TestMultiTenancy:Make;TestOrmInheritance:Make;TestSqlGenerationAdv:Make;TestTypeConverters:Make;TestTypeConvertersDb:Make;TestTypeConvertersSimple:Make;TestUtf8Json:Make;TestUtf8Serializer:Make;TestUUID:Make;Web_FrameworkTests:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

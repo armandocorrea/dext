@@ -51,7 +51,8 @@ begin
     TAppStartup.RunSeeder(App);
 
     Writeln('[*] Dext Admin Starter running at http://localhost:8080');
-    App.Run(8080);
+    // Only pause if not running in automated mode
+    ConsolePause;
 
   except
     on E: Exception do
@@ -59,8 +60,7 @@ begin
       Writeln(E.ClassName, ': ', E.Message);
       
       // Only pause if not running in automated mode
-      if not FindCmdLineSwitch('no-wait', True) then
-        ReadLn;
+      ConsolePause;
     end;
   end;
 end.

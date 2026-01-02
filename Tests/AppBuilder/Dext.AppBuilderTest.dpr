@@ -13,6 +13,7 @@ uses
   Dext.Web.Middleware,
   Dext.Logging,
   Dext.Logging.Console,
+  Dext.Utils,
   Dext.Web.Mocks in '..\Common\Dext.Web.Mocks.pas';
 
 {$APPTYPE CONSOLE}
@@ -84,5 +85,5 @@ begin
   end;
 
   Writeln('Press Enter to exit...');
-  Readln;
+  ConsolePause;
 end.

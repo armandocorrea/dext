@@ -187,9 +187,8 @@ begin
     WriteLn;
 
     App.Run(8080);
-
-    if not FindCmdLineSwitch('no-wait', True) then
-      ReadLn;
+    
+    ConsolePause;
 
     WriteLn('[OK] Server stopped successfully');
 
@@ -197,11 +196,7 @@ begin
     on E: Exception do
     begin
       WriteLn('[ERROR] ', E.Message);
-      if not FindCmdLineSwitch('no-wait', True) then
-      begin
-        WriteLn('Press Enter to exit...');
-        ReadLn;
-      end;
+      ConsolePause;
     end;
   end;
 end.

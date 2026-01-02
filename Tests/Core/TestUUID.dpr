@@ -3,6 +3,7 @@
 {$APPTYPE CONSOLE}
 
 uses
+  Dext.Utils,
   System.SysUtils,
   Dext.Types.UUID in '..\..\Sources\Core\Dext.Types.UUID.pas';
 
@@ -193,5 +194,5 @@ begin
   
   WriteLn;
   WriteLn('Press ENTER to exit...');
-  ReadLn;
+  ConsolePause;
 end.

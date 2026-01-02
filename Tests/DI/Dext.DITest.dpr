@@ -1,4 +1,4 @@
-program Dext.DITest;
+Ôªøprogram Dext.DITest;
 
 uses
   Dext.MM,
@@ -63,10 +63,10 @@ var
   DataService: IDataService;
 begin
   try
-    // Configurar serviÁos
+    // Configurar servi√ßos
     Services := TDextServiceCollection.Create;
 
-    // Registrar serviÁos usando helpers genÈricos - agora com interfaces!
+    // Registrar servi√ßos usando helpers gen√©ricos - agora com interfaces!
     TServiceCollectionExtensions.AddSingleton<ILogger, TConsoleLogger>(Services);
     // TServiceCollectionExtensions.AddTransient<IDataService, TDataService>(Services);
     // Registrar IDataService com factory para injetar ILogger
@@ -82,18 +82,18 @@ begin
     // Construir provider
     Provider := Services.BuildServiceProvider;
 
-    // Resolver serviÁos
+    // Resolver servi√ßos
     Logger := TServiceProviderExtensions.GetService<ILogger>(Provider);
     DataService := TServiceProviderExtensions.GetService<IDataService>(Provider);
 
-    // Usar serviÁos
+    // Usar servi√ßos
     if Assigned(Logger) then
       Logger.Log('Application started');
 
     if Assigned(DataService) then
       Writeln('Data: ', DataService.GetData);
 
-    // Testar singleton - mesma inst‚ncia
+    // Testar singleton - mesma inst√¢ncia
     var Logger2: ILogger := TServiceProviderExtensions.GetService<ILogger>(Provider);
     if Logger = Logger2 then
       Writeln('? Singleton working - same instance')

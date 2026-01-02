@@ -7,6 +7,7 @@ uses
   System.Rtti,
   System.Generics.Collections,
   Dext,
+  Dext.Utils,
   Dext.Entity.Mapping,
   Dext.Specifications.SQL.Generator,
   Dext.Entity.Dialects;

@@ -11,7 +11,8 @@ uses
   Dext.Web.Interfaces,
   Dext.WebHost,
   Dext.Web.ApplicationBuilder.Extensions,
-  Dext.Web.Results;
+  Dext.Web.Results,
+  Dext.Utils;
 
 type
   // Interface for a request-scoped service
@@ -163,8 +164,7 @@ begin
     WriteLn;
 
     Host.Run;
-    Readln;
-    Host.Stop;
+    ConsolePause;
 
     WriteLn;
     WriteLn('Server stopped successfully');
@@ -173,8 +173,7 @@ begin
     on E: Exception do
     begin
       WriteLn('Error: ', E.Message);
-      WriteLn('Press Enter to exit...');
-      Readln;
+      ConsolePause;
     end;
   end;
 end.

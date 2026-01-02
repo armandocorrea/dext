@@ -5,6 +5,7 @@
 uses
   Dext.MM,
   System.SysUtils,
+  Dext.Utils,
   Dext.DI.Interfaces,
   Dext.DI.Extensions,
   Dext.Web.Interfaces,
@@ -110,9 +111,7 @@ begin
     WriteLn;
 
     Host.Run;
-    Readln;
-    Host.Stop;
-
+    ConsolePause;
   except
     on E: Exception do
     begin

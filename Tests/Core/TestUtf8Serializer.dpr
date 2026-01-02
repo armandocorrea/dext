@@ -3,6 +3,7 @@ program TestUtf8Serializer;
 {$APPTYPE CONSOLE}
 
 uses
+  Dext.Utils,
   System.SysUtils,
   Dext.Core.Span in '..\..\Sources\Core\Base\Dext.Core.Span.pas',
   Dext.Json.Utf8 in '..\..\Sources\Core\Json\Dext.Json.Utf8.pas',
@@ -46,5 +47,5 @@ begin
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
   end;
-  Readln;
+  ConsolePause;
 end.

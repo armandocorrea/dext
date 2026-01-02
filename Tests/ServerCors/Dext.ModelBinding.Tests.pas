@@ -533,7 +533,7 @@ begin
 
     ServiceTest.UserService := nil;
     ServiceTest.Logger := nil;
-    ServiceTest.Database.Free;
+    // ServiceTest.Database is managed by DI container (Singleton), do not free manually!
     ServiceTest.MissingService := nil;
     ServiceTest.NormalField := 0;
 

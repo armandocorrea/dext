@@ -1132,33 +1132,35 @@ begin
   try
     var Context := TRttiContext.Create;
     var BindingProvider := TBindingSourceProvider.Create;
+    try
+      // Testar CreateUser method
+      var CreateUserMethod := Context.GetType(TUserController).GetMethod('CreateUser');
+      var CreateUserParams := CreateUserMethod.GetParameters;
 
-    // Testar CreateUser method
-    var CreateUserMethod := Context.GetType(TUserController).GetMethod('CreateUser');
-    var CreateUserParams := CreateUserMethod.GetParameters;
+      Writeln('CreateUser Method Parameters:');
+      for var Param in CreateUserParams do
+      begin
+        var Source := BindingProvider.GetBindingSource(Param);
+        var Name := BindingProvider.GetBindingName(Param);
+        Writeln('  - ', Param.Name, ' -> ', GetEnumName(TypeInfo(TBindingSource), Ord(Source)), ' (', Name, ')');
+      end;
 
-    Writeln('CreateUser Method Parameters:');
-    for var Param in CreateUserParams do
-    begin
-      var Source := BindingProvider.GetBindingSource(Param);
-      var Name := BindingProvider.GetBindingName(Param);
-      Writeln('  - ', Param.Name, ' -> ', GetEnumName(TypeInfo(TBindingSource), Ord(Source)), ' (', Name, ')');
+      // Testar GetUser method
+      var GetUserMethod := Context.GetType(TUserController).GetMethod('GetUser');
+      var GetUserParams := GetUserMethod.GetParameters;
+
+      Writeln('GetUser Method Parameters:');
+      for var Param in GetUserParams do
+      begin
+        var Source := BindingProvider.GetBindingSource(Param);
+        var Name := BindingProvider.GetBindingName(Param);
+        Writeln('  - ', Param.Name, ' -> ', GetEnumName(TypeInfo(TBindingSource), Ord(Source)), ' (', Name, ')');
+      end;
+
+      Writeln('=== SUCESSO CENÁRIOS REAIS! ===');
+    finally
+      BindingProvider.Free;
     end;
-
-    // Testar GetUser method
-    var GetUserMethod := Context.GetType(TUserController).GetMethod('GetUser');
-    var GetUserParams := GetUserMethod.GetParameters;
-
-    Writeln('GetUser Method Parameters:');
-    for var Param in GetUserParams do
-    begin
-      var Source := BindingProvider.GetBindingSource(Param);
-      var Name := BindingProvider.GetBindingName(Param);
-      Writeln('  - ', Param.Name, ' -> ', GetEnumName(TypeInfo(TBindingSource), Ord(Source)), ' (', Name, ')');
-    end;
-
-    Writeln('=== SUCESSO CENÁRIOS REAIS! ===');
-
   except
     on E: Exception do
       Writeln('ERRO Cenários Reais: ', E.Message);

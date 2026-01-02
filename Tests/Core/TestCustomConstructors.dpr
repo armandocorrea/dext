@@ -5,6 +5,7 @@
 uses
   Dext.MM,
   System.SysUtils,
+  Dext.Utils,
   Dext,
   Dext.DI.Core,
   Dext.DI.Interfaces,
@@ -160,5 +161,5 @@ begin
   
   WriteLn;
   WriteLn('Press ENTER to exit...');
-  ReadLn;
+  ConsolePause;
 end.

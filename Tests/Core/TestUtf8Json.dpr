@@ -3,6 +3,7 @@ program TestUtf8Json;
 {$APPTYPE CONSOLE}
 
 uses
+  Dext.Utils,
   System.SysUtils,
   System.Classes,
   Dext.Core.Span in '..\..\Sources\Core\Base\Dext.Core.Span.pas',
@@ -130,5 +131,5 @@ begin
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
   end;
-  Readln;
+  ConsolePause;
 end.

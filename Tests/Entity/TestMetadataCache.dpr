@@ -1,4 +1,4 @@
-program TestMetadataCache;
+﻿program TestMetadataCache;
 
 {$APPTYPE CONSOLE}
 

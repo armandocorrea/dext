@@ -97,8 +97,7 @@ begin
   except
     on E: Exception do
     begin
-      WriteLn('❌ Error: ', E.ClassName, ': ', E.Message);
-      ReadLn;
+      ConsolePause;
     end;
   end;
 end.

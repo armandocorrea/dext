@@ -367,7 +367,7 @@ begin
     Writeln('');
 
     Host.Run;
-    Readln;
+    ConsolePause;
     Host.Stop;
 
     Writeln('');

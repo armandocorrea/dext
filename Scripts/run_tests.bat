@@ -20,24 +20,13 @@ echo Step 1: Building All Tests
 echo ==========================================
 echo.
 
-REM Build all test projects
 for /r "%~dp0..\Tests" %%f in (*.dproj) do (
     set "PROJECT_NAME=%%~nf"
     set "PROJECT_FILE=%%f"
     
-    REM Check if it's a test project (contains "Test" in name)
     echo !PROJECT_NAME! | findstr /i "test" >nul
     if !ERRORLEVEL! EQU 0 (
-        echo Building: !PROJECT_NAME!
-        msbuild "!PROJECT_FILE!" /t:Rebuild /p:Config=Debug /p:Platform=Win32 /v:minimal /nologo
-        
-        if !ERRORLEVEL! NEQ 0 (
-            echo [BUILD FAILED] !PROJECT_NAME!
-            set /a BUILD_FAIL_COUNT+=1
-        ) else (
-            echo [BUILD OK] !PROJECT_NAME!
-        )
-        echo.
+        call :build_project "!PROJECT_NAME!" "!PROJECT_FILE!"
     )
 )
 
@@ -47,46 +36,13 @@ echo Step 2: Running All Tests
 echo ==========================================
 echo.
 
-REM Run all test executables
 for /r "%~dp0..\Tests" %%f in (*.dproj) do (
     set "PROJECT_NAME=%%~nf"
     set "PROJECT_DIR=%%~dpf"
     
-    REM Check if it's a test project (contains "Test" in name)
     echo !PROJECT_NAME! | findstr /i "test" >nul
     if !ERRORLEVEL! EQU 0 (
-        echo.
-        echo ==========================================
-        echo Testing: !PROJECT_NAME!
-        echo ==========================================
-        
-        REM Try to find the executable in common output locations
-        set "EXE_FOUND="
-        for %%d in ("%~dp0..\Tests\Output" "!PROJECT_DIR!Output" "!PROJECT_DIR!..\..\Output" "!PROJECT_DIR!Win32\Debug" "!PROJECT_DIR!Win32\Release" "!PROJECT_DIR!Debug" "!PROJECT_DIR!Release") do (
-            if exist "%%~d\!PROJECT_NAME!.exe" (
-                set "EXE_PATH=%%~d\!PROJECT_NAME!.exe"
-                set "EXE_FOUND=1"
-                goto :run_test
-            )
-        )
-        
-        :run_test
-        if defined EXE_FOUND (
-            echo Running: !EXE_PATH!
-            "!EXE_PATH!" --no-wait
-            
-            if !ERRORLEVEL! EQU 0 (
-                echo [PASSED] !PROJECT_NAME!
-                set /a SUCCESS_COUNT+=1
-            ) else (
-                echo [FAILED] !PROJECT_NAME! (Exit code: !ERRORLEVEL!)
-                set FAILED_TESTS=!FAILED_TESTS! !PROJECT_NAME!
-                set /a FAIL_COUNT+=1
-            )
-        ) else (
-            echo [SKIPPED] !PROJECT_NAME! - Executable not found
-            set /a SKIPPED_COUNT+=1
-        )
+        call :run_project "!PROJECT_NAME!" "!PROJECT_DIR!"
     )
 )
 
@@ -128,4 +84,77 @@ if not "%FAILED_TESTS%"=="" (
     )
 )
 
-Pause
+goto :eof
+
+REM ---------------------------------------------------------------------------
+REM Subroutines
+REM ---------------------------------------------------------------------------
+
+:build_project
+    set "P_NAME=%~1"
+    set "P_FILE=%~2"
+    
+    echo Building: !P_NAME!
+    REM Use OutputPath override to ensure all tests go to Tests\Output
+    msbuild "!P_FILE!" /t:Make /p:Config=Debug /p:Platform=Win32 /p:DCC_ExeOutput="%~dp0..\Tests\Output" /v:minimal /nologo
+    
+    if !ERRORLEVEL! NEQ 0 (
+        echo [BUILD FAILED] !P_NAME!
+        set /a BUILD_FAIL_COUNT+=1
+    ) else (
+        echo [BUILD OK] !P_NAME!
+    )
+    echo.
+    exit /b 0
+
+:run_project
+    set "P_NAME=%~1"
+    set "P_DIR=%~2"
+    
+    echo.
+    echo ==========================================
+    echo Testing: !P_NAME!
+    echo ==========================================
+    
+    set "EXE_FOUND="
+    set "EXE_PATH="
+    
+    REM Priority 1: Check shared Tests\Output (as requested by user)
+    if exist "%~dp0..\Tests\Output\!P_NAME!.exe" (
+        set "EXE_PATH=%~dp0..\Tests\Output\!P_NAME!.exe"
+        set "EXE_FOUND=1"
+    )
+    
+    REM Priority 2: Check local Output
+    if not defined EXE_FOUND (
+        if exist "!P_DIR!Output\!P_NAME!.exe" (
+            set "EXE_PATH=!P_DIR!Output\!P_NAME!.exe"
+            set "EXE_FOUND=1"
+        )
+    )
+    
+    REM Priority 3: Check standard Delphi output folders
+    if not defined EXE_FOUND (
+        if exist "!P_DIR!Win32\Debug\!P_NAME!.exe" (
+            set "EXE_PATH=!P_DIR!Win32\Debug\!P_NAME!.exe"
+            set "EXE_FOUND=1"
+        )
+    )
+
+    if defined EXE_FOUND (
+        echo Running: !EXE_PATH!
+        "!EXE_PATH!" -no-wait
+        
+        if !ERRORLEVEL! EQU 0 (
+            echo [PASSED] !P_NAME!
+            set /a SUCCESS_COUNT+=1
+        ) else (
+            echo [FAILED] !P_NAME! (Exit code: !ERRORLEVEL!)
+            set FAILED_TESTS=!FAILED_TESTS! !P_NAME!
+            set /a FAIL_COUNT+=1
+        )
+    ) else (
+        echo [SKIPPED] !P_NAME! - Executable not found
+        set /a SKIPPED_COUNT+=1
+    )
+    exit /b 0

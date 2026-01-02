@@ -6,6 +6,7 @@ uses
   Dext.MM,
   System.Rtti,
   System.SysUtils,
+  Dext.Utils,
   System.Generics.Collections,
   Dext.Mapper,
   DUnitX.TestFramework;
@@ -181,7 +182,7 @@ begin
     User.Age := 20;
 
     // Request with ONLY name changed
-    FillChar(UserDTO, SizeOf(UserDTO), 0);
+    UserDTO := Default(TUserDTORec);
     UserDTO.LastName := 'Updated LastName';
 
     TMapper.Map<TUserDTORec, TUser>(UserDTO, User, True);
@@ -208,7 +209,7 @@ begin
 
   User := TUser.Create;
   try
-    FillChar(UserDTO, SizeOf(UserDTO), 0);
+    UserDTO := Default(TUserDTORec);
     UserDTO.Id := 1;
     UserDTO.FirstName := 'User';
     UserDTO.LastName := 'Test';
@@ -307,7 +308,7 @@ begin
     // Create 3 users
     for var I := 1 to 3 do
     begin
-      FillChar(DTO, SizeOf(DTO), 0);
+      DTO := Default(TUserDTORec);
       DTO.Id := I;
       DTO.FirstName := 'User' + I.ToString;
       DTO.LastName := 'Test';
@@ -328,6 +329,7 @@ begin
       Users.Free;
     end;
   finally
+    DTOs.Free;
   end;
   WriteLn;
 end;
@@ -362,6 +364,7 @@ begin
         WriteLn('  - ', DTO.FirstName, ' (', DTO.Email, ')');
       WriteLn('✓ List Model To Record Mapping OK');
     finally
+      DTOs.Free;
     end;
   finally
     for User in Users do
@@ -399,5 +402,5 @@ begin
   
   WriteLn;
   WriteLn('Press ENTER to exit...');
-  ReadLn;
+  ConsolePause;
 end.

@@ -43,8 +43,8 @@ uses
 
 function ConsolePause: Boolean;
 begin
-  Result := not FindCmdLineSwitch('no-wait', True);
-  if Result then
+  Result := FindCmdLineSwitch('no-wait', ['-', '\'], True);
+  if not Result then
   begin
     Write('Press <ENTER> to continue...');
     ReadLn;
