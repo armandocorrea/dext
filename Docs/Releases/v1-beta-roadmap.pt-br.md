@@ -26,7 +26,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 | **Cookies** | ✅ Pronto | Leitura/Escrita com opções de segurança |
 | **Multipart/Form-Data** | ✅ Pronto | Upload de arquivos via `IFormFile` |
 | **Response Compression** | ✅ Pronto | GZip nativo |
-| **HTTPS/SSL** | ✅ Pronto | Suporte OpenSSL 1.1 e 3.0 |
+| **HTTPS/SSL** | 🟡 Precisa de Validação | Testes necessários para todas as versões (OpenSSL 1.0.2, 1.1, 3.0) e integração Taurus TLS |
 | **CORS** | ✅ Pronto | Middleware com Policy Builder |
 | **Rate Limiting** | ✅ Pronto | Token Bucket & Fixed Window |
 | **Health Checks** | ✅ Pronto | Endpoint `/health` extensível |

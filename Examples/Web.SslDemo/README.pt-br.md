@@ -50,3 +50,20 @@ openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt -days 365 
 2.  Certifique-se de que as DLLs e os arquivos `.crt`/`.key` estejam no mesmo diretório do executável.
 3.  Execute a aplicação.
 4.  Acesse `https://localhost:8080`.
+
+## Testando
+
+Execute o script de teste (testa modo HTTP por padrão):
+```powershell
+.\Test.Web.SslDemo.ps1
+```
+
+## 🔗 Veja Também
+
+- [Documentação do Dext Framework](../../README.pt-br.md)
+- [Web.JwtAuthDemo](../Web.JwtAuthDemo) - Exemplo de autenticação JWT
+
+## Problemas Conhecidos
+
+- **ERR_SSL_PROTOCOL_ERROR / ERR_TIMED_OUT**: Algumas combinações de Windows/Indy/DLLs OpenSSL podem falhar no handshake mesmo com a configuração correta. Isso geralmente se deve a incompatibilidade estrita de versão TLS ou arquitetura de DLL (32 vs 64 bits).
+- Se encontrar problemas persistentes, tente testar com o provedor **Taurus TLS**, que permite usar versões modernas e suportadas do OpenSSL.

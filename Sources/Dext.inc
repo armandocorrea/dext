@@ -31,7 +31,8 @@
 // Define DEXT_ENABLE_SSL to enable HTTPS/SSL support in the framework.
 // Note: Requires OpenSSL libraries (libeay32.dll, ssleay32.dll) or compatible provider.
 {$DEFINE DEXT_ENABLE_SSL}
-// {.$DEFINE DEXT_ENABLE_TAURUS_TLS}
+// Define DEXT_ENABLE_TAURUS_TLS to enable Taurus TLS support (OpenSSL 1.1.x / 3.x)
+{.$DEFINE DEXT_ENABLE_TAURUS_TLS}
 
 //---------------------------------------------------------------------------
 // Database Drivers

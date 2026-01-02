@@ -50,3 +50,33 @@ openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt -days 365 
 2.  Ensure the DLLs and `.crt`/`.key` files are in the same directory as the executable.
 3.  Run the application.
 4.  Access `https://localhost:8080`.
+
+## Troubleshooting
+
+### ERR_CONNECTION_CLOSED
+- Means the server closed connection during handshake.
+- Check if you have valid certificates.
+- Check if `server.crt` and `server.key` match.
+
+### ERR_TIMED_OUT (Indy/OpenSSL)
+- Common issue with OpenSSL DLL incompatibility.
+- **Solution**: Ensure you are using OpenSSL **1.0.2u** DLLs (`libeay32.dll`, `ssleay32.dll`) in the same folder as the executable.
+- Note: Standard Indy does NOT support OpenSSL 1.1.x or 3.x.
+
+### Taurus TLS (OpenSSL 1.1+/3.0+)
+To use modern OpenSSL versions, switch to Taurus TLS provider:
+1. Ensure `DEXT_ENABLE_TAURUS_TLS` is defined in `Dext.inc`.
+2. Install Taurus TLS library in Delphi.
+3. Update `appsettings.json`:
+   ```json
+   "SslProvider": "Taurus"
+   ```
+4. Use OpenSSL 1.1.x or 3.x DLLs (`libcrypto-*.dll`, `libssl-*.dll`).
+
+## Known Issues
+
+- **ERR_SSL_PROTOCOL_ERROR / ERR_TIMED_OUT**: Some combinations of Windows/Indy/OpenSSL DLLs may fail the handshake even with correct configuration. This is often due to strict TLS version mismatch or DLL architecture mismatch (32 vs 64 bit). 
+- If you encounter persistent issues, try testing with the **Taurus TLS** provider which allows using modern, supported OpenSSL versions.
+
+- [Dext Framework Documentation](../../README.md)
+- [Web.JwtAuthDemo](../Web.JwtAuthDemo) - JWT Authentication example

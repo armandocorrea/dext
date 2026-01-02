@@ -119,7 +119,17 @@ procedure TIndyWebServer.ConfigureSecureServer;
 begin
   if FSSLHandler <> nil then
   begin
-    FHTTPServer.IOHandler := FSSLHandler.CreateIOHandler(FHTTPServer);
+    Writeln('[DEBUG] Configuring Secure Server IOHandler...');
+    try
+      FHTTPServer.IOHandler := FSSLHandler.CreateIOHandler(FHTTPServer);
+      if FHTTPServer.IOHandler <> nil then
+        Writeln('[DEBUG] IOHandler assigned successfully: ', FHTTPServer.IOHandler.ClassName)
+      else
+        Writeln('[ERROR] IOHandler creation failed (returned nil). Check DEXT_ENABLE_SSL definition.');
+    except
+      on E: Exception do
+        Writeln('[ERROR] Exception configuring IOHandler: ', E.Message);
+    end;
   end;
 end;
 
@@ -167,8 +177,12 @@ begin
   if not FHTTPServer.Active then
   begin
     FHTTPServer.Active := True;
-    Writeln(Format('Dext server running on http://localhost:%d', [FPort]));
-    if FSSLHandler <> nil then
+    var Protocol := 'http';
+    if FHTTPServer.IOHandler <> nil then 
+      Protocol := 'https';
+
+    Writeln(Format('Dext server running on %s://localhost:%d', [Protocol, FPort]));
+    if FHTTPServer.IOHandler <> nil then
       Writeln('HTTPS Enabled.');
 
     // Check for automated test mode

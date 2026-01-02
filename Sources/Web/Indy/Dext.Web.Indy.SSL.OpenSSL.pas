@@ -51,7 +51,8 @@ begin
     LIOHandler.SSLOptions.RootCertFile := FRootFile;
 
   LIOHandler.SSLOptions.Mode := sslmServer;
-  LIOHandler.SSLOptions.Method := sslvTLSv1_2;
+  LIOHandler.SSLOptions.Method := sslvTLSv1_2; // Strict TLS 1.2
+  LIOHandler.SSLOptions.SSLVersions := [sslvTLSv1_2];
 
   Result := LIOHandler;
   {$ELSE}
