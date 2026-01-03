@@ -4,6 +4,7 @@ program Web.UUIDExample;
 
 uses
   Dext.MM,
+  Dext.Utils,
   System.SysUtils,
   System.DateUtils,
   Dext,
