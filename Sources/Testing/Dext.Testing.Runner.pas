@@ -187,7 +187,6 @@ type
     class function GetCategories(Method: TRttiMethod): TArray<string>;
     class function IsExplicit(Method: TRttiMethod): Boolean;
     class function GetIgnoreReason(Method: TRttiMethod): string;
-    class function GetTimeout(Method: TRttiMethod): Integer;
     class function GetRepeatCount(Method: TRttiMethod): Integer;
     class function GetMaxTime(Method: TRttiMethod): Integer;
     class function GetPriority(Method: TRttiMethod): Integer;
@@ -202,6 +201,9 @@ type
     class procedure PrintTestResult(const Info: TTestInfo);
     class procedure PrintSummary;
     class procedure PrintResultChar(Result: TTestResult);
+  protected
+    // TODO: Implement timeout enforcement using TTask + TCancellationTokenSource
+    class function GetTimeout(Method: TRttiMethod): Integer;
   public
     /// <summary>
     ///   Discovers all test fixtures in the application.
@@ -623,6 +625,7 @@ class function TTestRunner.GetTimeout(Method: TRttiMethod): Integer;
 var
   TimeoutAttr: TimeoutAttribute;
 begin
+  // TODO: Use this to enforce test timeout (requires TTask/TThread implementation)
   TimeoutAttr := GetAttribute<TimeoutAttribute>(Method.GetAttributes);
   if Assigned(TimeoutAttr) then
     Result := TimeoutAttr.Milliseconds
@@ -1048,7 +1051,7 @@ begin
     trPassed:
       begin
         Write('  ✅  ');
-        WriteLn(Format('%s (%dms)', [Info.DisplayName, Info.Duration.Milliseconds]));
+        WriteLn(Format('%s (%dms)', [Info.DisplayName, Round(Info.Duration.TotalMilliseconds)]));
         if Info.ErrorMessage <> '' then
         begin
           Write('      ⚠️  Warning: ' + Info.ErrorMessage);
@@ -1116,8 +1119,11 @@ begin
   
   WriteLn;
   
-  // Duration
-  WriteLn(Format('  ⏱️  Duration:  %.3fs', [FSummary.TotalDuration.TotalSeconds]));
+  // Duration - show ms if under 1 second, otherwise show seconds
+  if FSummary.TotalDuration.TotalSeconds < 1 then
+    WriteLn(Format('  ⏱️  Duration:  %dms', [Round(FSummary.TotalDuration.TotalMilliseconds)]))
+  else
+    WriteLn(Format('  ⏱️  Duration:  %.3fs', [FSummary.TotalDuration.TotalSeconds]));
   
   // Pass rate - colored based on percentage
   Write('  📈  Pass Rate: ');

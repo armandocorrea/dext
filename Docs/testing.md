@@ -202,6 +202,20 @@ Should(User).BeOfType<TAdmin>;
 
 // Deep Comparison (using JSON serialization)
 Should(Dto1).BeEquivalentTo(Dto2);
+
+### Strongly Typed Assertions (Smart Properties)
+Ideally suited for refactoring-safe tests using `Prop<T>`:
+
+```pascal
+var u: TUser;
+...
+u := Prototype.Entity<TUser>; // Create prototype
+
+Should(User)
+  .HavePropertyValue(u.Name, 'Alice')
+  .AndAlso
+  .HavePropertyValue(u.Age, 30);
+```
 ```
 
 ### Actions (Exceptions)

@@ -29,22 +29,22 @@ echo.
 cd "%~dp0..\Sources"
 
 echo Building Dext.Core...
-msbuild "Dext.Core.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /v:minimal
+msbuild "Dext.Core.dproj" /t:Clean;Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /p:DCC_DcuOutput="%OUTPUT_PATH%" /p:DCC_UnitSearchPath="%OUTPUT_PATH%" /v:minimal
 if %ERRORLEVEL% NEQ 0 goto Error
 
 echo.
 echo Building Dext.EF.Core...
-msbuild "Dext.EF.Core.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /v:minimal
+msbuild "Dext.EF.Core.dproj" /t:Clean;Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /p:DCC_DcuOutput="%OUTPUT_PATH%" /p:DCC_UnitSearchPath="%OUTPUT_PATH%" /v:minimal
 if %ERRORLEVEL% NEQ 0 goto Error
 
 echo.
 echo Building Dext.Web.Core...
-msbuild "Dext.Web.Core.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /v:minimal
+msbuild "Dext.Web.Core.dproj" /t:Clean;Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /p:DCC_DcuOutput="%OUTPUT_PATH%" /p:DCC_UnitSearchPath="%OUTPUT_PATH%" /v:minimal
 if %ERRORLEVEL% NEQ 0 goto Error
 
 echo.
 echo Building Dext.Testing...
-msbuild "Dext.Testing.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /v:minimal
+msbuild "Dext.Testing.dproj" /t:Clean;Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /p:DCC_DcuOutput="%OUTPUT_PATH%" /p:DCC_UnitSearchPath="%OUTPUT_PATH%" /v:minimal
 if %ERRORLEVEL% NEQ 0 goto Error
 
 

@@ -61,7 +61,9 @@ type
   IPropInfo = interface
     ['{6DCBC43A-0D70-40BA-ADEE-BC450A69F296}']
     function GetColumnName: string;
+    function GetPropertyName: string;
     property ColumnName: string read GetColumnName;
+    property PropertyName: string read GetPropertyName;
   end;
 
   /// <summary>
@@ -101,8 +103,9 @@ type
     FValue: T;
     FInfo: IPropInfo;  // MUST be in instance section, not class var!
     function GetColumnName: string;
-    function IsQueryMode: Boolean;
+    function GetPropertyName: string;
   public
+    function IsQueryMode: Boolean;
     class operator Implicit(const Value: T): Prop<T>;
     class operator Implicit(const Value: Prop<T>): T;
 
@@ -134,6 +137,7 @@ type
     // Range
     function Between(const Lower, Upper: T): BooleanExpression;
 
+    property Name: string read GetPropertyName;
     property Value: T read FValue write FValue;
   end;
 
@@ -144,9 +148,11 @@ type
   TPropInfo = class(TInterfacedObject, IPropInfo)
   private
     FColumnName: string;
+    FPropertyName: string;
   public
-    constructor Create(const AColumnName: string);
+    constructor Create(const AColumnName: string; const APropertyName: string = '');
     function GetColumnName: string;
+    function GetPropertyName: string;
   end;
 
   // ---------------------------------------------------------------------------
@@ -184,14 +190,23 @@ implementation
 
 { TPropInfo }
 
-constructor TPropInfo.Create(const AColumnName: string);
+constructor TPropInfo.Create(const AColumnName: string; const APropertyName: string = '');
 begin
   FColumnName := AColumnName;
+  if APropertyName <> '' then
+    FPropertyName := APropertyName
+  else
+    FPropertyName := AColumnName;
 end;
 
 function TPropInfo.GetColumnName: string;
 begin
   Result := FColumnName;
+end;
+
+function TPropInfo.GetPropertyName: string;
+begin
+  Result := FPropertyName;
 end;
 
 { GetSmartValue }
@@ -309,6 +324,14 @@ begin
 end;
 
 { Prop<T> }
+
+function Prop<T>.GetPropertyName: string;
+begin
+  if FInfo <> nil then
+    Result := FInfo.PropertyName
+  else
+    Result := '';
+end;
 
 function Prop<T>.GetColumnName: string;
 begin

@@ -44,6 +44,7 @@ uses
   System.DateUtils,
   System.IOUtils,
   System.Variants,
+  Dext.Core.SmartTypes,
   Dext.Types.UUID;
 
 type
@@ -310,13 +311,47 @@ type
     function BeOfType<T: class>: ShouldObject;
     function BeAssignableTo<T: class>: ShouldObject;
     function BeEquivalentTo(Expected: TObject): ShouldObject;
-    function HaveProperty(const PropertyName: string): ShouldObject;
-    function HavePropertyValue(const PropertyName: string; const ExpectedValue: TValue): ShouldObject;
     function Satisfy(const Predicate: TPredicate<TObject>): ShouldObject;
     function MatchSnapshot(const SnapshotName: string): ShouldObject;
     function Because(const Reason: string): ShouldObject;
     function &And: ShouldObject;
     function AndAlso: ShouldObject;
+  end;
+
+  /// <summary>
+  ///   Property assertion helper for deep navigation.
+  /// </summary>
+  ShouldProperty = record
+  private
+    FParent: ShouldObject;
+    FValue: TValue;
+    FName: string;
+    FReason: string;
+    procedure Fail(const Message: string);
+  public
+    constructor Create(const Parent: ShouldObject; const Name: string; const Value: TValue);
+    
+    function Value: TValue;
+    
+    function WhichString: ShouldString;
+    function WhichInteger: ShouldInteger;
+    function WhichBoolean: ShouldBoolean;
+    function WhichObject: ShouldObject;
+    function WhichGuid: ShouldGuid;
+    
+    function &And: ShouldObject;
+    function AndAlso: ShouldObject;
+  end;
+
+  ShouldObjectHelper = record helper for ShouldObject
+  public
+    function HaveProperty(const PropertyName: string): ShouldProperty; overload;
+    // function HaveProperty<T>(const PropertyMetadata: Prop<T>): ShouldProperty; overload;
+    function HavePropertyValue(const PropertyName: string; const ExpectedValue: TValue): ShouldObject; overload;
+    // Strongly-typed methods for SmartTypes (separate name to avoid ambiguity with implicit operators)
+    function HaveValue(const PropertyMetadata: StringType; const ExpectedValue: string): ShouldObject; overload;
+    function HaveValue(const PropertyMetadata: IntType; ExpectedValue: Integer): ShouldObject; overload;
+    function HaveValue<T>(const PropertyMetadata: T; ExpectedValue: T): ShouldObject; overload;
   end;
 
   /// <summary>
@@ -1069,54 +1104,245 @@ begin
   Result := Self;
 end;
 
-function ShouldObject.HaveProperty(const PropertyName: string): ShouldObject;
+{ ShouldObjectHelper }
+
+function ShouldObjectHelper.HaveProperty(const PropertyName: string): ShouldProperty;
 var
   Ctx: TRttiContext;
   RttiType: TRttiType;
   Prop: TRttiProperty;
+  Val: TValue;
 begin
-  if FValue = nil then
-    Fail(Format('Cannot check property "%s" on nil object', [PropertyName]));
+  if Self.FValue = nil then
+    Self.Fail(Format('Cannot check property "%s" on nil object', [PropertyName]));
     
   Ctx := TRttiContext.Create;
   try
-    RttiType := Ctx.GetType(FValue.ClassType);
+    RttiType := Ctx.GetType(Self.FValue.ClassType);
     Prop := RttiType.GetProperty(PropertyName);
     if Prop = nil then
-      Fail(Format('Object of type %s does not have property "%s"', [FValue.ClassName, PropertyName]));
+      Self.Fail(Format('Object of type %s does not have property "%s"', [Self.FValue.ClassName, PropertyName]));
+
+    Val := Prop.GetValue(Self.FValue);
+    Result := ShouldProperty.Create(Self, PropertyName, Val);
+  finally
+    Ctx.Free;
+  end;
+end;
+
+(*
+function ShouldObjectHelper.HaveProperty<T>(const PropertyMetadata: Prop<T>): ShouldProperty;
+begin
+  if not PropertyMetadata.IsQueryMode then
+    Self.Fail('HaveProperty<T> requires a Smart Property prototype (e.g. u.Name), not a value.');
+    
+  Result := HaveProperty(PropertyMetadata.Name);
+end;
+*)
+
+function ShouldObjectHelper.HavePropertyValue(const PropertyName: string; const ExpectedValue: TValue): ShouldObject;
+var
+  Ctx: TRttiContext;
+  RttiType: TRttiType;
+  Prop: TRttiProperty;
+  Field: TRttiField;
+  ActualValue: TValue;
+  ActualStr, ExpectedStr: string;
+begin
+  if Self.FValue = nil then
+    Self.Fail(Format('Cannot check property "%s" on nil object', [PropertyName]));
+    
+  Ctx := TRttiContext.Create;
+  try
+    RttiType := Ctx.GetType(Self.FValue.ClassType);
+    
+    // Try property first
+    Prop := RttiType.GetProperty(PropertyName);
+    if Prop <> nil then
+    begin
+      ActualValue := Prop.GetValue(Self.FValue);
+    end
+    else
+    begin
+      // Try field with F prefix (for SmartTypes like FName, FAge)
+      Field := RttiType.GetField('F' + PropertyName);
+      if Field = nil then
+        Field := RttiType.GetField(PropertyName); // Try without prefix
+        
+      if Field = nil then
+        Self.Fail(Format('Object of type %s does not have property or field "%s"', 
+          [Self.FValue.ClassName, PropertyName]));
+          
+      ActualValue := Field.GetValue(Self.FValue);
+      
+      // If it's a Prop<T> Smart Type, extract the inner FValue
+      if (ActualValue.Kind = tkRecord) and string(ActualValue.TypeInfo.Name).StartsWith('Prop<') then
+      begin
+        var RecType := Ctx.GetType(ActualValue.TypeInfo).AsRecord;
+        var ValueField := RecType.GetField('FValue');
+        if ValueField <> nil then
+          ActualValue := ValueField.GetValue(ActualValue.GetReferenceToRawData);
+      end;
+    end;
+    
+    // Compare values using extracted strings
+    ActualStr := ActualValue.ToString;
+    ExpectedStr := ExpectedValue.ToString;
+    
+    if ActualStr <> ExpectedStr then
+      Self.Fail(Format('Property "%s" expected value "%s" but was "%s"', 
+        [PropertyName, ExpectedStr, ActualStr]));
   finally
     Ctx.Free;
   end;
   Result := Self;
 end;
 
-function ShouldObject.HavePropertyValue(const PropertyName: string; const ExpectedValue: TValue): ShouldObject;
+function ShouldObjectHelper.HaveValue(const PropertyMetadata: StringType; const ExpectedValue: string): ShouldObject;
+begin
+  if not PropertyMetadata.IsQueryMode then
+    Self.Fail('HaveValue requires a Smart Property prototype (use Prototype.Entity<T>).');
+
+  Result := HavePropertyValue(PropertyMetadata.Name, TValue.From<string>(ExpectedValue));
+end;
+
+function ShouldObjectHelper.HaveValue(const PropertyMetadata: IntType; ExpectedValue: Integer): ShouldObject;
+begin
+  if not PropertyMetadata.IsQueryMode then
+    Self.Fail('HaveValue requires a Smart Property prototype (use Prototype.Entity<T>).');
+
+  Result := HavePropertyValue(PropertyMetadata.Name, TValue.From<Integer>(ExpectedValue));
+end;
+
+function ShouldObjectHelper.HaveValue<T>(const PropertyMetadata: T;
+  ExpectedValue: T): ShouldObject;
 var
   Ctx: TRttiContext;
-  RttiType: TRttiType;
-  Prop: TRttiProperty;
-  ActualValue: TValue;
+  RecType: TRttiRecordType;
+  InfoField: TRttiField;
+  MetaValue, InfoValue: TValue;
+  PropInfo: IPropInfo;
+  PropName: string;
 begin
-  if FValue = nil then
-    Fail(Format('Cannot check property "%s" on nil object', [PropertyName]));
-    
+  // Use RTTI to extract property name from any Prop<T> SmartType
   Ctx := TRttiContext.Create;
   try
-    RttiType := Ctx.GetType(FValue.ClassType);
-    Prop := RttiType.GetProperty(PropertyName);
-    if Prop = nil then
-      Fail(Format('Object of type %s does not have property "%s"', [FValue.ClassName, PropertyName]));
-      
-    ActualValue := Prop.GetValue(FValue);
+    MetaValue := TValue.From<T>(PropertyMetadata);
     
-    // Compare values - simplified comparison
-    if ActualValue.ToString <> ExpectedValue.ToString then
-      Fail(Format('Property "%s" expected value "%s" but was "%s"', 
-        [PropertyName, ExpectedValue.ToString, ActualValue.ToString]));
+    // Verify it's a Prop<T> record
+    if not string(MetaValue.TypeInfo.Name).StartsWith('Prop<') then
+      Self.Fail('HaveValue<T> requires a Smart Property type (Prop<T>).');
+    
+    RecType := Ctx.GetType(MetaValue.TypeInfo).AsRecord;
+    InfoField := RecType.GetField('FInfo');
+    
+    if InfoField = nil then
+      Self.Fail('HaveValue<T>: Could not find FInfo field in SmartType.');
+    
+    InfoValue := InfoField.GetValue(MetaValue.GetReferenceToRawData);
+    
+    if InfoValue.IsEmpty or (InfoValue.AsInterface = nil) then
+      Self.Fail('HaveValue<T> requires a Smart Property prototype (use Prototype.Entity<T>).');
+    
+    PropInfo := InfoValue.AsType<IPropInfo>;
+    PropName := PropInfo.PropertyName;
+    
+    Result := HavePropertyValue(PropName, TValue.From<T>(ExpectedValue));
   finally
     Ctx.Free;
   end;
-  Result := Self;
+end;
+
+{ ShouldProperty }
+
+constructor ShouldProperty.Create(const Parent: ShouldObject; const Name: string; const Value: TValue);
+begin
+  FParent := Parent;
+  FName := Name;
+  FValue := Value;
+  FReason := '';
+end;
+
+procedure ShouldProperty.Fail(const Message: string);
+begin
+  if FReason <> '' then
+    raise EAssertionFailed.Create(Message + ' because ' + FReason)
+  else
+    raise EAssertionFailed.Create(Message);
+end;
+
+function ShouldProperty.Value: TValue;
+begin
+  Result := FValue;
+end;
+
+function ShouldProperty.WhichString: ShouldString;
+begin
+  Result := ShouldString.Create(FValue.ToString);
+end;
+
+function ShouldProperty.WhichInteger: ShouldInteger;
+begin
+  try
+    if FValue.TypeInfo = TypeInfo(Integer) then
+      Result := ShouldInteger.Create(FValue.AsInteger)
+    else
+      Result := ShouldInteger.Create(StrToIntDef(FValue.ToString, 0)); // Simple conversion
+  except
+    Fail(Format('Property "%s" is not a valid Integer', [FName]));
+  end;
+end;
+
+function ShouldProperty.WhichBoolean: ShouldBoolean;
+begin
+  try
+    if FValue.TypeInfo = TypeInfo(Boolean) then
+      Result := ShouldBoolean.Create(FValue.AsBoolean)
+    else
+      Result := ShouldBoolean.Create(StrToBoolDef(FValue.ToString, False));
+  except
+    Fail(Format('Property "%s" is not a valid Boolean', [FName]));
+  end;
+end;
+
+function ShouldProperty.WhichObject: ShouldObject;
+begin
+  if FValue.IsEmpty then
+    Exit(ShouldObject.Create(nil));
+    
+  if FValue.Kind = tkClass then
+    Result := ShouldObject.Create(FValue.AsObject)
+  else
+    Fail(Format('Property "%s" is not an object', [FName]));
+end;
+
+function ShouldProperty.WhichGuid: ShouldGuid;
+var
+  G: TGUID;
+begin
+  if FValue.TypeInfo = TypeInfo(TGUID) then
+  begin
+    FValue.ExtractRawData(@G);
+    Result := ShouldGuid.Create(G);
+  end
+  else
+  begin
+    try
+      Result := ShouldGuid.Create(StringToGUID(FValue.ToString));
+    except
+      Fail('Property is not a GUID');
+    end;
+  end;
+end;
+
+function ShouldProperty.&And: ShouldObject;
+begin
+  Result := FParent;
+end;
+
+function ShouldProperty.AndAlso: ShouldObject;
+begin
+  Result := FParent;
 end;
 
 { ShouldInterface }

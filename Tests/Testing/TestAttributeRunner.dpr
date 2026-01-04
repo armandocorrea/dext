@@ -38,9 +38,37 @@ uses
   Dext.Assertions,
   Dext.Testing.Attributes,
   Dext.Testing.Fluent,  // Fluent API
-  Dext.Utils;
+  Dext.Utils,
+  Dext.Core.SmartTypes,
+  Dext.Entity.Prototype;
 
 type
+  TSmartUser = class
+  public
+    FName: StringType; // Smart Property
+    FAge: IntType;     // Smart Property
+  end;
+
+  TAddress = class
+  private
+    FCity: string;
+    FZip: Integer;
+  public
+    constructor Create(const ACity: string; AZip: Integer);
+    property City: string read FCity;
+    property Zip: Integer read FZip;
+  end;
+
+  TPerson = class
+  private
+    FName: string;
+    FAddress: TAddress;
+  public
+    constructor Create(const AName: string; AAddress: TAddress);
+    destructor Destroy; override;
+    property Name: string read FName;
+    property Address: TAddress read FAddress;
+  end;
   // Enable RTTI for attribute-based test discovery
   {$RTTI EXPLICIT METHODS([vcPublic, vcPublished]) PROPERTIES([vcPublic, vcPublished])}
   {$M+}
@@ -149,7 +177,36 @@ type
     [Test]
     [Description('Verifies that fluent chaining works correctly')]
     procedure TestFluentChaining;
+
+    [Test]
+    procedure TestDeepAssertions;
+
+    [Test]
+    [Description('Verifies strongly typed assertions using Prototype.Entity<T>')]
+    procedure TestSmartAssertions;
   end;
+
+{ TAddress }
+
+constructor TAddress.Create(const ACity: string; AZip: Integer);
+begin
+  FCity := ACity;
+  FZip := AZip;
+end;
+
+{ TPerson }
+
+constructor TPerson.Create(const AName: string; AAddress: TAddress);
+begin
+  FName := AName;
+  FAddress := AAddress;
+end;
+
+destructor TPerson.Destroy;
+begin
+  FAddress.Free;
+  inherited;
+end;
 
 { TCalculatorTests }
 
@@ -286,6 +343,53 @@ begin
     .AndAlso.StartWith('Hello')
     .AndAlso.EndWith('World');
 end;
+
+procedure TAssertionTests.TestDeepAssertions;
+var
+  Addr: TAddress;
+  Person: TPerson;
+begin
+  Addr := TAddress.Create('New York', 10001);
+  Person := TPerson.Create('John Doe', Addr);
+  try
+    // Verify Name property directly
+    Should(Person).HavePropertyValue('Name', 'John Doe');
+    
+    // Test Deep Graph Assertion: Person.Address
+    Should(Person)
+      .HaveProperty('Address')
+        .WhichObject // Focus shifts to Address object
+          .HavePropertyValue('City', 'New York')
+          .AndAlso // Still on Address object
+          .HavePropertyValue('Zip', 10001);
+  finally
+    Person.Free;
+  end;
+end;
+
+procedure TAssertionTests.TestSmartAssertions;
+var
+  User: TSmartUser;
+  u: TSmartUser;
+begin
+  User := TSmartUser.Create;
+  try
+    User.FName := 'Alice';
+    User.FAge := 30;
+
+    // Create Prototype for Strong Typing
+    u := Prototype.Entity<TSmartUser>;
+    
+    // Assert using Strongly Typed Property Metadata
+    Should(User)
+      .HaveValue(u.FName, 'Alice')
+      .AndAlso
+      .HaveValue(u.FAge, 30);
+  finally
+    User.Free;
+  end;
+end;
+
 
 begin
   SetConsoleCharSet();
