@@ -44,6 +44,7 @@ uses
   System.DateUtils,
   System.IOUtils,
   System.Variants,
+  Dext,
   Dext.Core.SmartTypes,
   Dext.Types.UUID;
 
@@ -53,7 +54,26 @@ type
   /// </summary>
   EAssertionFailed = class(Exception);
 
+  /// <summary>
+  ///   Static class for assertion utilities.
+  /// </summary>
+  Assert = record
+  public
+    /// <summary>
+    ///   Executes assertions in a "soft" mode, collecting all failures instead of stopping at the first one.
+    /// </summary>
+    class procedure Multiple(const Action: TProc); static;
+    
+    /// <summary>
+    ///   Fails the test with the given message.
+    /// </summary>
+    class procedure Fail(const Message: string); static;
 
+    /// <summary>
+    ///   Internal use only. Registers a failure respecting soft assert mode.
+    /// </summary>
+    class procedure RegisterFailure(const Message, Reason: string); static;
+  end;
 
   /// <summary>
   ///   Fluent assertions for DateTime.
@@ -374,8 +394,6 @@ type
     function AndAlso: ShouldInterface;
   end;
 
-
-
   /// <summary>
   ///   Generic list/enumerable assertions.
   /// </summary>
@@ -409,24 +427,113 @@ type
   end;
 
   // Global helper functions for cleaner syntax
-  function Should(const Value: string): ShouldString; overload;
-  function Should(Value: Integer): ShouldInteger; overload;
-  function Should(Value: Int64): ShouldInt64; overload;
-  function Should(Value: Boolean): ShouldBoolean; overload;
-  function Should(Value: Double): ShouldDouble; overload;
-  function Should(const Action: TProc): ShouldAction; overload;
-  function Should(const Value: TObject): ShouldObject; overload;
-  function Should(const Value: IInterface): ShouldInterface; overload;
-  function Should(const Value: TGUID): ShouldGuid; overload;
-  function Should(const Value: TUUID): ShouldUUID; overload;
-  function Should(const Value: Variant): ShouldVariant; overload;
-  function ShouldDate(Value: TDateTime): ShouldDateTime; overload;
+function Should(const Value: string): ShouldString; overload;
+function Should(Value: Integer): ShouldInteger; overload;
+function Should(Value: Int64): ShouldInt64; overload;
+function Should(Value: Boolean): ShouldBoolean; overload;
+function Should(Value: Double): ShouldDouble; overload;
+function Should(const Action: TProc): ShouldAction; overload;
+function Should(const Value: TObject): ShouldObject; overload;
+function Should(const Value: IInterface): ShouldInterface; overload;
+function Should(const Value: TGUID): ShouldGuid; overload;
+function Should(const Value: TUUID): ShouldUUID; overload;
+function Should(const Value: Variant): ShouldVariant; overload;
+function ShouldDate(Value: TDateTime): ShouldDateTime; overload;
+
+
 
 implementation
 
 uses
   System.RegularExpressions,
-  Dext.Json;
+  System.Math;
+
+threadvar
+  GSoftAssertMode: Boolean;
+  GSoftAssertErrors: TList<string>;
+
+class procedure Assert.RegisterFailure(const Message, Reason: string);
+var
+  FullMsg: string;
+begin
+  if Reason <> '' then
+    FullMsg := Message + ' because ' + Reason
+  else
+    FullMsg := Message;
+
+  // If in Soft Assert mode, collect error and continue
+  if GSoftAssertMode and (GSoftAssertErrors <> nil) then
+  begin
+    GSoftAssertErrors.Add(FullMsg);
+  end
+  else
+  begin
+    // Normal mode: raise exception immediately
+    raise EAssertionFailed.Create(FullMsg);
+  end;
+end;
+
+{ Assert }
+
+class procedure Assert.Fail(const Message: string);
+begin
+  // Direct Assert.Fail should respect soft assertion context too
+  Assert.RegisterFailure(Message, '');
+end;
+
+class procedure Assert.Multiple(const Action: TProc);
+var
+  Errors: TList<string>;
+  ErrorMsg: string;
+  I: Integer;
+begin
+  // If already in soft mode (nested call), just execute
+  if GSoftAssertMode then
+  begin
+    Action;
+    Exit;
+  end;
+
+  Errors := TList<string>.Create;
+  try
+    GSoftAssertErrors := Errors;
+    GSoftAssertMode := True;
+    try
+      try
+        Action;
+      except
+        on E: Exception do
+        begin
+          // If a non-assertion exception occurs, we must stop and propagate it.
+          // Assertion failures are already captured in GSoftAssertErrors (if they used Assert.RegisterFailure).
+          // If EAssertionFailed escaped (e.g. from code not using Assert.RegisterFailure), we capture it too.
+          if E is EAssertionFailed then
+             Errors.Add(E.Message)
+          else
+             raise;
+        end;
+      end;
+    finally
+      GSoftAssertMode := False;
+      GSoftAssertErrors := nil;
+    end;
+
+    // Report aggregated errors
+    if Errors.Count > 0 then
+    begin
+       if Errors.Count = 1 then
+         raise EAssertionFailed.Create(Errors[0]);
+         
+       ErrorMsg := Format('Multiple failures (%d):' + sLineBreak, [Errors.Count]);
+       for I := 0 to Errors.Count - 1 do
+         ErrorMsg := ErrorMsg + Format('  %d) %s' + sLineBreak, [I + 1, Errors[I]]);
+         
+       raise EAssertionFailed.Create(ErrorMsg);
+    end;
+  finally
+    Errors.Free;
+  end;
+end;
 
 procedure VerifySnapshot(const Content, SnapshotName: string);
 var
@@ -462,11 +569,11 @@ begin
   begin
     // Write received
     TFile.WriteAllText(VerifyPath, Content, TEncoding.UTF8);
-    raise EAssertionFailed.CreateFmt(
+    Assert.RegisterFailure(Format(
       'Snapshot mismatch for "%s"!' + sLineBreak +
       'Expected location: %s' + sLineBreak +
       'Received mismatch saved at: %s',
-      [SnapshotName, SnapshotPath, VerifyPath]);
+      [SnapshotName, SnapshotPath, VerifyPath]), '');
   end
   else
   begin
@@ -486,10 +593,7 @@ end;
 
 procedure ShouldString.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldString.Be(const Expected: string): ShouldString;
@@ -648,10 +752,7 @@ end;
 
 procedure ShouldInteger.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldInteger.Be(Expected: Integer): ShouldInteger;
@@ -769,10 +870,7 @@ end;
 
 procedure ShouldBoolean.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldBoolean.BeTrue: ShouldBoolean;
@@ -826,10 +924,7 @@ end;
 
 procedure ShouldAction.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldAction.Throw<E>: ShouldAction;
@@ -909,10 +1004,7 @@ end;
 
 procedure ShouldDouble.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldDouble.Be(Expected: Double): ShouldDouble;
@@ -1006,10 +1098,7 @@ end;
 
 procedure ShouldObject.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldObject.BeNil: ShouldObject;
@@ -1265,10 +1354,7 @@ end;
 
 procedure ShouldProperty.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldProperty.Value: TValue;
@@ -1355,10 +1441,7 @@ end;
 
 procedure ShouldInterface.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldInterface.BeNil: ShouldInterface;
@@ -1434,10 +1517,7 @@ end;
 
 procedure ShouldList<T>.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldList<T>.GetCount: Integer;
@@ -1737,13 +1817,8 @@ begin
 end;
 
 procedure ShouldDateTime.Fail(const Message: string);
-var
-  Msg: string;
 begin
-  Msg := Message;
-  if FReason <> '' then
-    Msg := Msg + ' because ' + FReason;
-  raise EAssertionFailed.Create(Msg);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldDateTime.Be(Expected: TDateTime): ShouldDateTime;
@@ -1856,10 +1931,7 @@ end;
 
 procedure ShouldInt64.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldInt64.Be(Expected: Int64): ShouldInt64;
@@ -1963,10 +2035,7 @@ end;
 
 procedure ShouldGuid.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldGuid.Be(const Expected: TGUID): ShouldGuid;
@@ -2018,10 +2087,7 @@ end;
 
 procedure ShouldUUID.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldUUID.Be(const Expected: TUUID): ShouldUUID;
@@ -2078,10 +2144,7 @@ end;
 
 procedure ShouldVariant.Fail(const Message: string);
 begin
-  if FReason <> '' then
-    raise EAssertionFailed.Create(Message + ' because ' + FReason)
-  else
-    raise EAssertionFailed.Create(Message);
+  Assert.RegisterFailure(Message, FReason);
 end;
 
 function ShouldVariant.Be(const Expected: Variant): ShouldVariant;

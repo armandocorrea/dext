@@ -14,3 +14,4 @@ Win32
 Win64
 test-results.json
 /Tests/Testing/test-results.xml
+test-results.html

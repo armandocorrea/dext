@@ -1,8 +1,60 @@
 # Dext Testing Framework
 
-A comprehensive testing framework for Delphi, designed for modern development. It features a Fluent API for Mocking and Assertions, heavily inspired by .NET ecosystem tools (Moq, FluentAssertions).
+A comprehensive testing framework for Delphi, designed for modern development. It features a Fluent API for Mocking and Assertions, heavily inspired by .NET ecosystem tools (NUnit, Moq, FluentAssertions).
 
 ## Features
+
+### Dext.Testing.Attributes ⭐ NEW
+Attribute-based test runner inspired by NUnit/xUnit - no base class required.
+
+```pascal
+[TestFixture('Calculator Tests')]
+TCalculatorTests = class
+public
+  [Setup]
+  procedure SetUp;
+  
+  [Test]
+  procedure TestAddition;
+  
+  [Test]
+  [TestCase(1, 2, 3)]
+  [TestCase(-1, 1, 0)]
+  procedure TestAddWithParams(A, B, Expected: Integer);
+end;
+```
+
+**Available Attributes:**
+- `[TestFixture]`, `[Test]` - Core test markers
+- `[Setup]`, `[TearDown]` - Per-test lifecycle
+- `[BeforeAll]`, `[AfterAll]` - Per-fixture lifecycle  
+- `[AssemblyInitialize]`, `[AssemblyCleanup]` - Global lifecycle
+- `[TestCase(...)]` - Parameterized tests
+- `[Category('...')]`, `[Ignore('...')]`, `[Explicit]` - Filtering
+- `[Timeout(ms)]`, `[MaxTime(ms)]`, `[Repeat(n)]`, `[Priority(n)]` - Execution control
+
+### Dext.Testing.Fluent
+Fluent API for test configuration and execution.
+
+```pascal
+if TTest.Configure
+  .Verbose
+  .RegisterFixtures([TMyTests])
+  .FilterByCategory('Unit')
+  .ExportToJUnit('results.xml')
+  .ExportToHtml('report.html')
+  .Run then
+  ExitCode := 0;
+```
+
+### Dext.Testing.Report ⭐ NEW
+CI/CD report generation for multiple formats:
+- **JUnit XML** - Jenkins, GitHub Actions, GitLab CI
+- **xUnit XML** - .NET ecosystem
+- **TRX** - Azure DevOps, Visual Studio
+- **HTML** - Beautiful standalone dark-themed report
+- **JSON** - Custom tooling
+- **SonarQube** - Quality gates integration
 
 ### Dext.Interception
 Core interception library supporting both Interfaces and Classes.
@@ -54,13 +106,35 @@ Should(List).HaveCount(5).Contain(10);
 Should(procedure begin RaiseError end).Throw<EException>;
 ```
 
-### Dext.Testing.Console
-Reusable test runner for console applications.
+#### Multiple Assertions (Soft Asserts)
+Execute multiple assertions in a scope and collect all failures at the end, instead of stopping at the first failure.
+
 ```pascal
-TTestRunner.Run('My Test', ProcedureName);
-TTestRunner.PrintSummary;
+Assert.Multiple(procedure
+begin
+  Should(Person.Name).Be('John');       // If this fails...
+  Should(Person.Age).BeGreaterThan(18); // ...this executes too!
+end);
+// Reports all failures combined at the end of the block
+```
+
+### ITestContext Injection ⭐ NEW
+Tests can receive runtime context automatically:
+
+```pascal
+[Test]
+procedure TestWithContext(Context: ITestContext);
+begin
+  Context.WriteLine('Current test: %s', [Context.CurrentTest]);
+  Context.AttachFile('screenshot.png');
+end;
 ```
 
 ## Requirements
 - Delphi 10.4 or newer (Recommended: Delphi 11/12).
 - FastMM5 (Optional).
+
+## See Also
+- [Full Testing Documentation](../../Docs/testing.md)
+- [Testing Enhancements Roadmap](../../Docs/testing-enhancements.md)
+

@@ -54,6 +54,9 @@ type
     FJUnitFile: string;
     FJsonFile: string;
     FSonarQubeFile: string;
+    FXUnitFile: string;
+    FTRXFile: string;
+    FHTMLFile: string;
     FCategories: TArray<string>;
     FTestPattern: string;
     FFixturePattern: string;
@@ -89,6 +92,21 @@ type
     ///   Configures SonarQube report export.
     /// </summary>
     function ExportToSonarQube(const FileName: string): TTestConfigurator;
+
+    /// <summary>
+    ///   Configures xUnit.net v2 XML report export.
+    /// </summary>
+    function ExportToXUnit(const FileName: string): TTestConfigurator;
+
+    /// <summary>
+    ///   Configures Microsoft TRX report export (Azure DevOps compatible).
+    /// </summary>
+    function ExportToTRX(const FileName: string): TTestConfigurator;
+
+    /// <summary>
+    ///   Configures HTML report export (beautiful standalone report).
+    /// </summary>
+    function ExportToHtml(const FileName: string): TTestConfigurator;
 
     /// <summary>
     ///   Filters tests by category.
@@ -211,6 +229,24 @@ begin
   Result := Self;
 end;
 
+function TTestConfigurator.ExportToXUnit(const FileName: string): TTestConfigurator;
+begin
+  FXUnitFile := FileName;
+  Result := Self;
+end;
+
+function TTestConfigurator.ExportToTRX(const FileName: string): TTestConfigurator;
+begin
+  FTRXFile := FileName;
+  Result := Self;
+end;
+
+function TTestConfigurator.ExportToHtml(const FileName: string): TTestConfigurator;
+begin
+  FHTMLFile := FileName;
+  Result := Self;
+end;
+
 function TTestConfigurator.FilterByCategory(const Category: string): TTestConfigurator;
 begin
   SetLength(FCategories, Length(FCategories) + 1);
@@ -301,6 +337,12 @@ begin
     TTestRunner.SaveJUnitReport(FJUnitFile);
   if FJsonFile <> '' then
     TTestRunner.SaveJsonReport(FJsonFile);
+  if FXUnitFile <> '' then
+    TTestRunner.SaveXUnitReport(FXUnitFile);
+  if FTRXFile <> '' then
+    TTestRunner.SaveTRXReport(FTRXFile);
+  if FHTMLFile <> '' then
+    TTestRunner.SaveHTMLReport(FHTMLFile);
 
   // Return success status
   Result := TTestRunner.Summary.Failed = 0;

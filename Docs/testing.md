@@ -388,6 +388,119 @@ begin
 end;
 ```
 
+### Attribute-Based Test Runner (NEW! 2026-01)
+
+Write tests without base class inheritance using NUnit/xUnit-style attributes:
+
+```pascal
+uses
+  Dext.Testing.Attributes,
+  Dext.Testing.Runner,
+  Dext.Testing.Fluent;
+
+type
+  [TestFixture('Calculator Tests')]
+  TCalculatorTests = class
+  private
+    FCalc: TCalculator;
+  public
+    [Setup]
+    procedure SetUp;
+    
+    [TearDown]
+    procedure TearDown;
+    
+    [Test]
+    procedure TestAddition;
+    
+    [Test]
+    [TestCase(1, 2, 3)]
+    [TestCase(0, 0, 0)]
+    [TestCase(-1, 1, 0)]
+    procedure TestAddWithParams(A, B, Expected: Integer);
+    
+    [Test]
+    [Category('Slow')]
+    [Ignore('Not implemented yet')]
+    procedure TestDivision;
+  end;
+```
+
+Run tests with the fluent API:
+
+```pascal
+if TTest.Configure
+  .Verbose
+  .RegisterFixtures([TCalculatorTests])
+  .FilterByCategory('Unit')
+  .ExportToJUnit('results.xml')
+  .ExportToHtml('results.html')
+  .Run then
+  ExitCode := 0
+else
+  ExitCode := 1;
+```
+
+#### Available Attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `[TestFixture]` | Marks a class as a test container |
+| `[Test]` | Marks a method as a test |
+| `[Setup]` | Runs before each test |
+| `[TearDown]` | Runs after each test |
+| `[BeforeAll]` | Runs once before all tests in fixture |
+| `[AfterAll]` | Runs once after all tests in fixture |
+| `[AssemblyInitialize]` | Runs once before entire test suite |
+| `[AssemblyCleanup]` | Runs once after entire test suite |
+| `[TestCase(1, 2, 3)]` | Parameterized test data |
+| `[Category('Integration')]` | Categorize for filtering |
+| `[Ignore('Reason')]` | Skip test with reason |
+| `[Explicit]` | Only run when explicitly requested |
+| `[Timeout(5000)]` | Timeout in milliseconds |
+| `[MaxTime(100)]` | Warn if exceeds time |
+| `[Repeat(5)]` | Run test N times |
+| `[Priority(1)]` | Execution order (lower first) |
+
+#### ITestContext Injection
+
+Tests can receive runtime context automatically:
+
+```pascal
+[Test]
+procedure TestWithContext(Context: ITestContext);
+begin
+  Context.WriteLine('Logging from test: %s', [Context.CurrentTest]);
+  Context.AttachFile('screenshot.png');
+  
+  Should(Context.CurrentFixture).Be('TMyTests');
+end;
+```
+
+### CI/CD Report Formats (NEW! 2026-01)
+
+Generate test reports for CI/CD integration:
+
+```pascal
+TTest.Configure
+  .Verbose
+  .RegisterFixtures([TMyTests])
+  .ExportToJUnit('junit-results.xml')      // Jenkins, GitHub Actions, GitLab CI
+  .ExportToJson('results.json')            // Custom tooling
+  .ExportToXUnit('xunit-results.xml')      // .NET ecosystem
+  .ExportToTRX('results.trx')              // Azure DevOps, Visual Studio
+  .ExportToHtml('report.html')             // Beautiful standalone report
+  .ExportToSonarQube('sonar-report.xml')   // SonarQube quality gates
+  .Run;
+```
+
+The HTML report provides a beautiful dark-themed dashboard with:
+- Statistics cards (total, passed, failed, skipped)
+- Progress bar visualization
+- Expandable test suites
+- Duration for each test
+- Error messages with stack traces
+
 ---
 
 ## ⚠️ Common Gotchas & FAQ

@@ -327,6 +327,21 @@ type
     /// </summary>
     class procedure SaveJsonReport(const FileName: string);
 
+    /// <summary>
+    ///   Saves test results to a xUnit.net v2 XML file.
+    /// </summary>
+    class procedure SaveXUnitReport(const FileName: string);
+
+    /// <summary>
+    ///   Saves test results to a Microsoft TRX file (Azure DevOps compatible).
+    /// </summary>
+    class procedure SaveTRXReport(const FileName: string);
+
+    /// <summary>
+    ///   Saves test results to a beautiful standalone HTML file.
+    /// </summary>
+    class procedure SaveHTMLReport(const FileName: string);
+
     // Events
     class property OnTestStart: TTestStartEvent read FOnTestStart write FOnTestStart;
     class property OnTestComplete: TTestCompleteEvent read FOnTestComplete write FOnTestComplete;
@@ -1568,6 +1583,112 @@ begin
     
     if FVerbose then
       WriteLn('📄 JSON report saved: ', FileName);
+  finally
+    Reporter.Free;
+  end;
+end;
+
+class procedure TTestRunner.SaveXUnitReport(const FileName: string);
+var
+  Reporter: TXUnitReporter;
+  Fixture: TTestFixtureInfo;
+  TestInfo: TTestInfo;
+begin
+  if FTestResults = nil then
+  begin
+    WriteLn('Warning: No test results available. Run tests first.');
+    Exit;
+  end;
+
+  Reporter := TXUnitReporter.Create;
+  try
+    for Fixture in FFixtures do
+    begin
+      Reporter.BeginSuite(Fixture.Name);
+      for TestInfo in FTestResults do
+      begin
+        if TestInfo.FixtureName = Fixture.Name then
+          Reporter.AddTestCase(TestInfo);
+      end;
+      Reporter.EndSuite;
+    end;
+    
+    Reporter.SaveToFile(FileName);
+    
+    if FVerbose then
+      WriteLn('📄 xUnit report saved: ', FileName);
+  finally
+    Reporter.Free;
+  end;
+end;
+
+class procedure TTestRunner.SaveTRXReport(const FileName: string);
+var
+  Reporter: TTRXReporter;
+  Fixture: TTestFixtureInfo;
+  TestInfo: TTestInfo;
+begin
+  if FTestResults = nil then
+  begin
+    WriteLn('Warning: No test results available. Run tests first.');
+    Exit;
+  end;
+
+  Reporter := TTRXReporter.Create;
+  try
+    Reporter.BeginRun('Dext Test Run');
+    
+    for Fixture in FFixtures do
+    begin
+      Reporter.BeginSuite(Fixture.Name);
+      for TestInfo in FTestResults do
+      begin
+        if TestInfo.FixtureName = Fixture.Name then
+          Reporter.AddTestCase(TestInfo);
+      end;
+      Reporter.EndSuite;
+    end;
+    
+    Reporter.SaveToFile(FileName);
+    
+    if FVerbose then
+      WriteLn('📄 TRX report saved: ', FileName);
+  finally
+    Reporter.Free;
+  end;
+end;
+
+class procedure TTestRunner.SaveHTMLReport(const FileName: string);
+var
+  Reporter: THTMLReporter;
+  Fixture: TTestFixtureInfo;
+  TestInfo: TTestInfo;
+begin
+  if FTestResults = nil then
+  begin
+    WriteLn('Warning: No test results available. Run tests first.');
+    Exit;
+  end;
+
+  Reporter := THTMLReporter.Create;
+  try
+    Reporter.SetTitle('Dext Test Report');
+    
+    for Fixture in FFixtures do
+    begin
+      Reporter.BeginSuite(Fixture.Name);
+      for TestInfo in FTestResults do
+      begin
+        if TestInfo.FixtureName = Fixture.Name then
+          Reporter.AddTestCase(TestInfo);
+      end;
+      Reporter.EndSuite;
+    end;
+    
+    Reporter.SaveToFile(FileName);
+    
+    if FVerbose then
+      WriteLn('📄 HTML report saved: ', FileName);
   finally
     Reporter.Free;
   end;

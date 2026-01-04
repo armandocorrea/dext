@@ -32,12 +32,13 @@ program TestAttributeRunner;
 {$APPTYPE CONSOLE}
 
 uses
-  Dext.MM, // Memory manager first
+  Dext.MM, // Memory manager first - Disabled for local test build due to missing path
   System.SysUtils,
   System.Rtti,
   Dext.Assertions,
   Dext.Testing.Attributes,
-  Dext.Testing.Fluent,  // Fluent API
+  Dext.Testing.Runner,   // ITestContext
+  Dext.Testing.Fluent,   // Fluent API
   Dext.Utils,
   Dext.Core.SmartTypes,
   Dext.Entity.Prototype;
@@ -197,6 +198,13 @@ type
     [Test]
     [Description('Verifies strongly typed assertions using Prototype.Entity<T>')]
     procedure TestSmartAssertions;
+    
+    [Test]
+    [Description('Demonstrates automatic ITestContext injection')]
+    procedure TestContextInjection(Context: ITestContext);
+
+    [Test]
+    procedure TestMultipleAssertions;
   end;
 
 { TGlobalSetup }
@@ -417,6 +425,52 @@ begin
   end;
 end;
 
+procedure TAssertionTests.TestContextInjection(Context: ITestContext);
+begin
+  // Demonstrate ITestContext features
+  Context.WriteLine('This test demonstrates ITestContext injection');
+  Context.WriteLine('Current Fixture: %s', [Context.CurrentFixture]);
+  Context.WriteLine('Current Test: %s', [Context.CurrentTest]);
+  
+  // Verify context was properly injected
+  Should(Context).NotBeNil;
+  Should(Context.CurrentFixture).Be('TAssertionTests');
+  Should(Context.CurrentTest).Contain('TestContextInjection');
+end;
+
+procedure TAssertionTests.TestMultipleAssertions;
+begin
+  // 1. Success case: All assertions pass
+  Assert.Multiple(procedure
+  begin
+    Should(10).BeGreaterThan(5);
+    Should('Dext').StartWith('D');
+  end);
+
+  // 2. Failure aggregator verification
+  // We expect this block to throw an aggregated exception.
+  try
+    Assert.Multiple(procedure
+    begin
+      Should(10).Be(20);        // Fail 1
+      Should('A').Be('B');      // Fail 2
+      Should(True).BeTrue;      // Pass
+      Should(50).BeLessThan(10);// Fail 3
+    end);
+    
+    // If we get here, Multiple failed to throw
+    Assert.Fail('Assert.Multiple should have raised an exception with collected failures');
+  except
+    on E: EAssertionFailed do
+    begin
+      // Verify the exception contains all failures
+      Should(E.Message).Contain('Multiple failures (3)'); // Header
+      Should(E.Message).Contain('Expected 20 but was 10');
+      Should(E.Message).Contain('Expected "B" but was "A"');
+      Should(E.Message).Contain('Expected 50 to be less than 10');
+    end;
+  end;
+end;
 
 begin
   SetConsoleCharSet();
@@ -433,6 +487,7 @@ begin
       .RegisterFixtures([TGlobalSetup, TCalculatorTests, TStringTests, TAssertionTests])
       .ExportToJUnit('test-results.xml')
       .ExportToJson('test-results.json')
+      .ExportToHtml('test-results.html')
       .Run then
       ExitCode := 0
     else

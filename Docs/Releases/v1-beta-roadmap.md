@@ -97,7 +97,19 @@ For technical details and granular status of each module, check:
 | **Snapshot Testing** (`MatchSnapshot`) | ✅ Ready | JSON/String snapshot verification |
 | **Fluent Assertions** (`Should`) | ✅ Ready | Expressive assertion library |
 | **Global Syntax** (`Should()`) | ✅ Ready | Clean API for tests |
+| **Soft Asserts** (`Assert.Multiple`) | ✅ Ready | Failure aggregation for multiple checks |
 | **Integration** | ✅ Ready | Works with Dext DI and Core types |
+| **Attribute-Based Runner** ⭐ NEW | ✅ Ready | `[TestFixture]`, `[Test]`, `[Setup]`, `[TearDown]` - NUnit/xUnit style |
+| **Assembly Lifecycle Hooks** ⭐ NEW | ✅ Ready | `[AssemblyInitialize]`, `[AssemblyCleanup]` |
+| **Parameterized Tests** | ✅ Ready | `[TestCase(1, 2, 3)]` data-driven testing |
+| **ITestContext Injection** ⭐ NEW | ✅ Ready | Runtime info: `Context.CurrentTest`, `Context.WriteLine` |
+| **JUnit XML Report** | ✅ Ready | CI integration (Jenkins, GitHub Actions, GitLab CI) |
+| **xUnit XML Report** ⭐ NEW | ✅ Ready | .NET ecosystem compatibility |
+| **TRX Report** ⭐ NEW | ✅ Ready | Azure DevOps / Visual Studio integration |
+| **HTML Report** ⭐ NEW | ✅ Ready | Beautiful standalone dark-themed report |
+| **JSON Report** | ✅ Ready | Custom tooling integration |
+| **SonarQube Report** | ✅ Ready | Quality gates integration |
+| **Fluent API** | ✅ Ready | `TTest.Configure.Verbose.ExportToHtml('report.html').Run` |
 
 ### 🔄 Hosting & Lifecycle
 | Feature | Status | Notes |
