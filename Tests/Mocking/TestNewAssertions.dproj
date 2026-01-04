@@ -119,6 +119,8 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="..\..\Sources\Testing\Dext.Assertions.pas"/>
+        <DCCReference Include="..\..\Sources\Core\Dext.Types.UUID.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

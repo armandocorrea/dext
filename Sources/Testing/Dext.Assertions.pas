@@ -104,7 +104,7 @@ type
     function Because(const Reason: string): ShouldString;
     // Chaining
     function &And: ShouldString;
-    function Also: ShouldString; // Alias for And (no escape needed)
+    function AndAlso: ShouldString; // Fluent alias for And
   end;
 
   /// <summary>
@@ -132,6 +132,7 @@ type
     function Satisfy(const Predicate: TPredicate<Integer>): ShouldInteger;
     function Because(const Reason: string): ShouldInteger;
     function &And: ShouldInteger;
+    function AndAlso: ShouldInteger;
   end;
 
   /// <summary>
@@ -151,6 +152,7 @@ type
     function NotBe(Unexpected: Boolean): ShouldBoolean;
     function Because(const Reason: string): ShouldBoolean;
     function &And: ShouldBoolean;
+    function AndAlso: ShouldBoolean;
   end;
 
   /// <summary>
@@ -170,6 +172,8 @@ type
     function ThrowWithMessage(const ExpectedMessage: string): ShouldAction;
     function NotThrow: ShouldAction;
     function Because(const Reason: string): ShouldAction;
+    function &And: ShouldAction;
+    function AndAlso: ShouldAction;
   end;
 
   /// <summary>
@@ -196,6 +200,7 @@ type
     function Satisfy(const Predicate: TPredicate<Double>): ShouldDouble;
     function Because(const Reason: string): ShouldDouble;
     function &And: ShouldDouble;
+    function AndAlso: ShouldDouble;
   end;
 
   /// <summary>
@@ -221,6 +226,7 @@ type
     function Satisfy(const Predicate: TPredicate<Int64>): ShouldInt64;
     function Because(const Reason: string): ShouldInt64;
     function &And: ShouldInt64;
+    function AndAlso: ShouldInt64;
   end;
 
   /// <summary>
@@ -240,6 +246,7 @@ type
     function NotBeEmpty: ShouldGuid;
     function Because(const Reason: string): ShouldGuid;
     function &And: ShouldGuid;
+    function AndAlso: ShouldGuid;
   end;
 
   /// <summary>
@@ -259,6 +266,7 @@ type
     function NotBeEmpty: ShouldUUID;
     function Because(const Reason: string): ShouldUUID;
     function &And: ShouldUUID;
+    function AndAlso: ShouldUUID;
   end;
 
   /// <summary>
@@ -281,6 +289,7 @@ type
     function BeOfType(VarType: TVarType): ShouldVariant;
     function Because(const Reason: string): ShouldVariant;
     function &And: ShouldVariant;
+    function AndAlso: ShouldVariant;
   end;
 
   /// <summary>
@@ -307,6 +316,7 @@ type
     function MatchSnapshot(const SnapshotName: string): ShouldObject;
     function Because(const Reason: string): ShouldObject;
     function &And: ShouldObject;
+    function AndAlso: ShouldObject;
   end;
 
   /// <summary>
@@ -325,6 +335,8 @@ type
     function BeEquivalentTo(const Expected: IInterface): ShouldInterface;
     function MatchSnapshot(const SnapshotName: string): ShouldInterface;
     function Because(const Reason: string): ShouldInterface;
+    function &And: ShouldInterface;
+    function AndAlso: ShouldInterface;
   end;
 
 
@@ -358,6 +370,7 @@ type
     function AnySatisfy(const Predicate: TPredicate<T>): ShouldList<T>;
     function Because(const Reason: string): ShouldList<T>;
     function &And: ShouldList<T>;
+    function AndAlso: ShouldList<T>;
   end;
 
   // Global helper functions for cleaner syntax
@@ -1904,6 +1917,102 @@ begin
 end;
 
 function ShouldVariant.&And: ShouldVariant;
+begin
+  Result := Self;
+end;
+
+function ShouldVariant.AndAlso: ShouldVariant;
+begin
+  Result := Self;
+end;
+
+// Implementations for AndAlso for other types (appended here to keep unit clean)
+
+
+
+function ShouldString.AndAlso: ShouldString;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldInteger.AndAlso: ShouldInteger;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldInt64.AndAlso: ShouldInt64;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldDouble.AndAlso: ShouldDouble;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldBoolean.AndAlso: ShouldBoolean;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldGuid.AndAlso: ShouldGuid;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldUUID.AndAlso: ShouldUUID;
+begin
+  Result := Self;
+end;
+
+
+
+
+
+function ShouldAction.&And: ShouldAction;
+begin
+  Result := Self;
+end;
+
+function ShouldAction.AndAlso: ShouldAction;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldObject.AndAlso: ShouldObject;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldList<T>.AndAlso: ShouldList<T>;
+begin
+  Result := Self;
+end;
+
+
+
+function ShouldInterface.&And: ShouldInterface;
+begin
+  Result := Self;
+end;
+
+function ShouldInterface.AndAlso: ShouldInterface;
 begin
   Result := Self;
 end;

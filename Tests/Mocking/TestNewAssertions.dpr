@@ -102,7 +102,7 @@ begin
   
   // And chaining
   try
-    Should(Int64(50)).BePositive.&And.BeLessThan(100);
+    Should(Int64(50)).BePositive.AndAlso.BeLessThan(100);
     Pass('Int64.And chaining');
   except on E: Exception do Fail('Int64.And chaining', E.Message); end;
 end;
@@ -142,7 +142,7 @@ begin
   
   // And chaining
   try
-    Should(G1).NotBeEmpty.&And.NotBe(TGUID.Empty);
+    Should(G1).NotBeEmpty.AndAlso.NotBe(TGUID.Empty);
     Pass('GUID.And chaining');
   except on E: Exception do Fail('GUID.And chaining', E.Message); end;
 end;
@@ -182,7 +182,7 @@ begin
   
   // And chaining
   try
-    Should(U1).NotBeEmpty.&And.NotBe(TUUID.Empty);
+    Should(U1).NotBeEmpty.AndAlso.NotBe(TUUID.Empty);
     Pass('UUID.And chaining');
   except on E: Exception do Fail('UUID.And chaining', E.Message); end;
 end;
@@ -290,7 +290,7 @@ begin
   
   // And chaining
   try
-    Should('HELLO').BeUpperCase.&And.HaveLengthGreaterThan(3);
+    Should('HELLO').BeUpperCase.AndAlso.HaveLengthGreaterThan(3);
     Pass('String.And chaining');
   except on E: Exception do Fail('String.And chaining', E.Message); end;
 end;
@@ -329,7 +329,7 @@ begin
   
   // And chaining
   try
-    ShouldList<Integer>.Create(Arr).HaveCount(5).&And.Contain(3);
+    ShouldList<Integer>.Create(Arr).HaveCount(5).AndAlso.Contain(3);
     Pass('List.And chaining');
   except on E: Exception do Fail('List.And chaining', E.Message); end;
 end;
@@ -381,7 +381,7 @@ begin
     
     // And chaining with other assertions
     try
-      Should(Person).NotBeNil.&And.HaveProperty('Name');
+      Should(Person).NotBeNil.AndAlso.HaveProperty('Name');
       Pass('HaveProperty.And chaining');
     except on E: Exception do Fail('HaveProperty.And chaining', E.Message); end;
   finally
@@ -398,17 +398,17 @@ begin
   WriteLn('=== And Chaining Tests ===');
   
   try
-    Should(50).BeGreaterThan(10).&And.BeLessThan(100);
+    Should(50).BeGreaterThan(10).AndAlso.BeLessThan(100);
     Pass('Integer.And chaining');
   except on E: Exception do Fail('Integer.And chaining', E.Message); end;
   
   try
-    Should(Double(3.14)).BeGreaterThan(3.0).&And.BeLessThan(4.0);
+    Should(Double(3.14)).BeGreaterThan(3.0).AndAlso.BeLessThan(4.0);
     Pass('Double.And chaining');
   except on E: Exception do Fail('Double.And chaining', E.Message); end;
   
   try
-    Should(True).BeTrue.&And.NotBe(False);
+    Should(True).BeTrue.AndAlso.NotBe(False);
     Pass('Boolean.And chaining');
   except on E: Exception do Fail('Boolean.And chaining', E.Message); end;
 end;

@@ -336,7 +336,6 @@ The repository contains practical example projects:
 
 ## 🔮 Coming Soon
 
-- **Advanced Testing Framework**: Pure Delphi testing framework focused on modern patterns (TDD/BDD).
 - **Documentation**: Complete revision and bilingual support (English/Portuguese) for all modules.
 
 ---

@@ -350,7 +350,7 @@ begin
   
   // Global Should(Double)
   try
-    Should(3.14).BeApproximately(3.14, 0.001);
+    Should(Double(3.14)).BeApproximately(3.14, 0.001);
     Pass('Global Should(Double)');
   except
     on E: Exception do Fail('Global Should(Double)', E.Message);

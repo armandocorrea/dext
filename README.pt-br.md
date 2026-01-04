@@ -332,7 +332,6 @@ O repositório contém projetos de exemplo práticos:
 
 ## 🔮 Em Breve
 
-- **Advanced Testing Framework**: Framework de testes puramente Delphi focado em padrões modernos (TDD/BDD).
 - **Documentação**: Revisão completa e suporte bilíngue (Inglês/Português) para todos os módulos.
 
 ---
