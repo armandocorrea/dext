@@ -180,6 +180,10 @@ Plano estratégico focado em Dext SO4 (Fórum/Social) e melhorias de Core (Nulla
 - [x] **Activator**: Suporte a Pure DI, Manual, e Hybrid Injection.
 - [x] **Configuration**: Sistema de configuração (JSON, Environment Variables).
 - [x] **Logging**: Abstração `ILogger` com múltiplos sinks (Console, File).
+- [x] **Testing Framework**: Native testing library (`Dext.Testing`).
+  - [x] **Mocks**: Dynamic proxy-based mocks via `TVirtualInterface`.
+  - [x] **Fluent Assertions**: Expressive assertions (`Should(X).Be(Y)`).
+  - [x] **Integration**: Seamless integration with Dext Core.
 
 ### 2. HTTP & Routing (✅ Concluído)
 - [x] **HttpContext**: Abstração robusta de Request/Response.

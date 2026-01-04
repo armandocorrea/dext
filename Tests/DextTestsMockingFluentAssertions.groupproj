@@ -1,0 +1,96 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{6AA0A906-18D1-4DB7-B4E5-8CE0AB267630}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Mocking\TestVirtualInterface.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Mocking\TestDextMocksSimple.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Mocking\TestDextMocks.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Mocking\TestDextAssertions.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Mocking\TestSequenceAndCallback.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Mocking\TestNewFeatures.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="TestVirtualInterface">
+        <MSBuild Projects="Mocking\TestVirtualInterface.dproj"/>
+    </Target>
+    <Target Name="TestVirtualInterface:Clean">
+        <MSBuild Projects="Mocking\TestVirtualInterface.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestVirtualInterface:Make">
+        <MSBuild Projects="Mocking\TestVirtualInterface.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestDextMocksSimple">
+        <MSBuild Projects="Mocking\TestDextMocksSimple.dproj"/>
+    </Target>
+    <Target Name="TestDextMocksSimple:Clean">
+        <MSBuild Projects="Mocking\TestDextMocksSimple.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestDextMocksSimple:Make">
+        <MSBuild Projects="Mocking\TestDextMocksSimple.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestDextMocks">
+        <MSBuild Projects="Mocking\TestDextMocks.dproj"/>
+    </Target>
+    <Target Name="TestDextMocks:Clean">
+        <MSBuild Projects="Mocking\TestDextMocks.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestDextMocks:Make">
+        <MSBuild Projects="Mocking\TestDextMocks.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestDextAssertions">
+        <MSBuild Projects="Mocking\TestDextAssertions.dproj"/>
+    </Target>
+    <Target Name="TestDextAssertions:Clean">
+        <MSBuild Projects="Mocking\TestDextAssertions.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestDextAssertions:Make">
+        <MSBuild Projects="Mocking\TestDextAssertions.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestSequenceAndCallback">
+        <MSBuild Projects="Mocking\TestSequenceAndCallback.dproj"/>
+    </Target>
+    <Target Name="TestSequenceAndCallback:Clean">
+        <MSBuild Projects="Mocking\TestSequenceAndCallback.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestSequenceAndCallback:Make">
+        <MSBuild Projects="Mocking\TestSequenceAndCallback.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TestNewFeatures">
+        <MSBuild Projects="Mocking\TestNewFeatures.dproj"/>
+    </Target>
+    <Target Name="TestNewFeatures:Clean">
+        <MSBuild Projects="Mocking\TestNewFeatures.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestNewFeatures:Make">
+        <MSBuild Projects="Mocking\TestNewFeatures.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="TestVirtualInterface;TestDextMocksSimple;TestDextMocks;TestDextAssertions;TestSequenceAndCallback;TestNewFeatures"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="TestVirtualInterface:Clean;TestDextMocksSimple:Clean;TestDextMocks:Clean;TestDextAssertions:Clean;TestSequenceAndCallback:Clean;TestNewFeatures:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="TestVirtualInterface:Make;TestDextMocksSimple:Make;TestDextMocks:Make;TestDextAssertions:Make;TestSequenceAndCallback:Make;TestNewFeatures:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

@@ -38,9 +38,15 @@ msbuild "Dext.EF.Core.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platfor
 if %ERRORLEVEL% NEQ 0 goto Error
 
 echo.
-echo Building Dext.Web...
+echo Building Dext.Web.Core...
 msbuild "Dext.Web.Core.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /v:minimal
 if %ERRORLEVEL% NEQ 0 goto Error
+
+echo.
+echo Building Dext.Testing...
+msbuild "Dext.Testing.dproj" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%PLATFORM% /v:minimal
+if %ERRORLEVEL% NEQ 0 goto Error
+
 
 echo.
 echo ==========================================

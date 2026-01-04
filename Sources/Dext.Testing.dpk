@@ -1,6 +1,6 @@
 package Dext.Testing;
 
-
+{$R *.res}
 {$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
 {$ALIGN 8}
 {$ASSERTIONS ON}
@@ -25,7 +25,7 @@ package Dext.Testing;
 {$IMAGEBASE $400000}
 {$DEFINE DEBUG}
 {$ENDIF IMPLICITBUILDING}
-{$DESCRIPTION 'Dext Framework - Testing Utilities'}
+{$DESCRIPTION 'Dext Framework - Testing Utilities (Mocking, Interception, Assertions)'}
 {$RUNONLY}
 {$IMPLICITBUILD OFF}
 
@@ -33,5 +33,15 @@ requires
   rtl,
   Dext.Core;
 
+contains
+  Dext.Assertions in 'Testing\Dext.Assertions.pas',
+  Dext.Interception in 'Testing\Dext.Interception.pas',
+  Dext.Interception.Proxy in 'Testing\Dext.Interception.Proxy.pas',
+  Dext.Interception.ClassProxy in 'Testing\Dext.Interception.ClassProxy.pas',
+  Dext.Testing.Console in 'Testing\Dext.Testing.Console.pas',
+  Dext.Mocks.Interceptor in 'Testing\Dext.Mocks.Interceptor.pas',
+  Dext.Mocks.Matching in 'Testing\Dext.Mocks.Matching.pas',
+  Dext.Mocks.Auto in 'Testing\Dext.Mocks.Auto.pas',
+  Dext.Mocks in 'Testing\Dext.Mocks.pas';
 
 end.

@@ -90,6 +90,13 @@ A fundação do framework, utilizável em qualquer tipo de aplicação.
   - **Suporte Inteligente a Tipos**: Tratamento nativo de GUID, Enums, DateTime e tipos customizados
   - **Drivers Plugáveis**: Suporte para JsonDataObjects (padrão) e System.JSON
 
+### 🧪 Dext.Testing
+Um framework de testes nativo construído para Delphi.
+- **Mocks**: API fluente de mocks similar ao Moq (Interfaces e Classes).
+- **Auto-Mocking**: Injeção de dependência automática para testes unitários.
+- **Asserções**: Asserções fluentes expressivas (`Should`) e Snapshot Testing.
+- **Integração**: Projetado para funcionar perfeitamente com a injeção de dependência do Dext.
+
 ---
 
 ## 📚 Índice de Documentação
@@ -126,6 +133,9 @@ A fundação do framework, utilizável em qualquer tipo de aplicação.
 - [Ciclo de Vida & Integridade](Docs/application-lifecycle.md)
 - [Async Programming](Docs/async-api.md)
 - [Caching](Docs/caching.md)
+
+### 🧪 Testes
+- [Começando](Docs/testing.pt-br.md)
 
 ### 📰 Artigos e Tutoriais
 - [Domain Model e CQRS: Modernizando sua Arquitetura Delphi](https://www.cesarromero.com.br/blog/enterprise-patterns-delphi/)

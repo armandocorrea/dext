@@ -88,6 +88,17 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 | **Custom Constructors (DI)** | ✅ Pronto | Attribute `[ServiceConstructor]` para especificar qual constructor usar no DI |
 | **TypeInfo Cache** | ✅ Ready | Cache RTTI metadata for performance optimization |
 
+### 🧪 Dext.Testing
+| Feature | Status | Notas |
+|---------|--------|-------|
+| **Mocking Engine** (`Mock<T>`) | ✅ Pronto | Proxies dinâmicos via `TVirtualInterface` |
+| **Class Mocking** (`Mock<TClass>`) | ✅ Pronto | Interceptação de métodos virtuais |
+| **Auto-Mocking** (`TAutoMocker`) | ✅ Pronto | Injeção de dependência automática p/ testes |
+| **Snapshot Testing** (`MatchSnapshot`) | ✅ Pronto | Verificação de snapshots JSON/String |
+| **Fluent Assertions** (`Should`) | ✅ Pronto | Biblioteca de asserções expressiva |
+| **Sintaxe Global** (`Should()`) | ✅ Pronto | API limpa para testes |
+| **Integração** | ✅ Pronto | Funciona com Dext DI e Core types |
+
 ### 🔄 Hosting & Lifecycle
 | Feature | Status | Notas |
 |---------|--------|-------|
@@ -183,7 +194,6 @@ Funcionalidades movidas para v1.1 ou v2.0:
 
 - **Docker Tooling**: Templates de `Dockerfile` e comando `dext docker init` para facilitar o deployment. (Prioritário)
 - **Telemetry & Observability**: Suporte a OpenTelemetry (Tracing/Metrics) e dashboards nativos.
-- **Testing Ecosystem**: Framework `Dext.Mock` e Fluent Assertions (`Expect(X).Should.Be(Y)`).
 - **Advanced Resilience**: Patterns de Retry, Circuit Breaker e Timeout na Async API.
 - **CancellationToken Timeout**: Suporte a timeout automático em `CancellationToken` para operações assíncronas (`CancellationToken.WithTimeout(Duration)`).
 - **Immutable Data Structures**: `ImmutableList<T>`, `ImmutableDictionary<K,V>` e `Nullable<T>` (ReadOnly) para concorrência segura (Scalability).
