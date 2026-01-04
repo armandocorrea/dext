@@ -62,7 +62,8 @@ uses
   Dext.Hosting.CLI.Commands.MigrateUp,
   Dext.Hosting.CLI.Commands.MigrateList,
   Dext.Hosting.CLI.Commands.MigrateDown,
-  Dext.Hosting.CLI.Commands.MigrateGenerate;
+  Dext.Hosting.CLI.Commands.MigrateGenerate,
+  Dext.Hosting.CLI.Commands.Test;
 
 { TDextCLI }
 
@@ -92,6 +93,9 @@ begin
 
   var CmdGen := TMigrateGenerateCommand.Create;
   FCommands.Add(CmdGen.GetName, CmdGen);
+
+  var CmdTest := TTestCommand.Create;
+  FCommands.Add(CmdTest.GetName, CmdTest);
 end;
 
 procedure TDextCLI.ShowHelp;

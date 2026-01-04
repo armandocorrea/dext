@@ -158,6 +158,7 @@
         <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateList.pas"/>
         <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateUp.pas"/>
         <DCCReference Include="Data\Dext.Entity.Prototype.pas"/>
+        <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.Test.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -207,7 +208,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="..\Output\Win32\Debug\Dext.EF.Core.bpl" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\Dext.EF.Core.bpl" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>Dext.EF.Core.bpl</RemoteName>
                         <Overwrite>true</Overwrite>
