@@ -216,7 +216,7 @@ type
     FSourceType: TClass;
   public
     constructor Create(const AMethodName: string); overload;
-    constructor Create(ASourceType: TClass); overload;
+    constructor Create(ASourceType: TClass; const AMethodName: string); overload;
     property SourceMethodName: string read FSourceMethodName;
     property SourceType: TClass read FSourceType;
   end;
@@ -579,11 +579,11 @@ begin
   FSourceType := nil;
 end;
 
-constructor TestCaseSourceAttribute.Create(ASourceType: TClass);
+constructor TestCaseSourceAttribute.Create(ASourceType: TClass; const AMethodName: string);
 begin
   inherited Create;
   FSourceType := ASourceType;
-  FSourceMethodName := '';
+  FSourceMethodName := AMethodName;
 end;
 
 { IgnoreAttribute }

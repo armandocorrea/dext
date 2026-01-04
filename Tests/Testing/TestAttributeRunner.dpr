@@ -204,6 +204,25 @@ type
     procedure TestMultipleAssertions;
   end;
 
+  /// <summary>
+  ///   Data provider for TestCaseSource tests.
+  /// </summary>
+  TExternalData = class
+  public
+    class function GetValues: TArray<TArray<TValue>>; static;
+  end;
+
+  /// <summary>
+  ///   Demonstrates [TestCaseSource] with external class.
+  /// </summary>
+  [TestFixture('External Data Tests')]
+  TExternalDataTests = class
+  public
+    [Test]
+    [TestCaseSource(TExternalData, 'GetValues')]
+    procedure TestWithExternalData(A, B, Expected: Integer);
+  end;
+
 { TGlobalSetup }
 
 class procedure TGlobalSetup.GlobalSetup;
@@ -469,6 +488,23 @@ begin
   end;
 end;
 
+{ TExternalData }
+
+class function TExternalData.GetValues: TArray<TArray<TValue>>;
+begin
+  Result := [
+    [TValue.From(1), TValue.From(2), TValue.From(3)],
+    [TValue.From(10), TValue.From(20), TValue.From(30)]
+  ];
+end;
+
+{ TExternalDataTests }
+
+procedure TExternalDataTests.TestWithExternalData(A, B, Expected: Integer);
+begin
+  Should(A + B).Be(Expected);
+end;
+
 begin
   SetConsoleCharSet();
   try
@@ -482,7 +518,7 @@ begin
     if TTest.Configure
       .Verbose
       .UseDashboard(9000) // 🚀 Enable Live Dashboard at http://localhost:9000
-      .RegisterFixtures([TGlobalSetup, TCalculatorTests, TStringTests, TAssertionTests])
+      .RegisterFixtures([TGlobalSetup, TCalculatorTests, TStringTests, TAssertionTests, TExternalDataTests])
       .ExportToJUnit('test-results.xml')
       .ExportToJson('test-results.json')
       .ExportToHtml('test-results.html')

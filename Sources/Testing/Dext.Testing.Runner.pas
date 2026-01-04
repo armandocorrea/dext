@@ -928,11 +928,20 @@ end;
 class function TTestRunner.GetTestCases(Method: TRttiMethod): TArray<TArray<TValue>>;
 var
   TestCaseAttrs: TArray<TestCaseAttribute>;
+  SourceAttrs: TArray<TestCaseSourceAttribute>;
   Attr: TestCaseAttribute;
+  SourceAttr: TestCaseSourceAttribute;
   List: TList<TArray<TValue>>;
+  SourceType: TRttiType;
+  SourceMethod: TRttiMethod;
+  SourceResult: TValue;
+  SourceValues: TArray<TArray<TValue>>;
+  V: TArray<TValue>;
 begin
   TestCaseAttrs := GetAttributes<TestCaseAttribute>(Method.GetAttributes);
-  if Length(TestCaseAttrs) = 0 then
+  SourceAttrs := GetAttributes<TestCaseSourceAttribute>(Method.GetAttributes);
+
+  if (Length(TestCaseAttrs) = 0) and (Length(SourceAttrs) = 0) then
   begin
     // No test cases, return single empty array for parameterless execution
     SetLength(Result, 1);
@@ -942,8 +951,37 @@ begin
 
   List := TList<TArray<TValue>>.Create;
   try
+    // 1. [TestCase]
     for Attr in TestCaseAttrs do
       List.Add(Attr.Values);
+
+    // 2. [TestCaseSource]
+    for SourceAttr in SourceAttrs do
+    begin
+      if SourceAttr.SourceType <> nil then
+        SourceType := FContext.GetType(SourceAttr.SourceType)
+      else
+        SourceType := Method.Parent;
+
+      if SourceType = nil then Continue;
+
+      SourceMethod := SourceType.GetMethod(SourceAttr.SourceMethodName);
+      if Assigned(SourceMethod) and SourceMethod.IsClassMethod then
+      begin
+        // Invoke static method
+        if SourceType is TRttiInstanceType then
+          SourceResult := SourceMethod.Invoke(TRttiInstanceType(SourceType).MetaclassType, [])
+        else
+          Continue;
+
+        if SourceResult.TryAsType<TArray<TArray<TValue>>>(SourceValues) then
+        begin
+          for V in SourceValues do
+            List.Add(V);
+        end;
+      end;
+    end;
+
     Result := List.ToArray;
   finally
     List.Free;
@@ -953,14 +991,23 @@ end;
 class function TTestRunner.GetTestCaseDisplayNames(Method: TRttiMethod): TArray<string>;
 var
   TestCaseAttrs: TArray<TestCaseAttribute>;
+  SourceAttrs: TArray<TestCaseSourceAttribute>;
   Attr: TestCaseAttribute;
+  SourceAttr: TestCaseSourceAttribute;
   List: TList<string>;
   I: Integer;
   Values: string;
   V: TValue;
+  SourceType: TRttiType;
+  SourceMethod: TRttiMethod;
+  SourceResult: TValue;
+  SourceValues: TArray<TArray<TValue>>;
+  CaseVals: TArray<TValue>;
 begin
   TestCaseAttrs := GetAttributes<TestCaseAttribute>(Method.GetAttributes);
-  if Length(TestCaseAttrs) = 0 then
+  SourceAttrs := GetAttributes<TestCaseSourceAttribute>(Method.GetAttributes);
+
+  if (Length(TestCaseAttrs) = 0) and (Length(SourceAttrs) = 0) then
   begin
     SetLength(Result, 1);
     Result[0] := '';
@@ -969,6 +1016,7 @@ begin
 
   List := TList<string>.Create;
   try
+    // 1. [TestCase] - Legacy handling
     for I := 0 to High(TestCaseAttrs) do
     begin
       Attr := TestCaseAttrs[I];
@@ -987,6 +1035,42 @@ begin
         List.Add('(' + Values + ')');
       end;
     end;
+
+    // 2. [TestCaseSource] - Generate names from values
+    for SourceAttr in SourceAttrs do
+    begin
+      if SourceAttr.SourceType <> nil then
+        SourceType := FContext.GetType(SourceAttr.SourceType)
+      else
+        SourceType := Method.Parent;
+
+      if SourceType = nil then Continue;
+
+      SourceMethod := SourceType.GetMethod(SourceAttr.SourceMethodName);
+      if Assigned(SourceMethod) and SourceMethod.IsClassMethod then
+      begin
+        if SourceType is TRttiInstanceType then
+          SourceResult := SourceMethod.Invoke(TRttiInstanceType(SourceType).MetaclassType, [])
+        else
+          Continue;
+
+        if SourceResult.TryAsType<TArray<TArray<TValue>>>(SourceValues) then
+        begin
+          for CaseVals in SourceValues do
+          begin
+            Values := '';
+            for V in CaseVals do
+            begin
+              if Values <> '' then
+                Values := Values + ', ';
+              Values := Values + V.ToString;
+            end;
+            List.Add('(' + Values + ')');
+          end;
+        end;
+      end;
+    end;
+
     Result := List.ToArray;
   finally
     List.Free;
