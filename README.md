@@ -92,11 +92,12 @@ The foundation of the framework, usable in any type of application.
   - **Pluggable Drivers**: Support for JsonDataObjects (default) and System.JSON
 
 ### 🧪 Dext.Testing
-A native testing framework built for Delphi.
-- **Mocks**: Fluent mocking API similar to Moq (Interfaces & Classes).
-- **Auto-Mocking**: Automatic dependency injection for unit tests.
-- **Assertions**: Expressive fluent assertions (`Should`) and Snapshot Testing.
-- **Integration**: Designed to work seamlessly with Dext dependency injection.
+The definitive, modern testing framework for Delphi, inspired by NUnit, FluentAssertions, and Moq.
+- **Unified Fluent Assertions**: A rich `Should(Value)` syntax for everything—from Primitives (Int64, GUID, Variant) to Objects, Lists, and Actions. Supports Chaining (`.AndAlso`), localized checks (`.BeOneOf`, `.Satisfy`), and RTTI inspection (`.HaveProperty`).
+- **Powerful Mocking**: Create strict or loose mocks for Interfaces and Classes with `Mock<T>`. Supports Partial Mocks (`CallsBase`), Sequence setup, and Argument Matchers (`Arg.Is<T>`).
+- **Auto-Mocking Container**: Effortlessly test classes with many dependencies. `TAutoMocker` automatically injects mocks into your System Under Test (SUT).
+- **Snapshot Testing**: Simplify complex object verification by comparing against JSON baselines (`MatchSnapshot`).
+- **Test-Centric DI**: Specialized `TTestServiceProvider` to easily swap production services with mocks during integration tests.
 
 ---
 
