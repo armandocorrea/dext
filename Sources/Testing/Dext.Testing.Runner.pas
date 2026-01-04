@@ -156,6 +156,29 @@ type
   end;
 
   /// <summary>
+  ///   Implementation of ITestContext for runtime test information.
+  /// </summary>
+  TTestContext = class(TInterfacedObject, ITestContext)
+  private
+    FCurrentTest: string;
+    FCurrentFixture: string;
+    FOutput: TStringBuilder;
+    FAttachedFiles: TList<string>;
+  public
+    constructor Create(const AFixture, ATest: string);
+    destructor Destroy; override;
+    
+    function GetCurrentTest: string;
+    function GetCurrentFixture: string;
+    procedure WriteLine(const Msg: string); overload;
+    procedure WriteLine(const Fmt: string; const Args: array of const); overload;
+    procedure AttachFile(const FilePath: string);
+    
+    function GetOutput: string;
+    function GetAttachedFiles: TArray<string>;
+  end;
+
+  /// <summary>
   ///   Main test runner that discovers and executes attribute-based tests.
   /// </summary>
   TTestRunner = class
@@ -170,6 +193,11 @@ type
     class var FReportFileName: string;
     class var FReportFormat: TOutputFormat;
     class var FTestResults: TList<TTestInfo>;
+    
+    // Assembly-level hooks (execute once for entire test suite)
+    class var FAssemblyInitMethod: TRttiMethod;
+    class var FAssemblyCleanupMethod: TRttiMethod;
+    class var FAssemblyHookClass: TClass;
 
     class var FOnTestStart: TTestStartEvent;
     class var FOnTestComplete: TTestCompleteEvent;
@@ -178,6 +206,9 @@ type
 
     class procedure DiscoverFixtures;
     class procedure DiscoverTestMethods(Fixture: TTestFixtureInfo);
+    class procedure DiscoverAssemblyHooks;
+    class procedure ExecuteAssemblyInit;
+    class procedure ExecuteAssemblyCleanup;
     class function HasAttribute<T: TCustomAttribute>(
       const Attrs: TArray<TCustomAttribute>): Boolean; overload;
     class function GetAttribute<T: TCustomAttribute>(
@@ -394,6 +425,62 @@ begin
   Result := True;
 end;
 
+{ TTestContext }
+
+constructor TTestContext.Create(const AFixture, ATest: string);
+begin
+  inherited Create;
+  FCurrentFixture := AFixture;
+  FCurrentTest := ATest;
+  FOutput := TStringBuilder.Create;
+  FAttachedFiles := TList<string>.Create;
+end;
+
+destructor TTestContext.Destroy;
+begin
+  FOutput.Free;
+  FAttachedFiles.Free;
+  inherited;
+end;
+
+function TTestContext.GetCurrentTest: string;
+begin
+  Result := FCurrentTest;
+end;
+
+function TTestContext.GetCurrentFixture: string;
+begin
+  Result := FCurrentFixture;
+end;
+
+procedure TTestContext.WriteLine(const Msg: string);
+begin
+  FOutput.AppendLine(Msg);
+  // Also write to console in verbose mode
+  WriteLn('      📝 ' + Msg);
+end;
+
+procedure TTestContext.WriteLine(const Fmt: string; const Args: array of const);
+begin
+  WriteLine(Format(Fmt, Args));
+end;
+
+procedure TTestContext.AttachFile(const FilePath: string);
+begin
+  FAttachedFiles.Add(FilePath);
+  WriteLn('      📎 Attached: ' + FilePath);
+end;
+
+function TTestContext.GetOutput: string;
+begin
+  Result := FOutput.ToString;
+end;
+
+function TTestContext.GetAttachedFiles: TArray<string>;
+begin
+  Result := FAttachedFiles.ToArray;
+end;
+
 { TTestFixtureInfo }
 
 constructor TTestFixtureInfo.Create(ARttiType: TRttiType);
@@ -541,6 +628,120 @@ begin
         Fixture.TestMethods[J] := TempMethod;
       end;
     end;
+  end;
+end;
+
+class procedure TTestRunner.DiscoverAssemblyHooks;
+var
+  Fixture: TTestFixtureInfo;
+  Method: TRttiMethod;
+  Attr: TCustomAttribute;
+begin
+  FAssemblyInitMethod := nil;
+  FAssemblyCleanupMethod := nil;
+  FAssemblyHookClass := nil;
+  
+  // Scan all fixtures for assembly-level hooks
+  for Fixture in FFixtures do
+  begin
+    for Method in Fixture.RttiType.GetMethods do
+    begin
+      for Attr in Method.GetAttributes do
+      begin
+        if Attr is AssemblyInitializeAttribute then
+        begin
+          if FAssemblyInitMethod <> nil then
+            raise Exception.Create('[AssemblyInitialize] can only be applied to ONE method across all fixtures.');
+          FAssemblyInitMethod := Method;
+          FAssemblyHookClass := Fixture.FixtureClass;
+        end
+        else if Attr is AssemblyCleanupAttribute then
+        begin
+          if FAssemblyCleanupMethod <> nil then
+            raise Exception.Create('[AssemblyCleanup] can only be applied to ONE method across all fixtures.');
+          FAssemblyCleanupMethod := Method;
+          if FAssemblyHookClass = nil then
+            FAssemblyHookClass := Fixture.FixtureClass;
+        end;
+      end;
+    end;
+  end;
+end;
+
+class procedure TTestRunner.ExecuteAssemblyInit;
+var
+  Instance: TObject;
+begin
+  if FAssemblyInitMethod = nil then
+    Exit;
+    
+  if FVerbose then
+  begin
+    WriteLn;
+    TTestConsole.WriteInfo('🌐 [AssemblyInitialize] Running global setup...');
+  end;
+  
+  try
+    // Create instance and invoke (or invoke as class method if static)
+    if FAssemblyInitMethod.IsClassMethod then
+    begin
+      FAssemblyInitMethod.Invoke(FAssemblyHookClass, []);
+    end
+    else
+    begin
+      Instance := FAssemblyHookClass.Create;
+      try
+        FAssemblyInitMethod.Invoke(Instance, []);
+      finally
+        Instance.Free;
+      end;
+    end;
+    
+    if FVerbose then
+      WriteLn('    ✅ Global setup complete.');
+  except
+    on E: Exception do
+    begin
+      TTestConsole.WriteFail('    ❌ [AssemblyInitialize] failed: ' + E.Message);
+      raise; // Stop test execution if global setup fails
+    end;
+  end;
+end;
+
+class procedure TTestRunner.ExecuteAssemblyCleanup;
+var
+  Instance: TObject;
+begin
+  if FAssemblyCleanupMethod = nil then
+    Exit;
+    
+  if FVerbose then
+  begin
+    WriteLn;
+    TTestConsole.WriteInfo('🌐 [AssemblyCleanup] Running global cleanup...');
+  end;
+  
+  try
+    if FAssemblyCleanupMethod.IsClassMethod then
+    begin
+      FAssemblyCleanupMethod.Invoke(FAssemblyHookClass, []);
+    end
+    else
+    begin
+      Instance := FAssemblyHookClass.Create;
+      try
+        FAssemblyCleanupMethod.Invoke(Instance, []);
+      finally
+        Instance.Free;
+      end;
+    end;
+    
+    if FVerbose then
+      WriteLn('    ✅ Global cleanup complete.');
+  except
+    on E: Exception do
+      TTestConsole.WriteFail('    ⚠️ [AssemblyCleanup] failed: ' + E.Message);
+      // Don't re-raise - we want test results to be reported even if cleanup fails
   end;
 end;
 
@@ -756,6 +957,9 @@ begin
   if FFixtures = nil then
     Discover;
 
+  // Discover assembly-level hooks
+  DiscoverAssemblyHooks;
+
   FSummary.Reset;
   FFilter := Default(TTestFilter);
   FFilter.IncludeExplicit := False;
@@ -766,8 +970,16 @@ begin
   WriteLn(Format('Discovered %d fixtures with %d tests', [FixtureCount, TestCount]));
   WriteLn;
 
-  for Fixture in FFixtures do
-    ExecuteFixture(Fixture);
+  // Execute global setup (if defined)
+  ExecuteAssemblyInit;
+
+  try
+    for Fixture in FFixtures do
+      ExecuteFixture(Fixture);
+  finally
+    // Execute global cleanup (if defined) - always runs
+    ExecuteAssemblyCleanup;
+  end;
 
   Stopwatch.Stop;
   FSummary.TotalDuration := Stopwatch.Elapsed;
@@ -783,6 +995,9 @@ begin
   if FFixtures = nil then
     Discover;
 
+  // Discover assembly-level hooks
+  DiscoverAssemblyHooks;
+
   FSummary.Reset;
   FFilter := AFilter;
 
@@ -791,8 +1006,16 @@ begin
   TTestConsole.WriteHeader('Dext Test Runner (Filtered)');
   WriteLn;
 
-  for Fixture in FFixtures do
-    ExecuteFixture(Fixture);
+  // Execute global setup (if defined)
+  ExecuteAssemblyInit;
+
+  try
+    for Fixture in FFixtures do
+      ExecuteFixture(Fixture);
+  finally
+    // Execute global cleanup (if defined) - always runs
+    ExecuteAssemblyCleanup;
+  end;
 
   Stopwatch.Stop;
   FSummary.TotalDuration := Stopwatch.Elapsed;
@@ -922,6 +1145,11 @@ var
   RepeatCount, I: Integer;
   Categories: TArray<string>;
   MaxTime: Integer;
+  TestContext: ITestContext;
+  InvokeArgs: TArray<TValue>;
+  Params: TArray<TRttiParameter>;
+  P: Integer;
+  NeedsContext: Boolean;
 begin
   Info.FixtureName := Fixture.Name;
   Info.TestName := Method.Name;
@@ -980,8 +1208,32 @@ begin
         Fixture.SetupMethod.Invoke(Instance, []);
 
       try
-        // Execute test
-        if Length(TestCaseValues) > 0 then
+        // Check if method needs ITestContext injection
+        Params := Method.GetParameters;
+        NeedsContext := False;
+        for P := 0 to High(Params) do
+        begin
+          if (Params[P].ParamType <> nil) and 
+             (Params[P].ParamType.TypeKind = tkInterface) and
+             (Params[P].ParamType.Name = 'ITestContext') then
+          begin
+            NeedsContext := True;
+            Break;
+          end;
+        end;
+        
+        // Build invoke arguments
+        if NeedsContext then
+        begin
+          TestContext := TTestContext.Create(Fixture.Name, Info.DisplayName);
+          // Combine TestContext with TestCaseValues
+          SetLength(InvokeArgs, Length(TestCaseValues) + 1);
+          InvokeArgs[0] := TValue.From<ITestContext>(TestContext);
+          for P := 0 to High(TestCaseValues) do
+            InvokeArgs[P + 1] := TestCaseValues[P];
+          Method.Invoke(Instance, InvokeArgs);
+        end
+        else if Length(TestCaseValues) > 0 then
           Method.Invoke(Instance, TestCaseValues)
         else
           Method.Invoke(Instance, []);

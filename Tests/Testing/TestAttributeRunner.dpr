@@ -72,6 +72,19 @@ type
   // Enable RTTI for attribute-based test discovery
   {$RTTI EXPLICIT METHODS([vcPublic, vcPublished]) PROPERTIES([vcPublic, vcPublished])}
   {$M+}
+  
+  /// <summary>
+  ///   Global setup/cleanup fixture - runs once for entire test suite.
+  /// </summary>
+  [TestFixture]
+  TGlobalSetup = class
+  public
+    [AssemblyInitialize]
+    class procedure GlobalSetup;
+    
+    [AssemblyCleanup]
+    class procedure GlobalCleanup;
+  end;
   /// <summary>
   ///   Example test fixture demonstrating basic attribute usage.
   /// </summary>
@@ -185,6 +198,20 @@ type
     [Description('Verifies strongly typed assertions using Prototype.Entity<T>')]
     procedure TestSmartAssertions;
   end;
+
+{ TGlobalSetup }
+
+class procedure TGlobalSetup.GlobalSetup;
+begin
+  WriteLn('  🌐 [AssemblyInitialize] Global test environment setup...');
+  // Initialize global resources here (database connections, config, etc.)
+end;
+
+class procedure TGlobalSetup.GlobalCleanup;
+begin
+  WriteLn('  🌐 [AssemblyCleanup] Global test environment cleanup...');
+  // Cleanup global resources here
+end;
 
 { TAddress }
 
@@ -403,7 +430,7 @@ begin
     // Everything in one elegant chain:
     if TTest.Configure
       .Verbose
-      .RegisterFixtures([TCalculatorTests, TStringTests, TAssertionTests])
+      .RegisterFixtures([TGlobalSetup, TCalculatorTests, TStringTests, TAssertionTests])
       .ExportToJUnit('test-results.xml')
       .ExportToJson('test-results.json')
       .Run then

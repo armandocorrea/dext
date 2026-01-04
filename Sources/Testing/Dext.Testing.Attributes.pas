@@ -129,6 +129,38 @@ type
   /// </summary>
   ClassCleanupAttribute = class(AfterAllAttribute);
 
+  /// <summary>
+  ///   Method runs ONCE before ALL fixtures in the assembly.
+  ///   Must be a class method (static) in any [TestFixture] class.
+  ///   Only one method per assembly should have this attribute.
+  /// </summary>
+  /// <example>
+  ///   [TestFixture]
+  ///   TGlobalSetup = class
+  ///   public
+  ///     [AssemblyInitialize]
+  ///     class procedure GlobalSetup;
+  ///   end;
+  /// </example>
+  AssemblyInitializeAttribute = class(TCustomAttribute);
+
+  /// <summary>
+  ///   Alias for AssemblyInitialize (NUnit naming convention).
+  /// </summary>
+  OneTimeSetUpAttribute = class(AssemblyInitializeAttribute);
+
+  /// <summary>
+  ///   Method runs ONCE after ALL fixtures in the assembly complete.
+  ///   Must be a class method (static) in any [TestFixture] class.
+  ///   Only one method per assembly should have this attribute.
+  /// </summary>
+  AssemblyCleanupAttribute = class(TCustomAttribute);
+
+  /// <summary>
+  ///   Alias for AssemblyCleanup (NUnit naming convention).
+  /// </summary>
+  OneTimeTearDownAttribute = class(AssemblyCleanupAttribute);
+
   // =========================================================================
   // Data-Driven Testing Attributes
   // =========================================================================
