@@ -29,7 +29,7 @@ unit Dext.Web.Indy.Server;
 interface
 
 uses
-  System.Classes, System.SysUtils, IdHTTPServer, IdContext, IdCustomHTTPServer,
+  System.Classes, System.SysUtils, IdHTTPServer, IdContext, IdCustomHTTPServer, IdServerIOHandler,
   Dext.Web.Interfaces, Dext.DI.Interfaces, Dext.Web.Indy.SSL.Interfaces, Dext.Hosting.ApplicationLifetime;
 
 type
@@ -40,6 +40,7 @@ type
     FServices: IServiceProvider;
     FPort: Integer;
     FSSLHandler: IIndySSLHandler;
+    FSSLEnabled: Boolean; // Tracks if SSL was successfully configured
     
     procedure ConfigureSecureServer;
 
@@ -102,6 +103,7 @@ begin
   FPipeline := APipeline;
   FServices := AServices;
   FSSLHandler := ASSLHandler;
+  FSSLEnabled := False; // Default: no SSL
 
   FHTTPServer := TIdHTTPServer.Create(nil);
   FHTTPServer.DefaultPort := FPort;
@@ -117,20 +119,26 @@ begin
 end;
 
 procedure TIndyWebServer.ConfigureSecureServer;
+var
+  SSLIOHandler: TIdServerIOHandler;
 begin
   if FSSLHandler <> nil then
   begin
     try
-      FHTTPServer.IOHandler := FSSLHandler.CreateIOHandler(FHTTPServer);
-      // Verify handler was actually created
-      if FHTTPServer.IOHandler = nil then
+      SSLIOHandler := FSSLHandler.CreateIOHandler(FHTTPServer);
+      if SSLIOHandler <> nil then
+      begin
+        FHTTPServer.IOHandler := SSLIOHandler;
+        FSSLEnabled := True; // Mark SSL as successfully configured
+      end
+      else
         SafeWriteLn('[WARN] SSL requested but IOHandler creation returned nil. Using HTTP.');
     except
       on E: Exception do
       begin
         SafeWriteLn('[ERROR] Failed to configure HTTPS: ' + E.Message);
         SafeWriteLn('[INFO] Falling back to HTTP.');
-        FHTTPServer.IOHandler := nil; // Ensure we fall back to HTTP
+        FSSLEnabled := False;
       end;
     end;
   end;
@@ -180,12 +188,13 @@ begin
   if not FHTTPServer.Active then
   begin
     FHTTPServer.Active := True;
+    
     var Protocol := 'http';
-    if FHTTPServer.IOHandler <> nil then 
+    if FSSLEnabled then 
       Protocol := 'https';
 
     SafeWriteLn(Format('Dext server running on %s://localhost:%d', [Protocol, FPort]));
-    if FHTTPServer.IOHandler <> nil then
+    if FSSLEnabled then
       SafeWriteLn('HTTPS Enabled.');
 
     // Check for automated test mode

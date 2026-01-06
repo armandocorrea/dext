@@ -47,8 +47,6 @@ var
   LIOHandler: TIdServerIOHandlerSSLOpenSSL;
 {$ENDIF}
 begin
-  Result := nil; // Default to nil - use HTTP if SSL fails
-  
   {$IFDEF DEXT_ENABLE_SSL}
   LIOHandler := TIdServerIOHandlerSSLOpenSSL.Create(AServer);
   LIOHandler.SSLOptions.CertFile := FCertFile;
@@ -62,7 +60,8 @@ begin
 
   Result := LIOHandler;
   {$ELSE}
-  SafeWriteLn('[WARN] SSL requested but DEXT_ENABLE_SSL is not defined. Using HTTP.');
+  SafeWriteLn('[WARN] SSL requested but DEXT_ENABLE_SSL is not defined in Dext.inc, using HTTP.');
+  Result := nil;
   {$ENDIF}
 end;
 
