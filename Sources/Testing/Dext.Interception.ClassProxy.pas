@@ -104,17 +104,10 @@ end;
 
 destructor TClassProxy.Destroy;
 begin
-  if not FInstanceIsDead then
-  begin
-    // Important: Free the interceptor FIRST while memory is valid to revert VTable
-    FreeAndNil(FVMI);
-    
-    if FOwnsInstance and Assigned(FInstance) then
-      FreeAndNil(FInstance);
-  end
-  else
-    FreeAndNil(FVMI); // Memory is already dead/vmt reverted or we don't care
-
+  if FOwnsInstance and Assigned(FInstance) and not FInstanceIsDead then
+    FreeAndNil(FInstance);
+  
+  FreeAndNil(FVMI);
   inherited;
 end;
 

@@ -91,21 +91,25 @@ begin
   Mocker := TAutoMocker.Create;
   try
     Sut := Mocker.CreateInstance<TSystemUnderTest>;
-    
-    Should(TObject(Sut)).NotBeNil;
-    Should(Sut.Dep).NotBeNil;
-    
-    // Setup Mock
-    Mocker.GetMock<IDependency>.Setup.Returns(21).When.GetValue;
-    
-    // Execute
-    var Res := Sut.DoWork;
-    
-    Should(Res).Be(42);
+    try
+      Should(TObject(Sut)).NotBeNil;
+      Should(Sut.Dep).NotBeNil;
+      
+      // Setup Mock
+      Mocker.GetMock<IDependency>.Setup.Returns(21).When.GetValue;
+      
+      // Execute
+      var Res := Sut.DoWork;
+      
+      Should(Res).Be(42);
+    finally
+      Sut.Free;
+    end;
   finally
     Mocker.Free;
   end;
 end;
+
 
 procedure TestClassMocking;
 var
