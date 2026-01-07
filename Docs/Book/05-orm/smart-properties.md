@@ -146,6 +146,8 @@ ORDER BY name
 LIMIT 10
 ```
 
+> 💡 **Reference**: See the [Orm.EntityStyles](../../../Examples/Orm.EntityStyles/) example to see Smart Properties in action without separate metadata classes.
+
 ---
 
 [← Querying](querying.md) | [Next: Specifications →](specifications.md)

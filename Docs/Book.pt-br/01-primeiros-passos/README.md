@@ -4,9 +4,10 @@ Bem-vindo ao Dext! Esta seção vai te colocar para rodar em minutos.
 
 ## Capítulos
 
-1. [Instalação](instalacao.md) - Configurando Dext no seu projeto Delphi
-2. [Hello World](hello-world.md) - Sua primeira API Dext
-3. [Estrutura do Projeto](estrutura-projeto.md) - Entendendo o layout
+1. [Instalação](instalacao.md) - Começando com o Dext
+2. [Hello World](hello-world.md) - Sua primeira aplicação
+3. [Estrutura do Projeto](estrutura-projeto.md) - Layout de pastas e organização
+4. [Inicialização da Aplicação](inicializacao-aplicacao.md) - O padrão Startup Class
 
 ## Início Rápido
 

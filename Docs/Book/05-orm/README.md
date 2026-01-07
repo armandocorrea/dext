@@ -7,12 +7,16 @@ Dext.Entity is a full-featured ORM for Delphi with support for multiple database
 1. [Getting Started](getting-started.md) - First entity & context
 2. [Entities & Mapping](entities.md) - Attributes and configuration
 3. [Querying](querying.md) - Fluent query API
-4. [Smart Properties](smart-properties.md) - Type-safe expressions
-5. [Specifications](specifications.md) - Reusable query patterns
+4. [Smart Properties](smart-properties.md) - Type-safe queries without metadata classes
+5. [Specifications](specifications.md) - Reusable query logic
 6. [Relationships](relationships.md) - 1:1, 1:N, Lazy Loading
-7. [Migrations](migrations.md) - Schema versioning
-8. [Scaffolding](scaffolding.md) - DB-first code generation
-9. [Multi-Tenancy](multi-tenancy.md) - Schema/DB/Column isolation
+7. [Migrations](migrations.md) - Database schema lifecycle
+8. [Scaffolding](scaffolding.md) - Generate entities from DB
+9. [Multi-Tenancy](multi-tenancy.md) - SaaS data isolation
+
+> 📦 **Examples**:
+> - [Orm.EntityDemo](../../../Examples/Orm.EntityDemo/) (Standard)
+> - [Orm.EntityStyles](../../../Examples/Orm.EntityStyles/) (Comparison: POCO vs Smart Properties)
 
 ## Quick Start
 

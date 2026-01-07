@@ -139,6 +139,8 @@ By default, Dext uses:
 
 Override with `[Table]` and `[Column]` attributes.
 
+> 💡 **Reference**: See the [Orm.EntityStyles](../../../Examples/Orm.EntityStyles/) example for a side-by-side comparison between Classic and Smart entities.
+
 ---
 
 [← Getting Started](getting-started.md) | [Next: Querying →](querying.md)

@@ -97,6 +97,8 @@ var Desc := Product.Discount.GetValueOrDefault(0);
 Product.Discount := Nullable<Double>.Null;
 ```
 
+> 💡 **Referência**: Veja o exemplo [Orm.EntityStyles](../../../Examples/Orm.EntityStyles/) para uma comparação lado a lado entre entidades Clássicas e Smart.
+
 ---
 
 [← Primeiros Passos](primeiros-passos.md) | [Próximo: Consultas →](consultas.md)

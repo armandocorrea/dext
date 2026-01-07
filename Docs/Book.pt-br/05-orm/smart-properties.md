@@ -94,6 +94,8 @@ begin
 end;
 ```
 
+> 💡 **Referência**: Veja o exemplo [Orm.EntityStyles](../../../Examples/Orm.EntityStyles/) para ver as Smart Properties em ação sem classes de metadados separadas.
+
 ---
 
 [← Consultas](consultas.md) | [Próximo: Specifications →](specifications.md)
