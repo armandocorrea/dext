@@ -80,6 +80,7 @@ begin
 '<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">' + #13#10 +
 '<style>' + #13#10 +
 ':root{--bg:#0D0B10;--surface:#171520;--surface-c:#1E1B26;--surface-h:#292634;--on-surface:#E8E3EC;--on-surface-v:#A8A3B2;--outline:#555065;--outline-v:#3A3546;--primary:#C4A9FF;--on-primary:#2A1258;--primary-c:#3D2470;--success:#7CD992;--success-c:#1C3D28;--warn:#FFB74D;--warn-c:#3D2800}' + #13#10 +
+':root.light{--bg:#F5F3F7;--surface:#FFFFFF;--surface-c:#F0EDF4;--surface-h:#E8E4EE;--on-surface:#1C1B1F;--on-surface-v:#49454F;--outline:#79747E;--outline-v:#CAC4D0;--primary:#6750A4;--on-primary:#FFFFFF;--primary-c:#EADDFF;--success:#1B873A;--success-c:#D4EDDA;--warn:#B25E02;--warn-c:#FFF3CD}' + #13#10 +
 '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,sans-serif;background:var(--bg);color:var(--on-surface);min-height:100vh;display:flex}' + #13#10 +
 '.ms{font-variation-settings:"FILL"0,"wght"400,"GRAD"0,"opsz"24}' + #13#10 +
 '.nav{width:90px;background:var(--surface);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:8px;border-right:1px solid var(--outline-v)}' + #13#10 +
@@ -142,7 +143,8 @@ begin
 '<a href="#" class="ni"><span class="ms material-symbols-outlined">settings</span><span class="lb">Settings</span></a>' + #13#10 +
 '<a href="#" class="ni"><span class="ms material-symbols-outlined">terminal</span><span class="lb">Logs</span></a></nav>' + #13#10 +
 '<main class="main"><div class="hd"><h1>Dext Dashboard</h1>' + #13#10 +
-'<div class="hd-act"><div class="hd-ic"><span class="ms material-symbols-outlined">notifications</span></div>' + #13#10 +
+'<div class="hd-act"><div class="hd-ic" id="theme-toggle" onclick="toggleTheme()"><span class="ms material-symbols-outlined" id="theme-icon">dark_mode</span></div>' + #13#10 +
+'<div class="hd-ic"><span class="ms material-symbols-outlined">notifications</span></div>' + #13#10 +
 '<div class="hd-ic"><span class="ms material-symbols-outlined">help</span></div><div class="av">CR</div></div></div>' + #13#10 +
 '<div class="cg">' + #13#10 +
 '<div class="cd"><div class="cd-hd"><span class="cd-tt">Environments</span><div class="cd-ic"><span class="ms material-symbols-outlined">cloud</span></div></div>' + #13#10 +
@@ -187,6 +189,8 @@ begin
 'p.innerHTML+="<div class=\"log\"><span class=\"log-t\">["+t+"]</span><span class=\""+x+"\">"+m+"</span></div>";p.scrollTop=p.scrollHeight;});' + #13#10 +
 'c.start().catch(function(e){console.error(e);});}' + #13#10 +
 'document.querySelectorAll(".ni").forEach(function(x){x.addEventListener("click",function(e){e.preventDefault();document.querySelectorAll(".ni").forEach(function(y){y.classList.remove("on");});x.classList.add("on");});});' + #13#10 +
+'function toggleTheme(){var r=document.documentElement;var isLight=r.classList.toggle("light");localStorage.setItem("dext-theme",isLight?"light":"dark");document.getElementById("theme-icon").textContent=isLight?"light_mode":"dark_mode";}' + #13#10 +
+'(function(){var t=localStorage.getItem("dext-theme");if(t=="light"){document.documentElement.classList.add("light");document.getElementById("theme-icon").textContent="light_mode";}})();' + #13#10 +
 'load();hub();' + #13#10 +
 '</script></body></html>';
 end;

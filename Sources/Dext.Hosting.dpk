@@ -43,7 +43,11 @@ requires
   Dext.Core,
   Dext.EF.Core,
   Dext.Web.Core,
-  Dext.Web.Hubs;
+  Dext.Web.Hubs,
+  FireDACPgDriver,
+  FireDACCommonODBC,
+  FireDACIBDriver,
+  FireDACMSSQLDriver;
 
 contains
   Dext.Hosting.CLI.Args in 'Hosting\CLI\Dext.Hosting.CLI.Args.pas',
@@ -60,6 +64,7 @@ contains
   Dext.Hosting.CLI.Commands.UI in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.UI.pas',
   Dext.Hosting.CLI.Tools.CodeCoverage in 'Hosting\CLI\Dext.Hosting.CLI.Tools.CodeCoverage.pas',
   Dext.Hosting.CLI.Hubs.Dashboard in 'Hosting\CLI\Hubs\Dext.Hosting.CLI.Hubs.Dashboard.pas',
-  Dext.Hosting.CLI.Logger in 'Hosting\CLI\Logger\Dext.Hosting.CLI.Logger.pas';
+  Dext.Hosting.CLI.Logger in 'Hosting\CLI\Logger\Dext.Hosting.CLI.Logger.pas',
+  Dext.Hosting.CLI.Commands.Scaffold in 'Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.Scaffold.pas';
 
 end.

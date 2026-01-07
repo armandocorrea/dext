@@ -68,6 +68,7 @@ uses
   Dext.Hosting.CLI.Commands.Test,
   Dext.Hosting.CLI.Commands.Configuration,
   Dext.Hosting.CLI.Commands.UI,
+  Dext.Hosting.CLI.Commands.Scaffold,
   Dext.Utils;
 
 { TDextCLI }
@@ -110,6 +111,9 @@ begin
 
   var CmdUI := TUICommand.Create;
   FCommands.Add(CmdUI.GetName, CmdUI);
+  
+  var CmdScaffold := TScaffoldCommand.Create;
+  FCommands.Add(CmdScaffold.GetName, CmdScaffold);
 end;
 
 procedure TDextCLI.ShowHelp;

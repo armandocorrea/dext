@@ -126,6 +126,10 @@
         <DCCReference Include="Dext.EF.Core.dcp"/>
         <DCCReference Include="Dext.Web.Core.dcp"/>
         <DCCReference Include="Dext.Web.Hubs.dcp"/>
+        <DCCReference Include="FireDACPgDriver.dcp"/>
+        <DCCReference Include="FireDACCommonODBC.dcp"/>
+        <DCCReference Include="FireDACIBDriver.dcp"/>
+        <DCCReference Include="FireDACMSSQLDriver.dcp"/>
         <DCCReference Include="Hosting\CLI\Dext.Hosting.CLI.Args.pas"/>
         <DCCReference Include="Hosting\CLI\Dext.Hosting.CLI.pas"/>
         <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.MigrateDown.pas"/>
@@ -141,6 +145,7 @@
         <DCCReference Include="Hosting\CLI\Dext.Hosting.CLI.Tools.CodeCoverage.pas"/>
         <DCCReference Include="Hosting\CLI\Hubs\Dext.Hosting.CLI.Hubs.Dashboard.pas"/>
         <DCCReference Include="Hosting\CLI\Logger\Dext.Hosting.CLI.Logger.pas"/>
+        <DCCReference Include="Hosting\CLI\Commands\Dext.Hosting.CLI.Commands.Scaffold.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
