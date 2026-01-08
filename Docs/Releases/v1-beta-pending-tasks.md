@@ -14,8 +14,8 @@ Este documento centraliza as tarefas pendentes para o lançamento do V1 Beta. Ma
 - [ ] **Dext.Examples.ComplexQuerying** - Queries avançadas ORM com JSON, Arrays e relatórios
 
 ### Atualização de Exemplos Existentes
-- [ ] **Web.TaskFlowAPI** - Atualizar para usar Cookies e Compression
-- [ ] **Web.Dext.Starter.Admin** - Revisar e alinhar com best practices atuais
+- [x] **Web.TaskFlowAPI** - Atualizar para usar Cookies e Compression
+- [x] **Web.Dext.Starter.Admin** - Revisar e alinhar com best practices atuais
 
 ---
 
