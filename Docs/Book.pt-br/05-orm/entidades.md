@@ -59,6 +59,47 @@ type
 | `[ForeignKey('col')]` | Coluna de chave estrangeira |
 | `[InverseProperty('prop')]` | Link de navegação |
 
+### Conversão de Tipos
+
+| Atributo | Descrição |
+|----------|-----------|
+| `[TypeConverter(TMeuConverter)]` | Converter customizado para esta propriedade |
+
+Use `[TypeConverter]` para sobrescrever como uma propriedade específica é convertida para/do banco:
+
+```pascal
+type
+  // Converter customizado: armazena TDateTime como Unix timestamp
+  TUnixTimestampConverter = class(TTypeConverterBase)
+  public
+    function CanConvert(ATypeInfo: PTypeInfo): Boolean; override;
+    function ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue; override;
+    function FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue; override;
+  end;
+
+  [Table('events')]
+  TEvent = class
+  private
+    FId: Integer;
+    FName: string;
+    FCreatedAt: TDateTime;
+    FScheduledAt: TDateTime;
+  public
+    [PK, AutoInc]
+    property Id: Integer read FId write FId;
+    property Name: string read FName write FName;
+    
+    // Usa converter customizado - armazenado como Unix timestamp (Integer)
+    [TypeConverter(TUnixTimestampConverter)]
+    property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
+    
+    // Usa converter TDateTime padrão (formato ISO)
+    property ScheduledAt: TDateTime read FScheduledAt write FScheduledAt;
+  end;
+```
+
+> 💡 O converter de propriedade tem prioridade sobre converters globais de tipo.
+
 ## Colunas Anuláveis
 
 Use `Nullable<T>` para colunas que podem ser NULL:

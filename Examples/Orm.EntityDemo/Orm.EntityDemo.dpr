@@ -31,6 +31,8 @@ uses
   EntityDemo.Tests.SoftDelete in 'EntityDemo.Tests.SoftDelete.pas',
   EntityDemo.Tests.Async in 'EntityDemo.Tests.Async.pas',
   EntityDemo.Tests.TypeSystem in 'EntityDemo.Tests.TypeSystem.pas',
+  EntityDemo.Tests.TypeConverter in 'EntityDemo.Tests.TypeConverter.pas',
+  EntityDemo.TypeConverterExample in 'EntityDemo.TypeConverterExample.pas',
   EntityDemo.Entities.Info in 'EntityDemo.Entities.Info.pas';
 
 procedure ConfigureDatabase(Provider: TDatabaseProvider);
@@ -129,6 +131,8 @@ begin
   RunTest(TAsyncTest);
   // 18. TypeSystem Tests
   RunTest(TTypeSystemTest);
+  // 19. TypeConverter Tests
+  RunTest(TTypeConverterTest);
   // Print summary at the end
 
   TBaseTest.PrintSummary;

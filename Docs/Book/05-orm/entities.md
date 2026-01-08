@@ -67,6 +67,47 @@ type
 | `[Required]` | NOT NULL |
 | `[Default('value')]` | Default value |
 
+### Type Conversion
+
+| Attribute | Description |
+|-----------|-------------|
+| `[TypeConverter(TMyConverter)]` | Custom converter for this property |
+
+Use `[TypeConverter]` to override how a specific property is converted to/from the database:
+
+```pascal
+type
+  // Custom converter: stores TDateTime as Unix timestamp
+  TUnixTimestampConverter = class(TTypeConverterBase)
+  public
+    function CanConvert(ATypeInfo: PTypeInfo): Boolean; override;
+    function ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue; override;
+    function FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue; override;
+  end;
+
+  [Table('events')]
+  TEvent = class
+  private
+    FId: Integer;
+    FName: string;
+    FCreatedAt: TDateTime;
+    FScheduledAt: TDateTime;
+  public
+    [PK, AutoInc]
+    property Id: Integer read FId write FId;
+    property Name: string read FName write FName;
+    
+    // Uses custom converter - stored as Unix timestamp (Integer)
+    [TypeConverter(TUnixTimestampConverter)]
+    property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
+    
+    // Uses default TDateTime converter (ISO format)
+    property ScheduledAt: TDateTime read FScheduledAt write FScheduledAt;
+  end;
+```
+
+> 💡 The property-level converter takes priority over global type converters.
+
 ## Nullable Columns
 
 Use `Nullable<T>` for nullable database columns:

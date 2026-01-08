@@ -31,6 +31,7 @@ uses
   Dext.Entity.Dialects,
   Dext.Entity.Mapping,
   EntityDemo.Entities,
+  EntityDemo.TypeConverterExample,
   EntityDemo.DbConfig;
 
 type
@@ -89,6 +90,7 @@ begin
   Builder.Entity<TAddress>;
   Builder.Entity<TProduct>;
   Builder.Entity<TOrderItem>;
+  Builder.Entity<TConverterTestEntity>;  // TypeConverter example
 end;
 
 { TBaseTest }
@@ -203,6 +205,7 @@ begin
   DropTableIfExists('documents');
   DropTableIfExists('articles');
   DropTableIfExists('tasks');
+  DropTableIfExists('converter_test');  // TypeConverter example
 
   // 2. Initialize Context
   FContext := TDbContext.Create(DbConnection, Dialect);
@@ -227,6 +230,7 @@ begin
   FContext.Entities<TUserProfile>;
   FContext.Entities<TUserWithProfile>;
   FContext.Entities<TTask>;
+  FContext.Entities<TConverterTestEntity>;  // TypeConverter example
   
   WriteLn('🏗️  Creating schema...');
   FContext.EnsureCreated;
