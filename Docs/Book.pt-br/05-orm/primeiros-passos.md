@@ -93,7 +93,13 @@ begin
   
   // Encapsular para Dext
   Connection := TFireDACConnection.Create(FDConn, True);
+  
+  // Escolha seu dialeto
   Dialect := TSQLiteDialect.Create;
+  // OU
+  Dialect := TMySQLDialect.Create; // Para MySQL/MariaDB
+  // OU
+  Dialect := TPostgreSQLDialect.Create; // Para PostgreSQL
   
   // Criar contexto
   Ctx := TAppDbContext.Create(Connection, Dialect);

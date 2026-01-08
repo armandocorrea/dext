@@ -153,7 +153,7 @@ Implementar testes de integração rodando a suite de testes do ORM contra conta
 | **PostgreSQL** | ✅ Sim | ✅ Sim | 🟢 Estável |
 | **SQL Server** | ✅ Sim | ✅ Sim | 🟢 Estável |
 | **Firebird** | ✅ Sim | ✅ Sim | 🟢 Estável |
-| **MySQL / MariaDB** | ✅ Sim | ❌ Não (Manual) | 🟡 Beta (Precisa de Validação) |
+| **MySQL / MariaDB** | ✅ Sim | ✅ Sim | 🟢 Estável |
 | **Oracle** | ✅ Sim | ❌ Não (Manual) | 🟡 Beta (Precisa de Validação) |
 | **InterBase** | ✅ Sim | ❌ Não (Manual) | 🟡 Beta (Precisa de Validação) |
 

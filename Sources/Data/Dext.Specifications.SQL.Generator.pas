@@ -608,12 +608,14 @@ var
   DeletedVal, NotDeletedVal: Variant;
   IsSoftDelete: Boolean;
   PropMap: TPropertyMap;
+  TargetPropType: PTypeInfo;
 begin
   Result := '';
   IsSoftDelete := False;
   PropName := '';
   DeletedVal := True;
   NotDeletedVal := False;
+  TargetPropType := nil;
   
   Ctx := TRttiContext.Create;
   Typ := Ctx.GetType(T);
@@ -627,7 +629,7 @@ begin
     DeletedVal := FMap.SoftDeleteDeletedValue;
     NotDeletedVal := FMap.SoftDeleteNotDeletedValue;
   end
-  // 2. Check Attribute
+   // 2. Check Attribute
   else
   begin
     for Attr in Typ.GetAttributes do
@@ -636,7 +638,7 @@ begin
       begin
         SoftDeleteAttr := SoftDeleteAttribute(Attr);
         IsSoftDelete := True;
-        PropName := SoftDeleteAttr.ColumnName;
+        PropName := SoftDeleteAttr.ColumnName; // This is actually the COLUMN NAME in the attribute
         DeletedVal := SoftDeleteAttr.DeletedValue;
         NotDeletedVal := SoftDeleteAttr.NotDeletedValue;
         Break;
@@ -646,33 +648,38 @@ begin
   
   if not IsSoftDelete then Exit;
   
-  // Find actual column name
-  ColumnName := PropName; // Default to Property Name
+  // Find actual column name and Property Type
+  // Note: PropName from attribute is the COLUMN NAME usually, but let's try to match property first
+  ColumnName := PropName; 
   
+  // Searching for the property that maps to this column (or has this name)
   for Prop in Typ.GetProperties do
   begin
-    if SameText(Prop.Name, PropName) then
+    var PropColumnName: string := Prop.Name;
+    
+    // Check Prop Map
+    if (FMap <> nil) and FMap.Properties.TryGetValue(Prop.Name, PropMap) then
     begin
-      // Priority 1: Fluent Property Map
-      PropMap := nil;
-      if (FMap <> nil) and FMap.Properties.TryGetValue(Prop.Name, PropMap) then
-      begin
-        if PropMap.ColumnName <> '' then
-        begin
-          ColumnName := PropMap.ColumnName;
-          Break;
-        end;
-      end;
-      
-      // Priority 2: Column Attribute
+       if PropMap.ColumnName <> '' then PropColumnName := PropMap.ColumnName;
+    end
+    else
+    begin
+      // Check Column Attribute
       for Attr in Prop.GetAttributes do
       begin
         if Attr is ColumnAttribute then
         begin
-          ColumnName := ColumnAttribute(Attr).Name;
+          PropColumnName := ColumnAttribute(Attr).Name;
           Break;
         end;
       end;
+    end;
+    
+    // Match found if Property Name OR Column Name matches
+    if SameText(Prop.Name, PropName) or SameText(PropColumnName, PropName) then
+    begin
+      ColumnName := PropColumnName;
+      TargetPropType := Prop.PropertyType.Handle;
       Break;
     end;
   end;
@@ -682,43 +689,85 @@ begin
   // Generate filter
   ParamName := 'pSoftDelete';
   
+
+  
   if FOnlyDeleted then
   begin
-     FParams.AddOrSetValue(ParamName, TValue.FromVariant(DeletedVal));
+     // For boolean columns, convert DeletedVal to boolean to avoid "boolean = integer" error
+     var IsTargetBool := (TargetPropType <> nil) and 
+       ((TargetPropType = TypeInfo(Boolean)) or (SameText(string(TargetPropType.Name), 'Boolean')));
+     
+     if IsTargetBool then
+     begin
+       var BoolVal: Boolean;
+       if VarIsType(DeletedVal, varBoolean) then
+         BoolVal := DeletedVal
+       else if VarIsNumeric(DeletedVal) then
+         BoolVal := (Integer(DeletedVal) <> 0)
+       else
+         BoolVal := StrToBoolDef(VarToStr(DeletedVal), True);
+       
+       FParams.AddOrSetValue(ParamName, TValue.From<Boolean>(BoolVal));
+
+     end
+     else
+     begin
+       FParams.AddOrSetValue(ParamName, TValue.FromVariant(DeletedVal));
+
+     end;
+     
      Result := Format('%s = :%s', 
         [FDialect.QuoteIdentifier(ColumnName), ParamName]);
   end
   else
   begin
-     // Use literal value for default state to optimize query plan
      var LiteralVal: string;
+     var IsTargetBool: Boolean;
      
-     if VarIsType(NotDeletedVal, varBoolean) then
+     IsTargetBool := False;
+     if TargetPropType <> nil then
+       IsTargetBool := (TargetPropType = TypeInfo(Boolean)) or (SameText(string(TargetPropType.Name), 'Boolean'));
+     
+
+     
+     // Handle boolean properties strictly (especially for Firebird/PostgreSQL)
+     if IsTargetBool then
      begin
-       if Boolean(NotDeletedVal) then
-         LiteralVal := '1'
+       // Convert Variant 0/1/True/False to Boolean for correct binding
+       var BoolVal: Boolean;
+       if VarIsType(NotDeletedVal, varBoolean) then
+         BoolVal := NotDeletedVal
        else
-         LiteralVal := '0';
+       begin
+         try
+           // 0 -> False, 1 -> True, "True" -> True
+           if VarIsNumeric(NotDeletedVal) then
+             BoolVal := (Integer(NotDeletedVal) <> 0)
+           else
+             BoolVal := StrToBoolDef(VarToStr(NotDeletedVal), False);
+         except
+           BoolVal := False;
+         end;
+       end;
+
+       LiteralVal := FDialect.BooleanToSQL(BoolVal);
+       FParams.AddOrSetValue(ParamName, TValue.From<Boolean>(BoolVal));
+     end
+     else if VarIsType(NotDeletedVal, varBoolean) then
+     begin
+       LiteralVal := FDialect.BooleanToSQL(NotDeletedVal);
+       FParams.AddOrSetValue(ParamName, TValue.From<Boolean>(NotDeletedVal));
      end
      else
      begin
-       // For strings, we need quotes. For numbers, we don't.
-       // Keep it simple for now, generic VarToStr mostly works for numbers and simple strings might fail if not quoted, 
-       // but typically SoftDelete values are numbers or booleans.
-       // Safest is to handle string quoting if it looks like a string but not a number.
-       // However, let's trust VarToStr for numbers and handle boolean explicitly as it's the current crashboard.
+       // Default fallback for non-boolean soft delete columns
        LiteralVal := VarToStr(NotDeletedVal);
-       
        if VarIsType(NotDeletedVal, varString) or VarIsType(NotDeletedVal, varUString) then
          LiteralVal := QuotedStr(LiteralVal);
+       FParams.AddOrSetValue(ParamName, TValue.FromVariant(NotDeletedVal));
      end;
-  
-     // A simplified approach compatible with the previous one:
-     // If NotDeletedVal is 0, we treat NULL as 0.
-     // Previous logic: COALESCE(Col, NotDeletedVal) = NotDeletedVal (matches NULL and 0)
-     
-     // Let's stick to the previous implementation as it was tested:
-     FParams.AddOrSetValue(ParamName, TValue.FromVariant(NotDeletedVal));
+   
+     // For PostgreSQL, COALESCE requires consistent types (boolean, boolean)
      Result := Format('COALESCE(%s, %s) = :%s', 
        [FDialect.QuoteIdentifier(ColumnName), 
         LiteralVal, 
@@ -753,27 +802,9 @@ begin
 end;
 
 function TSQLGenerator<T>.GetDialectEnum: TDatabaseDialect;
-var
-  QuotedTest: string;
 begin
-  // Convert ISQLDialect to TDatabaseDialect enum
-  // We detect the dialect by checking the quote identifier format
-  QuotedTest := FDialect.QuoteIdentifier('test');
-  
-  if QuotedTest.StartsWith('[') then
-    Result := ddSQLServer  // SQL Server uses [brackets]
-  else if QuotedTest.StartsWith('`') then
-    Result := ddMySQL      // MySQL uses `backticks`
-  else if QuotedTest.StartsWith('"') then
-  begin
-    // Both PostgreSQL and SQLite use double quotes
-    // Check BooleanToSQL to differentiate
-    var BoolTest := FDialect.BooleanToSQL(True);
-    if BoolTest = 'TRUE' then
-      Result := ddPostgreSQL  // PostgreSQL uses TRUE/FALSE
-    else
-      Result := ddSQLite;     // SQLite uses 1/0
-  end
+  if FDialect <> nil then
+    Result := FDialect.GetDialect
   else
     Result := ddUnknown;
 end;
@@ -1751,6 +1782,35 @@ begin
         end;
         
         ColType := FDialect.GetColumnType(PropTypeHandle, IsAutoInc);
+      end;
+      
+      // Apply MaxLength for string columns - check from PropMap or Attribute
+      var MaxLen: Integer := 0;
+      if (PropMap <> nil) and (PropMap.MaxLength > 0) then
+        MaxLen := PropMap.MaxLength
+      else
+      begin
+        // Check for MaxLengthAttribute
+        for Attr in Prop.GetAttributes do
+        begin
+          if Attr is MaxLengthAttribute then
+          begin
+            MaxLen := MaxLengthAttribute(Attr).Length;
+            Break;
+          end;
+        end;
+      end;
+      
+      // For string types with MaxLength, replace generic types with sized VARCHAR
+
+      if (MaxLen > 0) and (PropTypeHandle.Kind in [tkString, tkUString, tkWString, tkChar, tkWChar]) then
+      begin
+        if GetDialectEnum = ddSQLServer then
+          ColType := Format('NVARCHAR(%d)', [MaxLen])
+        else if GetDialectEnum = ddOracle then
+          ColType := Format('VARCHAR2(%d)', [MaxLen])
+        else
+          ColType := Format('VARCHAR(%d)', [MaxLen]);
       end;
 
       SB.Append(ColType);

@@ -70,7 +70,7 @@ A modern ORM focused on productivity and performance.
   - **Table-Per-Hierarchy (TPH)**: Full support for base classes and subclasses in a single table.
   - **Polymorphic Hydration**: Automatic instantiation of the correct subclass during data retrieval.
   - **Attribute-based Mapping**: Use `[Inheritance]`, `[DiscriminatorColumn]`, and `[DiscriminatorValue]`.
-- **Multi-Database**: Support for SQL Server, PostgreSQL, Firebird, MySQL, Oracle, and SQLite.
+- **Multi-Database**: Fully tested support for **SQL Server, PostgreSQL, Firebird, MySQL/MariaDB**, and **SQLite** (165 tests passing on all). Oracle in beta.
 - **High-Performance Drivers**:
   - **Standard FireDAC Driver**: Full-featured with TDataSet compatibility
   - **FireDAC Phys Driver**: "Bare metal" access bypassing TDataSet for maximum performance

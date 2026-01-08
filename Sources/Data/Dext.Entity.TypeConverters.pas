@@ -208,6 +208,16 @@ type
   end;
 
   /// <summary>
+  ///   Converter for TStrings and descendants (TStringList).
+  /// </summary>
+  TStringsConverter = class(TTypeConverterBase)
+  public
+    function CanConvert(ATypeInfo: PTypeInfo): Boolean; override;
+    function ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue; override;
+    function FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue; override;
+  end;
+
+  /// <summary>
   ///   Registry for type converters.
   /// </summary>
   TTypeConverterRegistry = class
@@ -642,6 +652,7 @@ begin
   RegisterConverter(TTimeConverter.Create);
   RegisterConverter(TBytesConverter.Create);
   RegisterConverter(TPropConverter.Create);
+  RegisterConverter(TStringsConverter.Create);
   // Note: Enum, JSON, Array converters are registered dynamically or explicitly
 end;
 
@@ -856,6 +867,76 @@ begin
       
     Field.SetValue(Result.GetReferenceToRawData, UnwrappedValue);
   end;
+end;
+
+{ TStringsConverter }
+
+function TStringsConverter.CanConvert(ATypeInfo: PTypeInfo): Boolean;
+var
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+begin
+  Result := False;
+  if (ATypeInfo <> nil) and (ATypeInfo.Kind = tkClass) then
+  begin
+    Ctx := TRttiContext.Create;
+    Typ := Ctx.GetType(ATypeInfo);
+    if Typ is TRttiInstanceType then
+      Result := TRttiInstanceType(Typ).MetaclassType.InheritsFrom(TStrings);
+  end;
+end;
+
+function TStringsConverter.ToDatabase(const AValue: TValue; ADialect: TDatabaseDialect): TValue;
+begin
+  if AValue.IsEmpty or (AValue.AsObject = nil) then
+    Exit(TValue.Empty);
+    
+  Result := (AValue.AsObject as TStrings).Text;
+end;
+
+function TStringsConverter.FromDatabase(const AValue: TValue; ATypeInfo: PTypeInfo): TValue;
+var
+  Strings: TStrings;
+  Ctx: TRttiContext;
+  Typ: TRttiType;
+  LClass: TClass;
+  LConstructor: TRttiMethod;
+begin
+  if AValue.IsEmpty or (AValue.ToString = '') then
+    Exit(TValue.From<TStrings>(nil));
+
+  Ctx := TRttiContext.Create;
+  Typ := Ctx.GetType(ATypeInfo);
+  if Typ is TRttiInstanceType then
+  begin
+    LClass := TRttiInstanceType(Typ).MetaclassType;
+    // Default to TStringList if typed as abstract TStrings
+    if (LClass = TStrings) then
+      LClass := TStringList;
+
+    // Use RTTI to find and call the constructor
+    // We get the type of the concrete class to find its 'Create' method
+    LConstructor := Ctx.GetType(LClass).GetMethod('Create');
+    if (LConstructor <> nil) and (LConstructor.IsConstructor) then
+    begin
+       Strings := LConstructor.Invoke(LClass, []).AsObject as TStrings;
+       Strings.Text := AValue.ToString;
+       Result := Strings;
+    end
+    else
+    begin
+      // Fallback: direct instantiation if RTTI fails for some reason
+      if LClass = TStringList then
+        Strings := TStringList.Create
+      else
+        Strings := TStrings(LClass.NewInstance); // Risky, but better than nothing
+        
+      Strings.Text := AValue.ToString;
+      Result := Strings;
+    end;
+  end
+  else
+    Result := TValue.Empty;
 end;
 
 initialization

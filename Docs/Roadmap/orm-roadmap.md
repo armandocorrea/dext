@@ -399,9 +399,9 @@ Inspirado no Dapper para cenários de alta performance onde o controle total do 
 ### Expansão Planejada
 
 4. **MySQL/MariaDB**
-   - **Status**: 🟡 **Implementado (Beta)**
-   - *Nota*: Dialeto implementado, aguardando validação via testes automatizados.
-   - *Ação*: Ajuda bem-vinda para criar ambiente de testes Docker.
+   - **Status**: ✅ **Implementado e Validado**
+   - *Nota*: Dialeto implementado e totalmente validado com 165 testes passando.
+   - *Validação*: Completada em Janeiro de 2026.
 
 #### Prioridade 2 - Comunidade (Help Wanted)
 5. **Oracle**
@@ -424,7 +424,7 @@ Inspirado no Dapper para cenários de alta performance onde o controle total do 
 
 ---
 
-**Última Atualização**: 21 de Dezembro de 2025  
+**Última Atualização**: 08 de Janeiro de 2026  
 **Versão**: Beta 0.95+  
 **Comparativo**: [ORM_COMPARISON_2024.md](ORM_COMPARISON_2024.md)
 

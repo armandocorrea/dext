@@ -60,6 +60,10 @@ type
     property ConnectionString: string read GetConnectionString write SetConnectionString;
 
     function TableExists(const ATableName: string): Boolean;
+    
+    procedure SetOnLog(AValue: TProc<string>);
+    function GetOnLog: TProc<string>;
+    property OnLog: TProc<string> read GetOnLog write SetOnLog;
   end;
 
   /// <summary>

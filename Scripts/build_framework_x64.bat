@@ -6,13 +6,13 @@ call "C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"
 
 echo.
 echo ==========================================
-echo Building Dext Framework Packages
+echo Building Dext Framework Packages (x64)
 echo ==========================================
 echo.
 
 REM Build configuration
 set BUILD_CONFIG=Debug
-set PLATFORM=Win32
+set PLATFORM=Win64
 
 REM Extract ProductVersion from BDS (e.g., 37.0)
 for %%i in ("%BDS%") do set PRODUCT_VERSION=%%~nxi
@@ -21,11 +21,12 @@ REM Output paths matching .dproj configuration: $(dext)\Output\$(ProductVersion)
 set DEXT=%~dp0..
 set OUTPUT_PATH=%DEXT%\Output\%PRODUCT_VERSION%_%PLATFORM%_%BUILD_CONFIG%
 
-REM Create output directories if they don't exist
+REM Create output directory if it doesn't exist
 if not exist "%DEXT%\Output" mkdir "%DEXT%\Output"
 if not exist "%OUTPUT_PATH%" mkdir "%OUTPUT_PATH%"
 
 echo Output directory: %OUTPUT_PATH%
+echo Platform: %PLATFORM%
 echo.
 
 cd "%~dp0..\Sources"
@@ -62,7 +63,7 @@ if %ERRORLEVEL% NEQ 0 goto Error
 
 echo.
 echo ==========================================
-echo Build Completed Successfully!
+echo Build Completed Successfully! (x64)
 echo Output: %OUTPUT_PATH%
 echo ==========================================
 if not "%1"=="--no-wait" pause

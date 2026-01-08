@@ -77,7 +77,7 @@ end;
 | SQL Server | ✅ Estável |
 | SQLite | ✅ Estável |
 | Firebird | ✅ Estável |
-| MySQL | 🟡 Beta |
+| MySQL / MariaDB | ✅ Estável |
 | Oracle | 🟡 Beta |
 
 ---

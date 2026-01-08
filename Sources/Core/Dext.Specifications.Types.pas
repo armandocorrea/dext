@@ -214,6 +214,7 @@ type
     
     function &In(const Values: TArray<string>): TFluentExpression; overload;
     function &In(const Values: TArray<Integer>): TFluentExpression; overload;
+    function &In(const Values: TArray<Variant>): TFluentExpression; overload;
     function NotIn(const Values: TArray<string>): TFluentExpression; overload;
     function NotIn(const Values: TArray<Integer>): TFluentExpression; overload;
     
@@ -516,6 +517,14 @@ var
   Val: TValue;
 begin
   Val := TValue.From<TArray<Integer>>(Values);
+  Result.FExpression := TBinaryExpression.Create(FName, boIn, Val);
+end;
+
+function TPropExpression.&In(const Values: TArray<Variant>): TFluentExpression;
+var
+  Val: TValue;
+begin
+  Val := TValue.From<TArray<Variant>>(Values);
   Result.FExpression := TBinaryExpression.Create(FName, boIn, Val);
 end;
 

@@ -95,6 +95,7 @@ type
   private
     FConnection: IFDPhysConnection;
     FCommand: IFDPhysCommand;
+    FOnLog: TProc<string>;
 
     FDialect: TDatabaseDialect;
     
@@ -126,6 +127,7 @@ type
   private
     FConnection: IFDPhysConnection;
     FDatSManager: TFDDatSManager;
+    FOnLog: TProc<string>;
   public
     constructor Create(AConnection: IFDPhysConnection);
     destructor Destroy; override;
@@ -142,6 +144,10 @@ type
     function GetConnectionString: string;
     procedure SetConnectionString(const AValue: string);
     property ConnectionString: string read GetConnectionString write SetConnectionString;
+    
+    procedure SetOnLog(AValue: TProc<string>);
+    function GetOnLog: TProc<string>;
+    property OnLog: TProc<string> read GetOnLog write SetOnLog;
     
     property PhysConnection: IFDPhysConnection read FConnection;
   end;
@@ -382,11 +388,13 @@ end;
 
 procedure TFireDACPhysCommand.Execute;
 begin
+  if Assigned(FOnLog) then FOnLog(FCommand.CommandText);
   FCommand.Execute;
 end;
 
 function TFireDACPhysCommand.ExecuteNonQuery: Integer;
 begin
+  if Assigned(FOnLog) then FOnLog(FCommand.CommandText);
   FCommand.Execute;
   Result := FCommand.RowsAffected;
 end;
@@ -396,6 +404,7 @@ var
   DatSManager: TFDDatSManager;
   Table: TFDDatSTable;
 begin
+  if Assigned(FOnLog) then FOnLog(FCommand.CommandText);
   // We need a DatS Manager for the results
   // We can use a local one or share.
   // For Phys command, we often need to Fetch.
@@ -416,6 +425,7 @@ end;
 
 function TFireDACPhysCommand.ExecuteScalar: TValue;
 begin
+  if Assigned(FOnLog) then FOnLog(FCommand.CommandText);
   // Execute and fetch 1 row
   var DatS := TFDDatSManager.Create;
   try
@@ -491,6 +501,16 @@ begin
   Result := FConnection.State = csConnected;
 end;
 
+procedure TFireDACPhysConnection.SetOnLog(AValue: TProc<string>);
+begin
+  FOnLog := AValue;
+end;
+
+function TFireDACPhysConnection.GetOnLog: TProc<string>;
+begin
+  Result := FOnLog;
+end;
+
 function TFireDACPhysConnection.BeginTransaction: IDbTransaction;
 var
   Tx: IFDPhysTransaction;
@@ -501,11 +521,13 @@ end;
 
 function TFireDACPhysConnection.CreateCommand(const ASQL: string): IDbCommand;
 var
-  Cmd: TFireDACPhysCommand;
+  LCmd: TFireDACPhysCommand;
 begin
-  Cmd := TFireDACPhysCommand.Create(FConnection);
-  Cmd.SetSQL(ASQL);
-  Result := Cmd;
+  LCmd := TFireDACPhysCommand.Create(FConnection);
+  LCmd.FOnLog := FOnLog;
+  if ASQL <> '' then
+    LCmd.SetSQL(ASQL);
+  Result := LCmd;
 end;
 
 function TFireDACPhysConnection.GetLastInsertId: Variant;

@@ -84,6 +84,9 @@ type
     function GetSetSchemaSQL(const ASchemaName: string): string;
     function GetCreateSchemaSQL(const ASchemaName: string): string;
     function UseSchemaPrefix: Boolean;
+
+    // Explicit Dialect Identification
+    function GetDialect: TDatabaseDialect;
   end;
 
   /// <summary>
@@ -122,6 +125,8 @@ type
     
     function GenerateMigration(AOperation: TMigrationOperation): string; virtual;
     function GenerateColumnDefinition(AColumn: TColumnDefinition): string; virtual;
+
+    function GetDialect: TDatabaseDialect; virtual;
   end;
 
   /// <summary>
@@ -135,6 +140,7 @@ type
     function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
   /// <summary>
@@ -153,6 +159,7 @@ type
     function GetReturningSQL(const AColumnName: string): string; override;
     function GetSetSchemaSQL(const ASchemaName: string): string; override;
     function GetCreateSchemaSQL(const ASchemaName: string): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
   /// <summary>
@@ -169,6 +176,7 @@ type
     
     function SupportsInsertReturning: Boolean; override;
     function GetReturningSQL(const AColumnName: string): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
   /// <summary>
@@ -189,6 +197,7 @@ type
     function RequiresOrderByForPaging: Boolean; override;
     function UseSchemaPrefix: Boolean; override;
     function GetCreateSchemaSQL(const ASchemaName: string): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
   /// <summary>
@@ -203,7 +212,9 @@ type
     function GetLastInsertIdSQL: string; override;
     function GetCreateTableSQL(const ATableName, ABody: string): string; override;
     
+    
     function GenerateAlterColumn(AOp: TAlterColumnOperation): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
   /// <summary>
@@ -220,6 +231,7 @@ type
     
     function SupportsInsertReturning: Boolean; override;
     function GetReturningSQL(const AColumnName: string): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
   /// <summary>
@@ -229,6 +241,7 @@ type
   public
     function BooleanToSQL(AValue: Boolean): string; override;
     function GetColumnType(ATypeInfo: PTypeInfo; AIsAutoInc: Boolean = False): string; override;
+    function GetDialect: TDatabaseDialect; override;
   end;
 
 implementation
@@ -243,6 +256,12 @@ end;
 function TBaseDialect.GetCreateSchemaSQL(const ASchemaName: string): string;
 begin
   Result := '';
+end;
+
+
+function TBaseDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddUnknown;
 end;
 
 function TBaseDialect.GetColumnTypeForField(AFieldType: TFieldType; AIsAutoInc: Boolean): string;
@@ -539,7 +558,7 @@ begin
         else if ATypeInfo = TypeInfo(TTime) then Result := 'REAL'
         else Result := 'REAL';
       end;
-    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'TEXT';
+    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'VARCHAR(255)';
     tkEnumeration:
       begin
         if ATypeInfo = TypeInfo(Boolean) then Result := 'INTEGER'
@@ -551,6 +570,13 @@ begin
         else Result := 'TEXT';
       end;
     tkVariant: Result := 'BLOB';
+    tkClass:
+      begin
+        if string(ATypeInfo.Name).Contains('TStrings') or string(ATypeInfo.Name).Contains('TStringList') then
+          Result := 'TEXT'
+        else
+          Result := 'TEXT';
+      end;
   else
     Result := 'TEXT';
   end;
@@ -564,7 +590,12 @@ end;
 function TSQLiteDialect.GetCreateTableSQL(const ATableName, ABody: string): string;
 begin
   // SQLite supports IF NOT EXISTS
-  Result := Format('CREATE TABLE IF NOT EXISTS %s (%s);', [ATableName, ABody]);
+  Result := Format('CREATE TABLE IF NOT EXISTS %s (%s)', [ATableName, ABody]);
+end;
+
+function TSQLiteDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddSQLite;
 end;
 
 { TPostgreSQLDialect }
@@ -606,7 +637,7 @@ begin
         else if ATypeInfo = TypeInfo(TTime) then Result := 'TIME'
         else Result := 'DOUBLE PRECISION';
       end;
-    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'TEXT';
+    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'VARCHAR(255)';
     tkEnumeration:
       begin
         if ATypeInfo = TypeInfo(Boolean) then Result := 'BOOLEAN'
@@ -624,7 +655,12 @@ begin
         else Result := 'JSONB'; // Records as JSONB
       end;
     tkClass:
-      Result := 'JSONB'; // Objects as JSONB
+      begin
+        if string(ATypeInfo.Name).Contains('TStrings') or string(ATypeInfo.Name).Contains('TStringList') then
+          Result := 'TEXT'
+        else
+          Result := 'JSONB';
+      end;
   else
     Result := 'TEXT';
   end;
@@ -638,7 +674,12 @@ end;
 function TPostgreSQLDialect.GetCreateTableSQL(const ATableName, ABody: string): string;
 begin
   // PostgreSQL supports IF NOT EXISTS
-  Result := Format('CREATE TABLE IF NOT EXISTS %s (%s);', [ATableName, ABody]);
+  Result := Format('CREATE TABLE IF NOT EXISTS %s (%s)', [ATableName, ABody]);
+end;
+
+function TPostgreSQLDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddPostgreSQL;
 end;
 
 { TInterBaseDialect }
@@ -656,6 +697,11 @@ begin
     
   // Delegate other types to Firebird dialect (compatible for most parts)
   Result := inherited GetColumnType(ATypeInfo, AIsAutoInc);
+end;
+
+function TInterBaseDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddInterbase;
 end;
 
 { TFirebirdDialect }
@@ -695,7 +741,7 @@ begin
         else if ATypeInfo = TypeInfo(TTime) then Result := 'TIME'
         else Result := 'DOUBLE PRECISION';
       end;
-    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'BLOB SUB_TYPE TEXT';
+    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'VARCHAR(255)';
     tkEnumeration:
       begin
         if ATypeInfo = TypeInfo(Boolean) then Result := 'BOOLEAN'
@@ -709,7 +755,15 @@ begin
     tkRecord:
       begin
         if ATypeInfo = TypeInfo(TGUID) then Result := 'CHAR(36)'
+        else if ATypeInfo = TypeInfo(TUUID) then Result := 'CHAR(36)'
         else Result := 'VARCHAR(255)';
+      end;
+    tkClass:
+      begin
+        if string(ATypeInfo.Name).Contains('TStrings') or string(ATypeInfo.Name).Contains('TStringList') then
+          Result := 'BLOB SUB_TYPE TEXT'
+        else
+          Result := 'VARCHAR(255)';
       end;
   else
     Result := 'VARCHAR(255)';
@@ -729,7 +783,12 @@ begin
   // but we can use RECREATE TABLE or EXECUTE BLOCK.
   // For simplicity in ORM generation, we stick to standard CREATE TABLE.
   // User should handle existence check or use EnsureCreated carefully.
-  Result := Format('CREATE TABLE %s (%s);', [ATableName, ABody]);
+  Result := Format('CREATE TABLE %s (%s)', [ATableName, ABody]);
+end;
+
+function TFirebirdDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddFirebird;
 end;
 
 { TSQLServerDialect }
@@ -769,7 +828,7 @@ begin
         else if ATypeInfo = TypeInfo(TTime) then Result := 'TIME'
         else Result := 'FLOAT';
       end;
-    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'NVARCHAR(MAX)';
+    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'VARCHAR(255)';
     tkEnumeration:
       begin
         if ATypeInfo = TypeInfo(Boolean) then Result := 'BIT'
@@ -786,6 +845,13 @@ begin
         else if ATypeInfo = TypeInfo(TUUID) then Result := 'UNIQUEIDENTIFIER'
         else Result := 'NVARCHAR(MAX)';
       end;
+    tkClass:
+      begin
+        if string(ATypeInfo.Name).Contains('TStrings') or string(ATypeInfo.Name).Contains('TStringList') then
+          Result := 'NVARCHAR(MAX)'
+        else
+          Result := 'NVARCHAR(MAX)';
+      end;
   else
     Result := 'NVARCHAR(MAX)';
   end;
@@ -800,7 +866,7 @@ function TSQLServerDialect.GetCreateTableSQL(const ATableName, ABody: string): s
 begin
   // SQL Server uses IF NOT EXISTS with OBJECT_ID check
   Result := Format('IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N''%s'') AND type = ''U'') ' +
-                   'CREATE TABLE %s (%s);', [ATableName, ATableName, ABody]);
+                   'CREATE TABLE %s (%s)', [ATableName, ATableName, ABody]);
 end;
 
 function TSQLServerDialect.SupportsInsertReturning: Boolean;
@@ -833,6 +899,11 @@ function TSQLServerDialect.GetCreateSchemaSQL(const ASchemaName: string): string
 begin
   Result := Format('IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = %s) ' +
                    'EXEC(''CREATE SCHEMA %s'')', [QuotedStr(ASchemaName), QuoteIdentifier(ASchemaName)]);
+end;
+
+function TSQLServerDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddSQLServer;
 end;
 
 { TMySQLDialect }
@@ -870,7 +941,7 @@ begin
         else if ATypeInfo = TypeInfo(TTime) then Result := 'TIME'
         else Result := 'DOUBLE';
       end;
-    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'LONGTEXT';
+    tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'VARCHAR(255)';
     tkEnumeration:
       begin
         if ATypeInfo = TypeInfo(Boolean) then Result := 'TINYINT(1)'
@@ -884,10 +955,16 @@ begin
     tkRecord:
       begin
         if ATypeInfo = TypeInfo(TGUID) then Result := 'CHAR(36)'
+        else if ATypeInfo = TypeInfo(TUUID) then Result := 'CHAR(36)'
         else Result := 'JSON';
       end;
     tkClass:
-      Result := 'JSON';
+      begin
+        if string(ATypeInfo.Name).Contains('TStrings') or string(ATypeInfo.Name).Contains('TStringList') then
+          Result := 'LONGTEXT'
+        else
+          Result := 'JSON';
+      end;
   else
     Result := 'TEXT';
   end;
@@ -900,7 +977,7 @@ end;
 
 function TMySQLDialect.GetCreateTableSQL(const ATableName, ABody: string): string;
 begin
-  Result := Format('CREATE TABLE IF NOT EXISTS %s (%s);', [ATableName, ABody]);
+  Result := Format('CREATE TABLE IF NOT EXISTS %s (%s)', [ATableName, ABody]);
 end;
 
 function TMySQLDialect.GenerateAlterColumn(AOp: TAlterColumnOperation): string;
@@ -909,6 +986,10 @@ begin
   Result := Format('ALTER TABLE %s MODIFY COLUMN %s', [QuoteIdentifier(AOp.TableName), GenerateColumnDefinition(AOp.Column)]);
 end;
 
+function TMySQLDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddMySQL;
+end;
 
 { TOracleDialect }
 
@@ -982,7 +1063,7 @@ end;
 function TOracleDialect.GetCreateTableSQL(const ATableName, ABody: string): string;
 begin
   // Oracle doesn't support IF NOT EXISTS.
-  Result := Format('CREATE TABLE %s (%s);', [ATableName, ABody]);
+  Result := Format('CREATE TABLE %s (%s)', [ATableName, ABody]);
 end;
 
 function TOracleDialect.SupportsInsertReturning: Boolean;
@@ -993,6 +1074,11 @@ end;
 function TOracleDialect.GetReturningSQL(const AColumnName: string): string;
 begin
   Result := 'RETURNING ' + QuoteIdentifier(AColumnName) + ' INTO :RET_VAL';
+end;
+
+function TOracleDialect.GetDialect: TDatabaseDialect;
+begin
+  Result := ddOracle;
 end;
 
 { TBaseDialect }

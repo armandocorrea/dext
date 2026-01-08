@@ -52,12 +52,13 @@ begin
     dpSQLServerWindowsAuthetication: TDbConfig.ConfigureSQLServerWindowsAuth('localhost', 'dext_test');
     // Option 5: SQL Server with SQL Authentication
     dpSQLServer: TDbConfig.ConfigureSQLServer('localhost', 'dext_test', 'sa', 'SQL@d3veloper');
+    // Option 6: MySQL / MariaDB
+    dpMySQL: TDbConfig.ConfigureMySQL('localhost', 3306, 'dext_test', 'root', 'root',
+      'libmariadb.dll', 'C:\Program Files\MariaDB 12.1\');
   else
     raise Exception.Create('Database not supported');
-// TODO:
-//    dpMySQL:
-//    dpOracle:
   end;
+
 
   if Provider in [dpSQLite, dpSQLiteMemory] then
   begin
@@ -76,7 +77,15 @@ begin
   TBaseTest.CurrentTestName := TestClass.ClassName;
   Test := TestClass.Create;
   try
-    Test.Run;
+    try
+      Test.Run;
+    except
+      on E: Exception do
+      begin
+        WriteLn('❌ Error running test ', TestClass.ClassName, ': ', E.Message);
+        TBaseTest.ReportFailure(TestClass.ClassName + ': ' + E.Message);
+      end;
+    end;
   finally
     Test.Free;
   end;
@@ -120,8 +129,8 @@ begin
   RunTest(TAsyncTest);
   // 18. TypeSystem Tests
   RunTest(TTypeSystemTest);
-
   // Print summary at the end
+
   TBaseTest.PrintSummary;
 end;
 
@@ -131,7 +140,28 @@ begin
     WriteLn('🚀 Dext Entity ORM Demo Suite');
     WriteLn('=============================');
     WriteLn('');
-    ConfigureDatabase(dpSQLiteMemory);
+    //
+    // var Provider := dpSQLiteMemory; // Default
+    // var Provider := dpFirebird;
+    // var Provider := dpMySQL;
+    // var Provider := dpPostgreSQL;
+    var Provider := dpSQLServerWindowsAuthetication;
+    if ParamCount > 0 then
+    begin
+      var Arg := ParamStr(1).ToLower;
+      if Arg = 'sqlite' then Provider := dpSQLite
+      else if Arg = 'sqlitememory' then Provider := dpSQLiteMemory
+      else if Arg = 'postgresql' then Provider := dpPostgreSQL
+      else if Arg = 'firebird' then Provider := dpFirebird
+      else if Arg = 'mysql' then Provider := dpMySQL
+      else if Arg = 'mariadb' then Provider := dpMySQL
+      else if Arg = 'sqlserver' then Provider := dpSQLServer
+      else if Arg = 'sqlserverauth' then Provider := dpSQLServerWindowsAuthetication;
+    end;
+
+    ConfigureDatabase(Provider);
+    TDbConfig.EnsureDatabaseExists; // Create database if not exists
+    TBaseTest.DebugSql := False;
     RunAllTests;
   except
     on E: Exception do
@@ -139,5 +169,6 @@ begin
   end;
 
   // Only pause if not running in automated mode
-  ConsolePause;
+  if ParamCount = 0 then
+    ConsolePause;
 end.

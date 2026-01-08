@@ -132,6 +132,9 @@ type
     FTenantProvider: ITenantProvider;
     FTenantConfigApplied: Boolean;
     FLastAppliedTenantId: string;
+    FOnLog: TProc<string>;
+    procedure SetOnLog(const AValue: TProc<string>);
+    function GetOnLog: TProc<string>;
     procedure ApplyTenantConfig(ACreateSchema: Boolean = False);
     function GetModelBuilder: TModelBuilder;
   protected
@@ -188,6 +191,8 @@ type
     function Entities<T: class>: IDbSet<T>;
     
     function Entry(const AEntity: TObject): IEntityEntry;
+    
+    property OnLog: TProc<string> read GetOnLog write SetOnLog;
   end;
 
 implementation
@@ -352,6 +357,18 @@ begin
   if FOwnsModelBuilder then
     FModelBuilder.Free;
   inherited;
+end;
+
+procedure TDbContext.SetOnLog(const AValue: TProc<string>);
+begin
+  FOnLog := AValue;
+  if FConnection <> nil then
+    FConnection.OnLog := AValue;
+end;
+
+function TDbContext.GetOnLog: TProc<string>;
+begin
+  Result := FOnLog;
 end;
 
 function TDbContext.QueryInterface(const IID: TGUID; out Obj): HResult;
@@ -690,13 +707,21 @@ begin
             
             if not FConnection.TableExists(TableName) then
             begin
+              if Assigned(FOnLog) then
+                FOnLog(SQL);
+
               try
                 CmdIntf := FConnection.CreateCommand(SQL);
                 Cmd := IDbCommand(CmdIntf);
                 Cmd.ExecuteNonQuery;
               except
                  on E: Exception do
+                 begin
                    SafeWriteLn('Warning creating table for ' + string(Node.TypeInfo.Name) + ': ' + E.Message);
+                   // Always log failed SQL if we have a logger or just print it
+                   if Assigned(FOnLog) then
+                     FOnLog('FAILED SQL: ' + SQL);
+                 end;
               end;
             end;
           end;

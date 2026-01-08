@@ -165,7 +165,7 @@ Implement integration tests running the ORM test suite against Docker containers
 | **PostgreSQL** | ✅ Yes | ✅ Yes | 🟢 Stable |
 | **SQL Server** | ✅ Yes | ✅ Yes | 🟢 Stable |
 | **Firebird** | ✅ Yes | ✅ Yes | 🟢 Stable |
-| **MySQL / MariaDB** | ✅ Yes | ❌ No (Manual) | 🟡 Beta (Needs Validation) |
+| **MySQL / MariaDB** | ✅ Yes | ✅ Yes | 🟢 Stable |
 | **Oracle** | ✅ Yes | ❌ No (Manual) | 🟡 Beta (Needs Validation) |
 | **InterBase** | ✅ Yes | ❌ No (Manual) | 🟡 Beta (Needs Validation) |
 

@@ -28,15 +28,21 @@ Support for versions 2.5 to 5.0, correctly handling pagination differences (ROWS
 Dialect := TFirebirdDialect.Create;
 ```
 
+### MySQL / MariaDB
+Highly optimized dialect using backticks for quoting and supporting all modern MySQL/MariaDB versions.
+```pascal
+Dialect := TMySQLDialect.Create;
+```
+
 ## Features per Dialeto
 
-| Feature | PG | SQL Server | SQLite | Firebird |
-|---------|----|------------|--------|----------|
-| Pagination | ✅ | ✅ | ✅ | ✅ |
-| Native UUID | ✅ | ✅ | ❌ | ❌ |
-| JSON Support | ✅ | ✅ | ❌ | ❌ |
-| Bulk Insert | ✅ | ✅ | ✅ | 🟡 |
-| Multi-Tenancy (Schema) | ✅ | ✅ | ❌ | ❌ |
+| Feature | PG | SQL Server | SQLite | Firebird | MySQL |
+|---------|----|------------|--------|----------|-------|
+| Pagination | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Native UUID | ✅ | ✅ | ❌ | ❌ | ❌ |
+| JSON Support | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Bulk Insert | ✅ | ✅ | ✅ | 🟡 | ✅ |
+| Multi-Tenancy (Schema) | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ## Creating your own Dialect
 

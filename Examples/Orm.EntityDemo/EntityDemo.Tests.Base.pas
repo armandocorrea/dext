@@ -25,6 +25,7 @@ uses
   FireDAC.Comp.Client,
   FireDAC.DApt,
   Dext.Entity,
+  Dext.Entity.Context,
   Dext.Entity.Drivers.FireDAC,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Dialects,
@@ -60,14 +61,17 @@ type
     procedure Setup; virtual;
     procedure TearDown; virtual;
   public
+    class var DebugSql: Boolean;
+  public
     class constructor Create;
     class destructor Destroy;
     class procedure ResetCounters;
     class procedure PrintSummary;
+    class procedure ReportFailure(const Msg: string);
     class property TotalPassed: Integer read FTotalPassed;
     class property TotalFailed: Integer read FTotalFailed;
     class property CurrentTestName: string read FCurrentTestName write FCurrentTestName;
-    
+
     constructor Create;
     destructor Destroy; override;
     procedure Run; virtual; abstract;
@@ -125,19 +129,29 @@ var
         
         dpFirebird:
         begin
-          // Firebird: Check if table exists first
+          // Firebird: Check if table exists first (case-insensitive search in list)
           Tables := TStringList.Create;
           try
-            // FireDAC syntax: GetTableNames(Catalog, Schema, Pattern, List, Scopes, Kinds, FullName)
             FConn.GetTableNames('', '', '', Tables, [osMy], [tkTable], True);
-            // Firebird returns table names with quotes: "table_name"
-            // We need to use the exact name (with quotes) for DROP
-            var TableNameWithQuotes := '"' + ATableName + '"';
-            var idx := Tables.IndexOf(TableNameWithQuotes);
-            if idx >= 0 then
+            
+            var FoundIdx: Integer := -1;
+            for var i := 0 to Tables.Count - 1 do
             begin
-              // Use the exact name from the list (with quotes)
-              FConn.ExecSQL('DROP TABLE ' + Tables[idx]);
+              // Firebird stores names in UPPERCASE unless quoted. 
+              // FireDAC GetTableNames returns them with quotes if they were created with quotes.
+              // We check both quoted and unquoted case-insensitively.
+              var CurrentTable := Tables[i].Replace('"', '');
+              if SameText(CurrentTable, ATableName) then
+              begin
+                FoundIdx := i;
+                Break;
+              end;
+            end;
+
+            if FoundIdx >= 0 then
+            begin
+              // Use the exact name from the list (it might include quotes already)
+              FConn.ExecSQL('DROP TABLE ' + Tables[FoundIdx]);
               WriteLn('  🗑️  Dropped table: ' + ATableName);
             end;
           finally
@@ -150,6 +164,12 @@ var
           // SQL Server 2016+ supports DROP TABLE IF EXISTS
           FConn.ExecSQL('DROP TABLE IF EXISTS [' + ATableName + ']');
         end;
+        
+        dpMySQL:
+        begin
+          // MySQL/MariaDB supports DROP TABLE IF EXISTS with backticks
+          FConn.ExecSQL('DROP TABLE IF EXISTS `' + ATableName + '`');
+        end;
       end;
     except
       on E: Exception do
@@ -160,6 +180,9 @@ var
 begin
   WriteLn('🔧 Setting up test with: ' + TDbConfig.GetProviderName);
   
+  // 0. Reset Database (Delete file if exists)
+  TDbConfig.ResetDatabase;
+
   // 1. Create connection using TDbConfig
   DbConnection := TDbConfig.CreateConnection;
   Dialect := TDbConfig.CreateDialect;
@@ -183,7 +206,15 @@ begin
 
   // 2. Initialize Context
   FContext := TDbContext.Create(DbConnection, Dialect);
-  
+  if DebugSql then
+  begin
+    FContext. OnLog :=
+      procedure(SQL: string)
+      begin
+        WriteLn('  🔍 SQL: ' + SQL);
+      end;
+  end;
+
   // 3. Register Entities & Create Schema
   WriteLn('📦 Registering entities...');
   FContext.Entities<TAddress>;
@@ -286,6 +317,13 @@ begin
     WriteLn('║  🎉 ALL TESTS PASSED!                                      ║');
 
   WriteLn('╚════════════════════════════════════════════════════════════╝');
+end;
+
+class procedure TBaseTest.ReportFailure(const Msg: string);
+begin
+  Inc(FTotalFailed);
+  if FFailedTests.IndexOf(Msg) < 0 then
+    FFailedTests.Add(Msg);
 end;
 
 end.
