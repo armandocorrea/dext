@@ -103,6 +103,25 @@ begin
 end;
 ```
 
+### 3.1. Otimizações de Conexão
+
+O Dext aplica otimizações de performance automaticamente por padrão (ex: desabilitar Macros e Escapes para velocidade).
+Se você precisar de comportamento legado (ex: se você depende de SQL Macros), você pode **desabilitar** essas otimizações configurando o conjunto explicitamente.
+
+```pascal
+var
+  Options: TDbContextOptions;
+begin
+  Options := TDbContextOptions.Create
+    .UseDriver('PostgreSQL')
+    // Exemplo: Re-abilitar Macros excluindo 'optDisableMacros' do conjunto
+    // O padrão inclui: [optDisableMacros, optDisableEscapes, optDirectExecute]
+    .ConfigureOptimizations([optDirectExecute, optDisableEscapes]); 
+
+  Ctx := TAppDbContext.Create(Options);
+end;
+```
+
 ## 4. Operações CRUD
 
 ### Create

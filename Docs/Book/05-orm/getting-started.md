@@ -103,6 +103,25 @@ begin
 end;
 ```
 
+### 3.1. Connection Optimizations
+
+Dext automatically applies performance optimizations by default (e.g., disabling Macros and Escapes for speed). 
+If you need legacy behavior (e.g., you rely on SQL Macros), you can **disable** these optimizations by configuring the set explicitly.
+
+```pascal
+var
+  Options: TDbContextOptions;
+begin
+  Options := TDbContextOptions.Create
+    .UseDriver('PostgreSQL')
+    // Example: Re-enable Macros by excluding 'optDisableMacros' from the set
+    // Default includes: [optDisableMacros, optDisableEscapes, optDirectExecute]
+    .ConfigureOptimizations([optDirectExecute, optDisableEscapes]); 
+
+  Ctx := TAppDbContext.Create(Options);
+end;
+```
+
 ## 4. Create Tables
 
 ```pascal

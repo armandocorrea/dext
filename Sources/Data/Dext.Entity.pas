@@ -161,7 +161,8 @@ begin
                 FDConn.ConnectionDefName := DefName;
                 
                 // Apply performance and resource options
-                TDextFireDACManager.Instance.ApplyResourceOptions(FDConn);
+                // Apply performance and resource options
+                TDextFireDACManager.Instance.ApplyResourceOptions(FDConn, Options.Optimizations);
               finally
                 Params.Free;
               end;
@@ -178,7 +179,8 @@ begin
                FDConn.Params.Values[Pair.Key] := Pair.Value;
 
             // Apply performance and resource options
-            TDextFireDACManager.Instance.ApplyResourceOptions(FDConn);
+            // Apply performance and resource options
+            TDextFireDACManager.Instance.ApplyResourceOptions(FDConn, Options.Optimizations);
           end;
           
           try

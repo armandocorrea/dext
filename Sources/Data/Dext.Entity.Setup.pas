@@ -25,6 +25,7 @@ type
     FParams: TDictionary<string, string>;
     FPooling: Boolean;
     FPoolMax: Integer;
+    FOptimizations: TFireDACOptimizations; // Connect Optimizations
     FDialect: ISQLDialect;
     FCustomConnection: IDbConnection;
   public
@@ -38,6 +39,7 @@ type
     property Params: TDictionary<string, string> read FParams;
     property Pooling: Boolean read FPooling write FPooling;
     property PoolMax: Integer read FPoolMax write FPoolMax;
+    property Optimizations: TFireDACOptimizations read FOptimizations write FOptimizations;
     property Dialect: ISQLDialect read FDialect write FDialect;
     property CustomConnection: IDbConnection read FCustomConnection write FCustomConnection;
 
@@ -49,6 +51,7 @@ type
     function UseDriver(const ADriverName: string): TDbContextOptions;
     function UseConnectionDef(const ADefName: string): TDbContextOptions;
     function WithPooling(Enable: Boolean = True; MaxSize: Integer = 50): TDbContextOptions;
+    function ConfigureOptimizations(AOpts: TFireDACOptimizations): TDbContextOptions;
   end;
 
   /// <summary>
@@ -72,6 +75,8 @@ begin
   FParams := TDictionary<string, string>.Create;
   FPooling := False;
   FPoolMax := 50;
+  // Default legacy optimization behavior (Matches original hardcoded logic)
+  FOptimizations := [optDisableMacros, optDisableEscapes, optDirectExecute];
 end;
 
 destructor TDbContextOptions.Destroy;
@@ -112,6 +117,12 @@ begin
   Result := Self;
 end;
 
+function TDbContextOptions.ConfigureOptimizations(AOpts: TFireDACOptimizations): TDbContextOptions;
+begin
+  FOptimizations := AOpts;
+  Result := Self;
+end;
+
 function TDbContextOptions.BuildConnection: IDbConnection;
 var
   FDConn: TFDConnection;
@@ -149,9 +160,8 @@ begin
       end;
     end;
     
-    // Resource options
-    if FPooling then
-      TDextFireDACManager.Instance.ApplyResourceOptions(FDConn);
+    // Resource options (Applying configured optimizations)
+    TDextFireDACManager.Instance.ApplyResourceOptions(FDConn, FOptimizations);
 
     Result := TFireDACConnection.Create(FDConn, True);
   except
