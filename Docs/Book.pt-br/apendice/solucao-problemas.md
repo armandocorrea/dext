@@ -21,7 +21,7 @@ Encontre soluções para os erros mais comuns ao trabalhar com o Dext.
 ## Erros HTTP / Web
 
 ### Erro 404 ao chamar endpoint
-- **Solução**: Verifique a ordem de registro das rotas. Rotas com parâmetros (ex: `/:id`) podem "engolir" rotas estáticas se registradas inadequadamente.
+- **Solução**: Verifique a ordem de registro das rotas. Rotas com parâmetros (ex: `/{id}`) podem "engolir" rotas estáticas se registradas inadequadamente.
 
 ### Erro de CORS no Browser
 - **Solução**: Adicione `App.UseCors` no seu pipeline **antes** de qualquer endpoint. Certifique-se de configurar as origens permitidas em produção.

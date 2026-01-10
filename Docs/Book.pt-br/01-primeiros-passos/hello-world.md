@@ -13,8 +13,8 @@ program HelloWorld;
 
 uses
   System.SysUtils,
-  Dext.Web,
-  Dext.Web.Abstractions;
+  System.Classes,
+  Dext.Web;
 
 begin
   TWebHostBuilder.CreateDefault(nil)
@@ -28,21 +28,27 @@ begin
           end);
 
         // Resposta JSON
-        App.MapGet('/api/saudar/:nome', procedure(Ctx: IHttpContext)
+        App.MapGet('/api/saudar/{nome}', procedure(Ctx: IHttpContext)
           var
             Nome: string;
           begin
-            Nome := Ctx.Request.RouteParam('nome');
+            Nome := Ctx.Request.RouteParams['nome'];
             Ctx.Response.Json('{"mensagem": "Olá, ' + Nome + '!"}');
           end);
 
         // Endpoint POST
         App.MapPost('/api/eco', procedure(Ctx: IHttpContext)
           var
+            SR: TStreamReader;
             Body: string;
           begin
-            Body := Ctx.Request.BodyAsString;
-            Ctx.Response.Json(Body);
+            SR := TStreamReader.Create(Ctx.Request.Body);
+            try
+              Body := SR.ReadToEnd;
+              Ctx.Response.Json(Body);
+            finally
+              SR.Free;
+            end;
           end);
       end)
     .Build

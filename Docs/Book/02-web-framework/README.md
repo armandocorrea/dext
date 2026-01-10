@@ -15,11 +15,11 @@ Dext provides two styles for building web APIs: **Minimal APIs** and **Controlle
 ### Minimal API Style
 
 ```pascal
-App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
+App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   var
     Id: Integer;
   begin
-    Id := StrToInt(Ctx.Request.RouteParam('id'));
+    Id := StrToInt(Ctx.Request.RouteParams['id']);
     Ctx.Response.Json(UserService.GetById(Id));
   end);
 ```
@@ -31,7 +31,7 @@ type
   [Route('/users')]
   TUsersController = class(TController)
   public
-    [HttpGet('/:id')]
+    [HttpGet('/{id}')]
     function GetById(Id: Integer): IActionResult;
   end;
 

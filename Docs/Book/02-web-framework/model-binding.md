@@ -62,15 +62,15 @@ end;
 
 ```pascal
 // URL: /users/123
-App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
+App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   var
     Id: Integer;
   begin
-    Id := StrToInt(Ctx.Request.RouteParam('id'));
+    Id := StrToInt(Ctx.Request.RouteParams['id']);
   end);
 
 // In controller
-[HttpGet('/:id')]
+[HttpGet('/{id}')]
 function GetById(Id: Integer): IActionResult;  // Auto-bound from route
 ```
 
@@ -162,7 +162,7 @@ UUIDs are automatically bound:
 
 ```pascal
 // Route: /items/550e8400-e29b-41d4-a716-446655440000
-[HttpGet('/:id')]
+[HttpGet('/{id}')]
 function GetById(Id: TUUID): IActionResult;  // Works!
 ```
 

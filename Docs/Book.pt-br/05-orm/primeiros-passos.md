@@ -77,6 +77,7 @@ end.
 uses
   FireDAC.Comp.Client,
   Dext.Entity.Drivers.FireDAC,
+  Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Dialects;
 
 var
@@ -93,14 +94,43 @@ begin
   
   // Encapsular para Dext
   Connection := TFireDACConnection.Create(FDConn, True);
-  Dialect := TSQLiteDialect.Create;
   
-  // Criar contexto
-  Ctx := TAppDbContext.Create(Connection, Dialect);
+  // Criar contexto (Dialeto é detectado automaticamente da Conexão)
+  Ctx := TAppDbContext.Create(Connection); 
+  
+  // Opcional: Especificando o dialeto explicitamente
+  // Dialect := TSQLiteDialect.Create;
+  // Ctx := TAppDbContext.Create(Connection, Dialect);
 end;
 ```
 
-## 4. Operações CRUD
+### 3.1. Otimizações de Conexão
+
+O Dext aplica otimizações de performance automaticamente por padrão (ex: desabilitar Macros e Escapes para velocidade).
+Se você precisar de comportamento legado (ex: se você depende de SQL Macros), você pode **desabilitar** essas otimizações configurando o conjunto explicitamente.
+
+```pascal
+var
+  Options: TDbContextOptions;
+begin
+  Options := TDbContextOptions.Create
+    .UseDriver('PostgreSQL')
+    // Exemplo: Re-abilitar Macros excluindo 'optDisableMacros' do conjunto
+    // O padrão inclui: [optDisableMacros, optDisableEscapes, optDirectExecute]
+    .ConfigureOptimizations([optDirectExecute, optDisableEscapes]); 
+
+  Ctx := TAppDbContext.Create(Options);
+end;
+```
+
+## 4. Criar Tabelas
+
+```pascal
+Ctx.Entities<TUser>; // Registra metadados da entidade
+Ctx.EnsureCreated;   // Cria tabelas se elas não existirem
+```
+
+## 5. Operações CRUD
 
 ### Create
 

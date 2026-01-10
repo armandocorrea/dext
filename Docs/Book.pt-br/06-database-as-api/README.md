@@ -33,10 +33,10 @@ App.Configure(procedure(App: IApplicationBuilder)
 | Método | URL | Descrição |
 |--------|-----|-----------|
 | GET | `/api/products` | Listar todos (com paginação) |
-| GET | `/api/products/:id` | Buscar por ID |
+| GET | `/api/products/{id}` | Buscar por ID |
 | POST | `/api/products` | Criar novo |
-| PUT | `/api/products/:id` | Atualizar |
-| DELETE | `/api/products/:id` | Excluir |
+| PUT | `/api/products/{id}` | Atualizar |
+| DELETE | `/api/products/{id}` | Excluir |
 
 ## Recursos
 

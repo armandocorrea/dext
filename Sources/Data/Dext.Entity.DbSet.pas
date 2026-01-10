@@ -1269,13 +1269,13 @@ begin
     if TargetType.TypeKind <> tkClass then Exit;
     TargetDbSet := FContext.DataSet(TargetType.Handle);
 
-    var IdStrings: TArray<string>;
-    SetLength(IdStrings, IDs.Count);
+    var IdValues: TArray<Variant>;
+    SetLength(IdValues, IDs.Count);
     for var k := 0 to IDs.Count - 1 do
-      IdStrings[k] := IDs[k].ToString;
+      IdValues[k] := IDs[k].AsVariant;
 
-    // FIX: Commented out expression logic to verify compilation
-    var Expr: IExpression := TPropExpression.Create('Id').&In(IdStrings);
+    // Use Variant array to preserve types (Integer, String, GUID) for correct parameter binding
+    var Expr: IExpression := TPropExpression.Create('Id').&In(IdValues);
 
     TargetList := TargetDbSet.ListObjects(Expr);
     LoadedMap := TDictionary<TValue, TObject>.Create;

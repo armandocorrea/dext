@@ -14,17 +14,17 @@ type
     [HttpGet]
     function GetAll: IActionResult;
     
-    [HttpGet('/:id')]
-    function GetById(Id: Integer): IActionResult;
+    [HttpGet('/{id}')]
+    function Get(Id: Int64): IActionResult;
     
     [HttpPost]
-    function Create([FromBody] User: TUser): IActionResult;
+    function Create([Body] User: TUser): IActionResult;
     
-    [HttpPut('/:id')]
-    function Update(Id: Integer; [FromBody] User: TUser): IActionResult;
+    [HttpPut('/{id}')]
+    function Update(Id: Int64; [Body] User: TUser): IActionResult;
     
-    [HttpDelete('/:id')]
-    function Delete(Id: Integer): IActionResult;
+    [HttpDelete('/{id}')]
+    function Delete(Id: Int64): IActionResult;
   end;
 ```
 

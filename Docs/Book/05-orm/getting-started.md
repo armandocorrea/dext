@@ -77,6 +77,7 @@ end.
 uses
   FireDAC.Comp.Client,
   Dext.Entity.Drivers.FireDAC,
+  Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Dialects;
 
 var
@@ -93,17 +94,40 @@ begin
   
   // Wrap for Dext
   Connection := TFireDACConnection.Create(FDConn, True);
-  Dialect := TSQLiteDialect.Create;
   
-  // Create context
-  Ctx := TAppDbContext.Create(Connection, Dialect);
+  // Create context (Dialect is auto-detected from Connection)
+  Ctx := TAppDbContext.Create(Connection); 
+  
+  // Optional: Explicitly specifying dialect
+  // Dialect := TSQLiteDialect.Create;
+  // Ctx := TAppDbContext.Create(Connection, Dialect);
+end;
+```
+
+### 3.1. Connection Optimizations
+
+Dext automatically applies performance optimizations by default (e.g., disabling Macros and Escapes for speed). 
+If you need legacy behavior (e.g., you rely on SQL Macros), you can **disable** these optimizations by configuring the set explicitly.
+
+```pascal
+var
+  Options: TDbContextOptions;
+begin
+  Options := TDbContextOptions.Create
+    .UseDriver('PostgreSQL')
+    // Example: Re-enable Macros by excluding 'optDisableMacros' from the set
+    // Default includes: [optDisableMacros, optDisableEscapes, optDirectExecute]
+    .ConfigureOptimizations([optDirectExecute, optDisableEscapes]); 
+
+  Ctx := TAppDbContext.Create(Options);
 end;
 ```
 
 ## 4. Create Tables
 
 ```pascal
-Ctx.EnsureCreated;  // Creates tables if they don't exist
+Ctx.Entities<TUser>; // Register entity metadata
+Ctx.EnsureCreated;   // Creates tables if they don't exist
 ```
 
 ## 5. CRUD Operations

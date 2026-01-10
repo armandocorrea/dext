@@ -74,6 +74,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 | **Soft Delete** | ✅ Pronto | Atributo `[SoftDelete]` |
 | **Optimistic Concurrency** | ✅ Pronto | Atributo `[Version]` |
 | **FireDAC Phys Driver** | ✅ Pronto | Driver físico para integração transparente com FireDAC |
+| **Auto-Detecção de Dialeto** | ✅ Pronto | Identificação determinística via Enum (`ddPostgreSQL`, etc) |
 | **Field Mapping** | ✅ Pronto | Mapeamento por fields (além de properties) para evitar disparar setters ao carregar do banco |
 
 
@@ -118,7 +119,7 @@ O foco agora é criar **um exemplo para cada funcionalidade** e unificar a docum
 
 ### Documentação
 - [x] **Criar "The Dext Book"**: Documentação multi-arquivo abrangente cobrindo todos os aspectos do framework. [English](../../Docs/Book/README.md) | [Português](../../Docs/Book.pt-br/README.md)
-- [ ] **API Reference**: Gerar documentação automática do código (PasDoc ou similar) se possível, ou focar em guias práticos.
+- [x] **API Reference**: Geração automática de documentação utilizando **DextDoc** (Custom Node.js Generator + Mermaid.js).
 
 ### Novos Exemplos Necessários
 1.  **Dext.Examples.Streaming**: Demonstrar download e upload de arquivos grandes (Stream Writing + Multipart).
@@ -153,7 +154,7 @@ Implementar testes de integração rodando a suite de testes do ORM contra conta
 | **PostgreSQL** | ✅ Sim | ✅ Sim | 🟢 Estável |
 | **SQL Server** | ✅ Sim | ✅ Sim | 🟢 Estável |
 | **Firebird** | ✅ Sim | ✅ Sim | 🟢 Estável |
-| **MySQL / MariaDB** | ✅ Sim | ❌ Não (Manual) | 🟡 Beta (Precisa de Validação) |
+| **MySQL / MariaDB** | ✅ Sim | ✅ Sim | 🟢 Estável |
 | **Oracle** | ✅ Sim | ❌ Não (Manual) | 🟡 Beta (Precisa de Validação) |
 | **InterBase** | ✅ Sim | ❌ Não (Manual) | 🟡 Beta (Precisa de Validação) |
 

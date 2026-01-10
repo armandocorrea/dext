@@ -35,6 +35,7 @@
   RequiredAttribute = Dext.Entity.Attributes.RequiredAttribute;
   MaxLengthAttribute = Dext.Entity.Attributes.MaxLengthAttribute;
   PrecisionAttribute = Dext.Entity.Attributes.PrecisionAttribute;
+  TypeConverterAttribute = Dext.Entity.Attributes.TypeConverterAttribute;
 
   // Dext.Entity.Context
   TFluentExpression = Dext.Entity.Context.TFluentExpression;

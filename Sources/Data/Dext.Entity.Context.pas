@@ -105,6 +105,8 @@ type
     function Reference(const APropName: string): IReferenceEntry;
   end;
 
+
+
   /// <summary>
   ///   Concrete implementation of DbContext.
   ///   Manages database connection, transactions, and entity sets.
@@ -132,6 +134,9 @@ type
     FTenantProvider: ITenantProvider;
     FTenantConfigApplied: Boolean;
     FLastAppliedTenantId: string;
+    FOnLog: TProc<string>;
+    procedure SetOnLog(const AValue: TProc<string>);
+    function GetOnLog: TProc<string>;
     procedure ApplyTenantConfig(ACreateSchema: Boolean = False);
     function GetModelBuilder: TModelBuilder;
   protected
@@ -149,7 +154,7 @@ type
     class var FModelCache: TObjectDictionary<TClass, TModelBuilder>;
     class var FCriticalSection: TObject; // For thread safety
     
-    constructor Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil); overload;
+    constructor Create(const AConnection: IDbConnection; const ADialect: ISQLDialect = nil; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil); overload;
     constructor Create(const AOptions: TDbContextOptions; const ATenantProvider: ITenantProvider = nil); overload;
     destructor Destroy; override;
     
@@ -195,6 +200,8 @@ type
     function Entities<T: class>: IDbSet<T>;
     
     function Entry(const AEntity: TObject): IEntityEntry;
+    
+    property OnLog: TProc<string> read GetOnLog write SetOnLog;
   end;
 
 implementation
@@ -307,11 +314,24 @@ begin
   FreeAndNil(FCriticalSection);
 end;
 
-constructor TDbContext.Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil);
+constructor TDbContext.Create(const AConnection: IDbConnection; const ADialect: ISQLDialect; const ANamingStrategy: INamingStrategy; const ATenantProvider: ITenantProvider);
 begin
   inherited Create;
   FConnection := AConnection;
-  FDialect := ADialect;
+  
+  if ADialect <> nil then
+    FDialect := ADialect
+  else if (FConnection <> nil) and (FConnection.Dialect <> ddUnknown) then
+    FDialect := TDialectFactory.CreateDialect(FConnection.Dialect)
+  else
+    FDialect := nil; // Will likely cause issues if query generation is attempted without dialect
+
+  if FDialect = nil then
+  begin
+     // Optional: Raise warning or default to generic?
+     // We leave it nil, it might be set later or cause runtime error if used.
+  end;
+  
   if ANamingStrategy <> nil then
     FNamingStrategy := ANamingStrategy
   else
@@ -359,6 +379,18 @@ begin
   if FOwnsModelBuilder then
     FModelBuilder.Free;
   inherited;
+end;
+
+procedure TDbContext.SetOnLog(const AValue: TProc<string>);
+begin
+  FOnLog := AValue;
+  if FConnection <> nil then
+    FConnection.OnLog := AValue;
+end;
+
+function TDbContext.GetOnLog: TProc<string>;
+begin
+  Result := FOnLog;
 end;
 
 function TDbContext.QueryInterface(const IID: TGUID; out Obj): HResult;
@@ -727,13 +759,21 @@ begin
             
             if not FConnection.TableExists(TableName) then
             begin
+              if Assigned(FOnLog) then
+                FOnLog(SQL);
+
               try
                 CmdIntf := FConnection.CreateCommand(SQL);
                 Cmd := IDbCommand(CmdIntf);
                 Cmd.ExecuteNonQuery;
               except
                  on E: Exception do
+                 begin
                    SafeWriteLn('Warning creating table for ' + string(Node.TypeInfo.Name) + ': ' + E.Message);
+                   // Always log failed SQL if we have a logger or just print it
+                   if Assigned(FOnLog) then
+                     FOnLog('FAILED SQL: ' + SQL);
+                 end;
               end;
             end;
           end;
@@ -775,6 +815,8 @@ begin
     Nodes.Free;
   end;
 end;
+
+{ TEntityNode }
 
 { TEntityNode }
 

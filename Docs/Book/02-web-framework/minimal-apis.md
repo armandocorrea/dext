@@ -13,9 +13,17 @@ App.MapGet('/hello', procedure(Ctx: IHttpContext)
   end);
 
 App.MapPost('/data', procedure(Ctx: IHttpContext)
+  var
+    SR: TStreamReader;
+    Body: string;
   begin
-    var Body := Ctx.Request.BodyAsString;
-    Ctx.Response.Json(Body);
+    SR := TStreamReader.Create(Ctx.Request.Body);
+    try
+      Body := SR.ReadToEnd;
+      Ctx.Response.Json(Body);
+    finally
+      SR.Free;
+    end;
   end);
 ```
 
@@ -49,7 +57,7 @@ App.MapGet<IUserService, TUserIdRequest, IResult>('/users/{id}',
 ```pascal
 App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   begin
-    var Id := Ctx.Request.RouteParam('id');
+    var Id := Ctx.Request.RouteParams['id'];
     Ctx.Response.Write('User ID: ' + Id);
   end);
 ```

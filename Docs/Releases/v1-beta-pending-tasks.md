@@ -33,7 +33,7 @@ Este documento centraliza as tarefas pendentes para o lançamento do V1 Beta. Ma
 ## 📖 Documentação
 
 - [x] **The Dext Book** - Completo (55 arquivos EN + 55 arquivos PT)
-- [ ] **API Reference** - Gerar documentação automática (PasDoc) ou guias práticos adicionais
+- [x] **API Reference** - Gerada automaticamente com DextDoc (Custom Node.js Generator)
 
 ---
 
@@ -55,9 +55,9 @@ Este documento centraliza as tarefas pendentes para o lançamento do V1 Beta. Ma
 - [ ] **Run-DBTests.ps1** - Script unificado de testes (já iniciado em `infra/tests/`)
 
 ### Bancos de Dados Pendentes
-- [ ] MySQL / MariaDB - Testes automatizados
-- [ ] Oracle - Testes automatizados
+- [x] MySQL / MariaDB - Testes automatizados
 - [ ] InterBase - Testes automatizados
+- [ ] Oracle - Testes automatizados
 
 ### Testes Web
 - [ ] HTTP Integration Tests (Cookies, Upload binário, Compression)

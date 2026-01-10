@@ -70,7 +70,8 @@ A modern ORM focused on productivity and performance.
   - **Table-Per-Hierarchy (TPH)**: Full support for base classes and subclasses in a single table.
   - **Polymorphic Hydration**: Automatic instantiation of the correct subclass during data retrieval.
   - **Attribute-based Mapping**: Use `[Inheritance]`, `[DiscriminatorColumn]`, and `[DiscriminatorValue]`.
-- **Multi-Database**: Support for SQL Server, PostgreSQL, Firebird, MySQL, Oracle, and SQLite.
+- **Multi-Database**: Fully tested support for **SQL Server, PostgreSQL, Firebird, MySQL/MariaDB**, and **SQLite** (165 tests passing on all). Oracle in beta.
+- **Dialect Auto-Detection**: Deterministic identification via Enum (`ddPostgreSQL`, etc) for zero-config setup.
 - **High-Performance Drivers**:
   - **Standard FireDAC Driver**: Full-featured with TDataSet compatibility
   - **FireDAC Phys Driver**: "Bare metal" access bypassing TDataSet for maximum performance
@@ -149,6 +150,7 @@ The definitive, modern testing framework for Delphi, inspired by NUnit, FluentAs
 - [Getting Started](Docs/testing.md)
 
 ### 📰 Articles & Tutorials
+- [The Story behind Dext Framework: Why we built it](https://www.cesarromero.com.br/en/blog/dext-story/)
 - [Domain Model & CQRS: Modernizing your Delphi Architecture](https://www.cesarromero.com.br/en/blog/enterprise-patterns-delphi/)
 - [Database as API: High Performance without Controllers](https://www.cesarromero.com.br/en/blog/database-as-api-cqrs/)
 
@@ -161,7 +163,7 @@ The definitive, modern testing framework for Delphi, inspired by NUnit, FluentAs
 
 ## 📦 Installation and Configuration
 
-> 📖 **Detailed Guide**: For a complete step-by-step walkthrough and advanced configuration, please read the [Installation Guide](Docs/Installation.md).
+> 📖 **Detailed Guide**: For a complete step-by-step walkthrough and advanced configuration, please read the [Installation Guide](Docs/installation.md).
 
 1. **Clone the repository:**
    ```bash
@@ -191,7 +193,7 @@ The definitive, modern testing framework for Delphi, inspired by NUnit, FluentAs
        - `$(DEXT)\Data`
        - `$(DEXT)\Hosting`
        - `$(DEXT)\Web`
-       - *(See [Installation Guide](Docs/Installation.md) for the complete list)*
+       - *(See [Installation Guide](Docs/installation.md) for the complete list)*
 
    > 📝 **Note**: Compiled files (`.dcu`, binaries) will be generated in the `.\Output` directory.
 
