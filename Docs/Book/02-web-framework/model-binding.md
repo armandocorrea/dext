@@ -66,7 +66,7 @@ App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   var
     Id: Integer;
   begin
-    Id := StrToInt(Ctx.Request.RouteParam('id'));
+    Id := StrToInt(Ctx.Request.RouteParams['id']);
   end);
 
 // In controller

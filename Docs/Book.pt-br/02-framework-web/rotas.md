@@ -17,14 +17,14 @@ App.MapGet('/api/health', Handler);      // GET /api/health
 ```pascal
 App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   begin
-    var Id := Ctx.Request.RouteParam('id');
+    var Id := Ctx.Request.RouteParams['id'];
     // Id = "123" para /users/123
   end);
 
 App.MapGet('/orders/{orderId}/items/{itemId}', procedure(Ctx: IHttpContext)
   begin
-    var OrderId := Ctx.Request.RouteParam('orderId');
-    var ItemId := Ctx.Request.RouteParam('itemId');
+    var OrderId := Ctx.Request.RouteParams['orderId'];
+    var ItemId := Ctx.Request.RouteParams['itemId'];
   end);
 ```
 
