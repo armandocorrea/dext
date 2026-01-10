@@ -77,6 +77,7 @@ end.
 uses
   FireDAC.Comp.Client,
   Dext.Entity.Drivers.FireDAC,
+  Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Dialects;
 
 var
@@ -125,7 +126,8 @@ end;
 ## 4. Create Tables
 
 ```pascal
-Ctx.EnsureCreated;  // Creates tables if they don't exist
+Ctx.Entities<TUser>; // Register entity metadata
+Ctx.EnsureCreated;   // Creates tables if they don't exist
 ```
 
 ## 5. CRUD Operations
