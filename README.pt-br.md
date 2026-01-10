@@ -151,6 +151,7 @@ O framework de testes definitivo e moderno para Delphi, inspirado em NUnit, Flue
 - [Começando](Docs/testing.pt-br.md)
 
 ### 📰 Artigos e Tutoriais
+- [A História por trás do Dext Framework: Por que criamos?](https://www.cesarromero.com.br/blog/dext-story/)
 - [Domain Model e CQRS: Modernizando sua Arquitetura Delphi](https://www.cesarromero.com.br/blog/enterprise-patterns-delphi/)
 - [Como implementar CQRS e APIs de Alta Performance sem escrever Controllers](https://www.cesarromero.com.br/blog/database-as-api-cqrs/)
 
@@ -163,7 +164,7 @@ O framework de testes definitivo e moderno para Delphi, inspirado em NUnit, Flue
 
 ## 📦 Instalação e Configuração
 
-> 📖 **Guia Detalhado**: Para um passo a passo completo e configuração avançada, leia o [Guia de Instalação](Docs/Installation.md).
+> 📖 **Guia Detalhado**: Para um passo a passo completo e configuração avançada, leia o [Guia de Instalação](Docs/installation.md).
 
 1. **Clone o repositório:**
    ```bash
@@ -193,7 +194,7 @@ O framework de testes definitivo e moderno para Delphi, inspirado em NUnit, Flue
        - `$(DEXT)\Data`
        - `$(DEXT)\Hosting`
        - `$(DEXT)\Web`
-       - *(Veja o [Guia de Instalação](Docs/Installation.pt-br.md) para a lista completa)*
+       - *(Veja o [Guia de Instalação](Docs/installation.pt-br.md) para a lista completa)*
 
    > 📝 **Nota**: Arquivos compilados (`.dcu`, binários) serão gerados no diretório `.\Output`.
 

@@ -67,7 +67,7 @@ For technical details and granular status of each module, check:
 | **Multi-Tenancy** | ✅ Ready | Schema-based, DB-based, Column-based |
 | **Advanced Types** (UUID, JSON, Arrays) | ✅ Ready | Automatic serialization |
 | **Bulk Operations** | ✅ Ready | Bulk Update/Delete |
-| **Advanced Querying** | 🟡 Partial | `Join` and `GroupBy` (In-Memory ✅, SQL Pending ⚠️) |
+| **Advanced Querying** | ✅ Ready | `Join` (Inner, Left, Right, Full) and `GroupBy` with full SQL generation |
 | **Inheritance Mapping** (TPH) | ✅ Ready | Discriminator column supported |
 | **Lazy Loading** | ✅ Ready | `Lazy<T>`, `IList<T>`, and `ILazy<T>` wrapper |
 | **Scaffolding** (DB First) | ✅ Ready | Entity generation from Database Schema |
@@ -131,7 +131,7 @@ The focus now is to create **one example for each feature** and unify the docume
 
 ### Documentation
 - [x] **Create "The Dext Book"**: A comprehensive multi-file documentation covering all framework aspects. [English](../../Docs/Book/README.md) | [Português](../../Docs/Book.pt-br/README.md)
-- [ ] **API Reference**: Generate automatic code documentation (PasDoc or similar) if possible, or focus on practical guides.
+- [/] **API Reference**: Custom solution in progress using [DelphiAST](https://github.com/RomanYankovsky/DelphiAST). Tool: [`Tools/DextASTParser`](../../Tools/DextASTParser/README.md) - generates AST XML from Delphi sources.
 
 ### New Examples Needed
 1.  **Dext.Examples.Streaming**: Demonstrate large file download and upload (Stream Writing + Multipart).
