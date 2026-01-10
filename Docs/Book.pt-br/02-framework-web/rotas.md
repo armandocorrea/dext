@@ -15,13 +15,13 @@ App.MapGet('/api/health', Handler);      // GET /api/health
 ### Parâmetros de Rota
 
 ```pascal
-App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
+App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   begin
     var Id := Ctx.Request.RouteParam('id');
     // Id = "123" para /users/123
   end);
 
-App.MapGet('/orders/:orderId/items/:itemId', procedure(Ctx: IHttpContext)
+App.MapGet('/orders/{orderId}/items/{itemId}', procedure(Ctx: IHttpContext)
   begin
     var OrderId := Ctx.Request.RouteParam('orderId');
     var ItemId := Ctx.Request.RouteParam('itemId');
@@ -39,7 +39,7 @@ public
   [HttpGet]             // GET /api/v1/users
   function GetAll: IActionResult;
   
-  [HttpGet('/:id')]     // GET /api/v1/users/123
+  [HttpGet('/{id}')]     // GET /api/v1/users/123
   function GetById(Id: Integer): IActionResult;
   
   [HttpPost]            // POST /api/v1/users
@@ -76,9 +76,9 @@ App.MapGet('/search', procedure(Ctx: IHttpContext)
 ```pascal
 App.MapGet('/resource', Handler);     // GET
 App.MapPost('/resource', Handler);    // POST
-App.MapPut('/resource/:id', Handler); // PUT
-App.MapPatch('/resource/:id', Handler); // PATCH
-App.MapDelete('/resource/:id', Handler); // DELETE
+App.MapPut('/resource/{id}', Handler); // PUT
+App.MapPatch('/resource/{id}', Handler); // PATCH
+App.MapDelete('/resource/{id}', Handler); // DELETE
 ```
 
 ## Agrupando Rotas

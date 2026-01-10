@@ -62,7 +62,7 @@ end;
 
 ```pascal
 // URL: /users/123
-App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
+App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   var
     Id: Integer;
   begin
@@ -70,7 +70,7 @@ App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
   end);
 
 // No controller
-[HttpGet('/:id')]
+[HttpGet('/{id}')]
 function GetById(Id: Integer): IActionResult;  // Auto-binding da rota
 ```
 

@@ -15,13 +15,13 @@ App.MapGet('/api/health', Handler);      // GET /api/health
 ### Route Parameters
 
 ```pascal
-App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
+App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   begin
     var Id := Ctx.Request.RouteParam('id');
     // Id = "123" for /users/123
   end);
 
-App.MapGet('/orders/:orderId/items/:itemId', procedure(Ctx: IHttpContext)
+App.MapGet('/orders/{orderId}/items/{itemId}', procedure(Ctx: IHttpContext)
   begin
     var OrderId := Ctx.Request.RouteParam('orderId');
     var ItemId := Ctx.Request.RouteParam('itemId');
@@ -31,7 +31,7 @@ App.MapGet('/orders/:orderId/items/:itemId', procedure(Ctx: IHttpContext)
 ### Optional Parameters
 
 ```pascal
-App.MapGet('/files/:path*', procedure(Ctx: IHttpContext)
+App.MapGet('/files/{path*}', procedure(Ctx: IHttpContext)
   begin
     var Path := Ctx.Request.RouteParam('path');
     // Captures rest of path: /files/docs/readme.md → "docs/readme.md"
@@ -49,7 +49,7 @@ public
   [HttpGet]             // GET /api/v1/users
   function GetAll: IActionResult;
   
-  [HttpGet('/:id')]     // GET /api/v1/users/123
+  [HttpGet('/{id}')]     // GET /api/v1/users/123
   function GetById(Id: Integer): IActionResult;
   
   [HttpPost]            // POST /api/v1/users
@@ -98,10 +98,12 @@ Validate parameters at route level:
 
 ```pascal
 // Only match if id is numeric
-App.MapGet('/users/:id<int>', Handler);
+App.MapGet('/users/{id}<int>', Handler);
+// Matches: /users/123
+// No Match: /users/abc
 
 // Only match specific values
-App.MapGet('/status/:status<active|inactive>', Handler);
+App.MapGet('/status/{status}<active|inactive>', Handler);
 ```
 
 ## HTTP Methods
@@ -109,9 +111,9 @@ App.MapGet('/status/:status<active|inactive>', Handler);
 ```pascal
 App.MapGet('/resource', Handler);     // GET
 App.MapPost('/resource', Handler);    // POST
-App.MapPut('/resource/:id', Handler); // PUT
-App.MapPatch('/resource/:id', Handler); // PATCH
-App.MapDelete('/resource/:id', Handler); // DELETE
+App.MapPut('/resource/{id}', Handler); // PUT
+App.MapPatch('/resource/{id}', Handler); // PATCH
+App.MapDelete('/resource/{id}', Handler); // DELETE
 App.MapOptions('/resource', Handler); // OPTIONS
 App.MapHead('/resource', Handler);    // HEAD
 ```

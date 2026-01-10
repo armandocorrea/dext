@@ -31,10 +31,10 @@ App.Configure(procedure(App: IApplicationBuilder)
 | Method | URL | Description |
 |--------|-----|-----------|
 | GET | `/api/products` | List all (supports pagination/filters) |
-| GET | `/api/products/:id` | Find by unique ID |
+| GET | `/api/products/{id}` | Find by unique ID |
 | POST | `/api/products` | Create new record |
-| PUT | `/api/products/:id` | Update existing record |
-| DELETE | `/api/products/:id` | Delete record |
+| PUT | `/api/products/{id}` | Update existing record |
+| DELETE | `/api/products/{id}` | Delete record |
 
 ## Advanced Features
 

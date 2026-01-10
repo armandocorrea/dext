@@ -48,7 +48,7 @@ type
     [SwaggerResponse(200, 'Success', TArray<TUser>)]
     function GetAll: IActionResult;
     
-    [HttpGet('/:id')]
+    [HttpGet('/{id}')]
     [SwaggerSummary('Get user by ID')]
     [SwaggerParam('id', 'User ID', True)]
     [SwaggerResponse(200, 'User found', TUser)]

@@ -15,7 +15,7 @@ O Dext oferece dois estilos para construir APIs web: **Minimal APIs** e **Contro
 ### Estilo Minimal API
 
 ```pascal
-App.MapGet('/users/:id', procedure(Ctx: IHttpContext)
+App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
   var
     Id: Integer;
   begin
@@ -31,7 +31,7 @@ type
   [Route('/users')]
   TUsersController = class(TController)
   public
-    [HttpGet('/:id')]
+    [HttpGet('/{id}')]
     function GetById(Id: Integer): IActionResult;
   end;
 

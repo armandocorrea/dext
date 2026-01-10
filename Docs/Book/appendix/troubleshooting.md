@@ -21,7 +21,7 @@ Find solutions to common errors when working with Dext.
 ## HTTP / Web Errors
 
 ### 404 Error when calling endpoint
-- **Solution**: Check the order of route registration. Routes with parameters (e.g., `/:id`) can "swallow" static routes if registered improperly.
+- **Solution**: Check the order of route registration. Routes with parameters (e.g., `/{id}`) can "swallow" static routes if registered improperly.
 
 ### CORS Error in Browser
 - **Solution**: Add `App.UseCors` to your pipeline **before** any endpoint. Make sure to configure allowed origins in production.

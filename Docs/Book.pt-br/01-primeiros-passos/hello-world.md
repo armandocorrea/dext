@@ -28,7 +28,7 @@ begin
           end);
 
         // Resposta JSON
-        App.MapGet('/api/saudar/:nome', procedure(Ctx: IHttpContext)
+        App.MapGet('/api/saudar/{nome}', procedure(Ctx: IHttpContext)
           var
             Nome: string;
           begin

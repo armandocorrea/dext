@@ -28,7 +28,7 @@ begin
           end);
 
         // JSON response
-        App.MapGet('/api/greet/:name', procedure(Ctx: IHttpContext)
+        App.MapGet('/api/greet/{name}', procedure(Ctx: IHttpContext)
           var
             Name: string;
           begin
