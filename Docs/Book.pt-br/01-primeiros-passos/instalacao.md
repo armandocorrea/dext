@@ -11,13 +11,13 @@
 ### Opção 1: Clonar do GitHub (Recomendado)
 
 ```bash
-git clone https://github.com/ArmyOfPirates/Dext.git
+git clone https://github.com/cesarliws/dext.git
 cd Dext
 ```
 
-### Opção 2: Download ZIP
+### Opção 2: Download ZIP (Após a versão 1.0)
 
-Baixe a versão mais recente em [GitHub Releases](https://github.com/ArmyOfPirates/Dext/releases).
+Baixe a versão mais recente em [GitHub Releases](https://github.com/cesarliws/dext/releases).
 
 ## Configuração da IDE
 
