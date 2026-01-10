@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -176,6 +176,13 @@ type
     ///   Access the DbSet for a specific entity type.
     /// </summary>
     function DataSet(AEntityType: PTypeInfo): IDbSet;
+
+    /// <summary>
+    /// Preload the DBSets cache to avoid having to manually call Entities<T> for
+    ///  each type which are already exposed as properties on the current TDBContext
+    ///  implementation.
+    /// </summary>
+    procedure PreloadDbSets;
     procedure EnsureCreated;
     procedure ExecuteSchemaSetup;
     
@@ -440,6 +447,34 @@ begin
   // Override this in your derived context to configure mappings.
 end;
 
+procedure TDbContext.PreloadDbSets;
+var
+  ctx : TRttiContext;
+  typ : TRttiType;
+  props :  TArray<TRttiProperty>;
+  Prop : TRttiProperty;
+begin
+   Ctx := TRttiContext.Create;
+   try
+     Typ := Ctx.GetType(self.classtype);
+     Props := Typ.GetProperties;
+     for Prop in Props do
+     begin
+       // ignore any properties that are [NotMapped].  Only necessary if the
+       // property returns an interface type and calling the getter would
+       // be undesireable.
+       if Prop.HasAttribute(NotMappedAttribute) then
+         continue;
+       // assume that properties that hold an interface are likely models so
+       // invoke the getter which will auto register any Entities<T>
+       if Prop.IsReadable and (Prop.PropertyType.TypeKind = tkInterface) then
+         Prop.GetValue(Self);
+     end;
+   finally
+      Ctx.free;
+   end;
+end;
+
 function TDbContext.GetMapping(AType: PTypeInfo): TObject;
 begin
   if FModelBuilder.HasMap(AType) then
@@ -616,6 +651,8 @@ begin
   ApplyTenantConfig(True);
   Nodes := TObjectList<TEntityNode>.Create;
   Created := TList<PTypeInfo>.Create;
+  if fCache.count = 0 then
+    PreloadDBSets;
   Ctx := TRttiContext.Create;
   try
     // 1. Build Dependency Graph
