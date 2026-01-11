@@ -21,3 +21,5 @@ Docs/API/xml/
 
 # Node.js dependencies
 node_modules/
+*.rsm
+*.otares
