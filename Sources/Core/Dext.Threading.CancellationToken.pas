@@ -23,7 +23,7 @@
 {  Created: 2025-12-08                                                      }
 {                                                                           }
 {***************************************************************************}
-unit Dext.Core.CancellationToken;
+unit Dext.Threading.CancellationToken;
 
 interface
 
@@ -196,4 +196,3 @@ begin
 end;
 
 end.
-

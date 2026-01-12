@@ -67,7 +67,7 @@ uses
   Dext.Validation,
   Dext.Yaml,
   Dext.Core.Activator,
-  Dext.Core.CancellationToken,
+  Dext.Threading.CancellationToken,
   Dext.Core.Extensions,
   Dext.Core.Memory,
   Dext.Core.Span,
@@ -131,10 +131,10 @@ type
   // Dext.Core.Activator
   TActivator = Dext.Core.Activator.TActivator;
 
-  // Dext.Core.CancellationToken
-  ICancellationToken = Dext.Core.CancellationToken.ICancellationToken;
-  TCancellationToken = Dext.Core.CancellationToken.TCancellationToken;
-  TCancellationTokenSource = Dext.Core.CancellationToken.TCancellationTokenSource;
+  // Dext.Threading.CancellationToken
+  ICancellationToken = Dext.Threading.CancellationToken.ICancellationToken;
+  TCancellationToken = Dext.Threading.CancellationToken.TCancellationToken;
+  TCancellationTokenSource = Dext.Threading.CancellationToken.TCancellationTokenSource;
 
   // Dext.Core.Extensions
   TDextServiceCollectionExtensions = Dext.Core.Extensions.TDextServiceCollectionExtensions;
