@@ -1,70 +1,71 @@
-# Installation
+# Dext Framework Installation Guide
 
-## Requirements
+This guide covers the installation of the Dext Framework. You can choose between the **Automated Setup** (recommended) or the **Manual Setup**.
 
-- **Delphi**: 11.x Alexandria or 12.x Athens
-- **Target**: Win32 or Win64
-- **FireDAC**: Required for ORM (included with Delphi)
+## Prerequisites
+- Delphi 11 Alexandria or newer.
+- Git (to clone the repository).
 
-## Installation Methods
+---
 
-### Option 1: Clone from GitHub (Recommended)
+## Installation Steps
 
-```bash
-git clone https://github.com/cesarliws/dext.git
-cd Dext
+### 1. Environment Variable Configuration (Best Practice)
+
+
+Using an environment variable simplifies your Library Paths and allows you to switch between different versions/forks of Dext easily.
+
+1.  In Delphi, go to **Tools** > **Options** > **IDE** > **Environment Variables**.
+2.  Click **New...**
+3.  **Variable Name**: `DEXT`
+4.  **Value**: The full path to the `Sources` directory inside your cloned repository.
+    *   *Example*: `C:\dev\Dext\DextRepository\Sources`
+    *   *Note*: Ensure it points to the `Sources` folder, not the root, to match the paths below.
+    
+    ![DEXT Environment Variable](../../../Images/ide-env-var.png)
+
+### 2. Configure Library Paths
+
+Add the following paths to your **Library Path** (Tools > Options > Language > Delphi > Library) for your target platforms (Win32, Win64, Linux64). 
+
+If you set up the `$(DEXT)` variable as described above:
+
+```text
+$(DEXT)\..\Output\$(ProductVersion)_$(Platform)_$(Config)
 ```
 
-### Option 2: Download ZIP (after version 1.0 release)
+### 3. Configure Browsing Path
 
-Download the latest release from [GitHub Releases](https://github.com/cesarliws/dext/releases).
+Add the following paths to your **Browsing Path** (Tools > Options > Language > Delphi > Library) for your target platforms.
+This allows the IDE to find the source code for debugging and "Ctrl+Click" navigation.
 
-
-## IDE Configuration
-
-### 1. Add Library Paths
-
-In Delphi, go to **Tools → Options → Language → Delphi → Library**:
-
-Add these paths to the **Library Path**:
-
-```
-<DextPath>\Sources
-<DextPath>\Sources\Core
-<DextPath>\Sources\Data
-<DextPath>\Sources\Testing
-<DextPath>\Sources\Web
-<DextPath>\Sources\Hosting
-```
-
-### 2. Install Design-Time Packages (Optional)
-
-For IDE integration, install the packages in:
-```
-<DextPath>\Packages\
+```text
+$(DEXT)
+$(DEXT)\Core
+$(DEXT)\Core\Base
+$(DEXT)\Core\Json
+$(DEXT)\Data
+$(DEXT)\Hosting
+$(DEXT)\Hosting\Cli
+$(DEXT)\Hosting\Cli\Commands
+$(DEXT)\Web
+$(DEXT)\Web\Caching
+$(DEXT)\Web\Hosting
+$(DEXT)\Web\Indy
+$(DEXT)\Web\Middleware
+$(DEXT)\Web\MVC
 ```
 
-## Verify Installation
+### 3. Build
 
-Create a new Console Application and add this code:
+1.  Open `Sources\DextFramework.groupproj`.
+2.  Right-click **ProjectGroup** > **Build All**.
 
-```pascal
-program VerifyDext;
+---
 
-{$APPTYPE CONSOLE}
+## Troubleshooting
 
-uses
-  System.SysUtils,
-  Dext.Web;
-
-begin
-  WriteLn('Dext is installed correctly!');
-  WriteLn('Press Enter to exit...');
-  ReadLn;
-end.
-```
-
-If it compiles, you're ready! 🎉
+- **"File not found" during Manual Build**: Ensure all subdirectories in `Sources` are covered by your Library Path or the `$(DEXT)` expansion.
 
 ---
 
