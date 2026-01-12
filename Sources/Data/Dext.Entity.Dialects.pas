@@ -630,6 +630,14 @@ begin
         else
           Result := 'TEXT';
       end;
+    tkRecord:
+      begin
+        // special case for UUID fields
+        if String(AtypeINfo.Name).Equals('TUUID') then
+          Result := 'VARCHAR(36)'
+        else
+          Result := 'TEXT';
+      end
   else
     Result := 'TEXT';
   end;

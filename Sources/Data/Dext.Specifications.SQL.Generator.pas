@@ -1825,6 +1825,7 @@ var
   PropTypeHandle: PTypeInfo;
   Underlying: PTypeInfo;
   IsSoftDeleteColumn: Boolean;
+  IsRequired : Boolean;
   SoftDeleteDefaultValue: Variant;
   SoftDelAttr: SoftDeleteAttribute;
 begin
@@ -1842,6 +1843,7 @@ begin
       IsMapped := True;
       IsPK := False;
       IsAutoInc := False;
+      IsRequired := False;
       ColName := Prop.Name;
       
       PropMap := nil;
@@ -1865,7 +1867,10 @@ begin
           
         if (PropMap = nil) or not PropMap.IsAutoInc then
            if Attr is AutoIncAttribute then IsAutoInc := True;
-           
+
+        if Attr is RequiredAttribute then
+          IsRequired := true;
+
         if Attr is ForeignKeyAttribute then
         begin
              // Use FK Attribute to define column name if not explicitly mapped
@@ -1921,6 +1926,7 @@ begin
         // Handle Nullable<T>
         if IsNullable(Prop.PropertyType.Handle) then
         begin
+          IsRequired := false;  // can't be nullable<T> and required
           Underlying := GetUnderlyingType(Prop.PropertyType.Handle);
           if Underlying <> nil then
             PropTypeHandle := Underlying;
@@ -1991,18 +1997,22 @@ begin
         PKCols.Add(FDialect.QuoteIdentifier(ColName));
         if IsAutoInc then
         begin
-            SB.Append(' PRIMARY KEY'); 
+            SB.Append(' PRIMARY KEY');
             HasAutoInc := True;
         end
         else
-           SB.Append(' NOT NULL');
-      end
-      else if IsSoftDeleteColumn then
+          IsRequired := true;
+      end;
+
+      if IsRequired then
+        SB.Append(' NOT NULL');
+
+      if (not IsPk) and IsSoftDeleteColumn then
       begin
         SB.Append(' DEFAULT ').Append(VarToStr(SoftDeleteDefaultValue));
       end;
     end; // End of Properties Loop
-    
+
     // Add Composite PK constraint or Single PK constraint (if not AutoInc)
     if (PKCols.Count > 0) and not HasAutoInc then
     begin
