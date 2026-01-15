@@ -158,24 +158,28 @@ begin
     else
       Result := TModelBinderHelper.BindQuery<T>(FModelBinder, FContext);
   end
-  // 3. Other Records AND Classes -> Body OR Query (Smart Binding)
-  else if (PTypeInfo(TypeInfo(T)).Kind = tkRecord) or (PTypeInfo(TypeInfo(T)).Kind = tkClass) then
+  // 3. Records -> Hybrid Binding (respects [FromHeader], [FromQuery], [FromRoute], [FromBody] attributes)
+  else if PTypeInfo(TypeInfo(T)).Kind = tkRecord then
+  begin
+    // Use hybrid binding that supports mixed sources based on field attributes
+    var BoundValue := FModelBinder.BindRecordHybrid(TypeInfo(T), FContext);
+    Result := BoundValue.AsType<T>;
+  end
+  // 4. Classes -> Try DI first, then Body/Query
+  else if PTypeInfo(TypeInfo(T)).Kind = tkClass then
   begin
     var Bound := False;
     
     // For Classes, try DI first
-    if PTypeInfo(TypeInfo(T)).Kind = tkClass then
-    begin
-       try
-         var Svc := FModelBinder.BindServices(TypeInfo(T), FContext);
-         if (not Svc.IsEmpty) and (Svc.AsObject <> nil) then
-         begin
-            Result := Svc.AsType<T>;
-            Bound := True;
-         end;
-       except
-         // Ignore service binding errors, cascade to Body/Query
-       end;
+    try
+      var Svc := FModelBinder.BindServices(TypeInfo(T), FContext);
+      if (not Svc.IsEmpty) and (Svc.AsObject <> nil) then
+      begin
+         Result := Svc.AsType<T>;
+         Bound := True;
+      end;
+    except
+      // Ignore service binding errors, cascade to Body/Query
     end;
 
     if not Bound then
@@ -187,10 +191,10 @@ begin
          Result := TModelBinderHelper.BindBody<T>(FModelBinder, FContext);
     end;
   end
-  // 4. Interfaces -> Services
+  // 5. Interfaces -> Services
   else if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
     Result := FModelBinder.BindServices(TypeInfo(T), FContext).AsType<T>
-  // 5. Primitives -> Route (if available) or Query
+  // 6. Primitives -> Route (if available) or Query
   else
   begin
     if FContext.Request.RouteParams.Count > 0 then

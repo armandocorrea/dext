@@ -17,13 +17,16 @@ uses
   MultiTenancy.DbContext in 'Domain\MultiTenancy.DbContext.pas',
   MultiTenancy.Middleware in 'Middleware\MultiTenancy.Middleware.pas',
   MultiTenancy.Endpoints in 'Features\MultiTenancy.Endpoints.pas',
-  MultiTenancy.Service in 'Features\MultiTenancy.Service.pas';
+  MultiTenancy.Service in 'Features\MultiTenancy.Service.pas',
+  Dext.DI.Interfaces,
+  Dext.Web.Interfaces;
 
 type
   TMultiTenancyStartup = class(TInterfacedObject, IStartup)
   public
     procedure ConfigureServices(const Services: TDextServices; const Configuration: IConfiguration);
     procedure Configure(const App: IWebApplication);
+    class procedure InitializeDatabase(const Services: IServiceProvider);
   end;
 
 { TMultiTenancyStartup }
@@ -37,6 +40,7 @@ begin
       // Using SQLite with schema simulation via separate databases
       Options.UseSQLite('tenants_master.db');
       Options.WithPooling(True, 10);
+      Options.Params.AddOrSetValue('JournalMode', 'WAL');
     end);
 
   // Tenant Service
@@ -55,7 +59,7 @@ begin
 
   // Exception Handler
   WebApp.UseExceptionHandler;
-
+  WebApp.UseMiddleware(TRequestLoggingMiddleware);
   // Tenant Resolution Middleware (extracts tenant from header/subdomain)
   WebApp.UseMiddleware(TTenantResolutionMiddleware);
 
@@ -72,6 +76,35 @@ begin
   WriteLn('[*] Use header: X-Tenant-Id: <tenant-id>');
 end;
 
+class procedure TMultiTenancyStartup.InitializeDatabase(const Services: IServiceProvider);
+begin
+  WriteLn('[*] Initializing Database...');
+
+  var Scope := Services.CreateScope; // Returns IServiceScope
+  try
+    // 3. Resolve the DbContext safely
+    var ServiceObj := Scope.ServiceProvider.GetService(TServiceType.FromClass(TTenantDbContext));
+    
+    if ServiceObj <> nil then
+    begin
+      var DbCtx := ServiceObj as TTenantDbContext;
+      try
+        DbCtx.EnsureCreated;
+        WriteLn('[OK] Database schema created/verified.');
+      except
+        on E: Exception do
+          WriteLn('[ERROR] Failed to initialize database: ' + E.Message);
+      end;
+    end
+    else
+    begin
+      WriteLn('[ERROR] TTenantDbContext service could not be resolved.');
+    end;
+  finally
+    // Scope (interface) automagically disposes when out of scope
+  end;
+end;
+
 var
   App: IWebApplication;
 begin
@@ -80,6 +113,13 @@ begin
     
     App := TDextApplication.Create;
     App.UseStartup(TMultiTenancyStartup.Create);
+    
+    // CRITICAL: Build services before trying to access them
+    var Services := App.BuildServices;
+    
+    // Initialize DB
+    TMultiTenancyStartup.InitializeDatabase(Services);
+    
     App.Run(8080);
     
     ConsolePause;

@@ -103,6 +103,37 @@ App.MapGet<ITenantService, TTenantRequest, IResult>('/api/data',
   end);
 ```
 
+## Binding Misto (Múltiplas Fontes)
+
+Combine dados de diferentes fontes em um único record:
+
+```pascal
+type
+  TProductCreateRequest = record
+    [FromHeader('X-Tenant-Id')]
+    TenantId: string;         // Do header
+    
+    // Do corpo JSON (padrão para POST)
+    Name: string;
+    Description: string;
+    Price: Currency;
+    Stock: Integer;
+  end;
+
+App.MapPost<IProductService, TProductCreateRequest, IResult>('/api/products',
+  function(Service: IProductService; Request: TProductCreateRequest): IResult
+  begin
+    // TenantId vem do header, resto do body
+    if Request.TenantId = '' then
+      Exit(Results.BadRequest('Header X-Tenant-Id obrigatório'));
+      
+    var Product := Service.Create(Request);
+    Result := Results.Created('/api/products/' + IntToStr(Product.Id), Product);
+  end);
+```
+
+> 📚 **Veja Também**: [Model Binding](model-binding.md) para detalhes completos sobre binding de Header, Query, Route e Body.
+
 ## Endpoints Tipados com Injeção de Dependência
 
 Os overloads genéricos injetam serviços e fazem bind dos dados automaticamente:

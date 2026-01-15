@@ -23,9 +23,9 @@ Este documento centraliza as tarefas pendentes para o lançamento do V1 Beta. Ma
 
 > Projetos criados/atualizados que precisam de testes de funcionamento
 
-- [ ] **Web.Dext.Starter.Admin** - Testar compression middleware e JWT config
-- [ ] **Web.TaskFlowAPI** - Executar `Test.Web.TaskFlowAPI.ps1`
-- [ ] **Dext.Examples.MultiTenancy** - Executar `Test.MultiTenancy.ps1`
+- [x] **Web.Dext.Starter.Admin** - Testar compression middleware e JWT config
+- [x] **Web.TaskFlowAPI** - Executar `Test.Web.TaskFlowAPI.ps1`
+- [x] **Dext.Examples.MultiTenancy** - Executar `Test.MultiTenancy.ps1`
 - [ ] **Dext.Examples.ComplexQuerying** - Executar `Test.ComplexQuerying.ps1`
 
 ---
@@ -93,6 +93,7 @@ Este documento centraliza as tarefas pendentes para o lançamento do V1 Beta. Ma
 - [x] Scaffolding Command (`dext scaffold`)
 - [x] Facade Command (`dext facade`) - Fix `TCascadeAction` enum constants
 - [x] The Dext Book (EN + PT)
+- [x] Model Binding Finalization - Full Mixed Binding support (Header+Route+Query+Body) & Fixes
 
 ---
 

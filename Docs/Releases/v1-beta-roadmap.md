@@ -19,7 +19,7 @@ For technical details and granular status of each module, check:
 |---------|--------|-------|
 | **Minimal APIs** (`MapGet`, `MapPost`) | ✅ Ready | Tested in `Web.Dext.Starter.Admin` |
 | **Controllers** (`TController`) | ✅ Ready | Tested in `Web.ControllerExample` |
-| **Model Binding** (JSON Body -> Record/Class) | ✅ Ready | Support for nesting and lists |
+| **Model Binding** (JSON Body -> Record/Class) | ✅ Ready | Support for nesting, lists, and **Mixed Binding** (Header/Query/Route/Body) |
 | **Dependency Injection** (Scoped/Singleton/Transient) | ✅ Ready | Full integration with HttpContext |
 | **Middleware Pipeline** | ✅ Ready | Custom Middlewares supported |
 | **Static Files** | ✅ Ready | MIME types support and caching |

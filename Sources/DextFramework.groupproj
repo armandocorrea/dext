@@ -24,6 +24,12 @@
         <Projects Include="..\Apps\CLI\DextTool.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="..\Examples\Dext.Examples.MultiTenancy\Dext.Examples.MultiTenancy.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\Tests\ModelBinding\ModelBindingTest.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -95,14 +101,32 @@
     <Target Name="DextTool:Make">
         <MSBuild Projects="..\Apps\CLI\DextTool.dproj" Targets="Make"/>
     </Target>
+    <Target Name="Dext_Examples_MultiTenancy">
+        <MSBuild Projects="..\Examples\Dext.Examples.MultiTenancy\Dext.Examples.MultiTenancy.dproj"/>
+    </Target>
+    <Target Name="Dext_Examples_MultiTenancy:Clean">
+        <MSBuild Projects="..\Examples\Dext.Examples.MultiTenancy\Dext.Examples.MultiTenancy.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Dext_Examples_MultiTenancy:Make">
+        <MSBuild Projects="..\Examples\Dext.Examples.MultiTenancy\Dext.Examples.MultiTenancy.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="ModelBindingTest">
+        <MSBuild Projects="..\Tests\ModelBinding\ModelBindingTest.dproj"/>
+    </Target>
+    <Target Name="ModelBindingTest:Clean">
+        <MSBuild Projects="..\Tests\ModelBinding\ModelBindingTest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ModelBindingTest:Make">
+        <MSBuild Projects="..\Tests\ModelBinding\ModelBindingTest.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Web_Hubs;Dext_Hosting;Dext_Testing;DextTool"/>
+        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Web_Hubs;Dext_Hosting;Dext_Testing;DextTool;Dext_Examples_MultiTenancy;ModelBindingTest"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Web_Hubs:Clean;Dext_Hosting:Clean;Dext_Testing:Clean;DextTool:Clean"/>
+        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Web_Hubs:Clean;Dext_Hosting:Clean;Dext_Testing:Clean;DextTool:Clean;Dext_Examples_MultiTenancy:Clean;ModelBindingTest:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Web_Hubs:Make;Dext_Hosting:Make;Dext_Testing:Make;DextTool:Make"/>
+        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Web_Hubs:Make;Dext_Hosting:Make;Dext_Testing:Make;DextTool:Make;Dext_Examples_MultiTenancy:Make;ModelBindingTest:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

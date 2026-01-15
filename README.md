@@ -41,7 +41,7 @@ A good framework should guide the developer into the "Pit of Success". Dext was 
 A lightweight and powerful HTTP framework for building REST APIs and microservices.
 - **Minimal APIs**: Concise fluent syntax for route definition.
 - **Controllers**: Traditional class-based support for complex APIs.
-- **Smart Binding**: Automatic JSON serialization and validation for Records/Classes.
+- **Advanced Model Binding**: Automatic binding from multiple sources (Body, Query, Route, Header, Services) directly to Records/Classes.
 - **Middlewares**: Modular and extensible request pipeline.
 - **SSL/HTTPS**: Pluggable support for OpenSSL and TaurusTLS (OpenSSL 1.1x/3.x).
 - **First-Class UUID**: Native support for binding `TUUID` (RFC 9562) in Routes/Body.

@@ -86,7 +86,7 @@ begin
 
   // ============================================================
   // PRODUCT ENDPOINTS (Tenant-scoped)
-  // Uses TTenantRequest for header injection via model binding!
+  // Uses TProductCreateRequest for header+body injection
   // ============================================================
 
   // GET /api/products - List products for current tenant
@@ -107,8 +107,10 @@ begin
     function(Service: IProductService; Request: TProductCreateRequest): IResult
     var
       Dto: TCreateProductDto;
-      Product: TProduct;
     begin
+      // Debug log to see what we are receiving
+      WriteLn(Format('[DEBUG] Product Request - TenantId: "%s", Name: "%s"', [Request.TenantId, Request.Name]));
+
       if Request.TenantId = '' then
         Exit(Results.BadRequest('X-Tenant-Id header is required'));
         
@@ -117,7 +119,7 @@ begin
       Dto.Price := Request.Price;
       Dto.Stock := Request.Stock;
         
-      Product := Service.CreateProduct(Request.TenantId, Dto);
+      var Product := Service.CreateProduct(Request.TenantId, Dto);
       Result := Results.Created('/api/products/' + IntToStr(Product.Id), Product);
     end);
 

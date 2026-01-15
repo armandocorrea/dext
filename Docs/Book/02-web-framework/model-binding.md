@@ -1,10 +1,26 @@
 # Model Binding
 
-Automatically convert HTTP requests to Delphi objects.
+Automatically convert HTTP requests to Delphi objects from multiple sources: JSON body, headers, query parameters, and route parameters.
 
-## JSON Body Binding
+> 📦 **Examples**: 
+> - [Web.MinimalAPI](../../../Examples/Web.MinimalAPI/)
+> - [Multi-Tenancy](../../../Examples/Dext.Examples.MultiTenancy/)
 
-### Records
+## Overview
+
+Model Binding in Dext supports binding data from:
+
+| Source | Attribute | Example |
+|--------|-----------|---------|
+| JSON Body | `[FromBody]` (default for POST/PUT) | Request payload |
+| Headers | `[FromHeader('X-Header')]` | API keys, tenant IDs |
+| Query String | `[FromQuery('param')]` | `?search=...&page=1` |
+| Route Parameters | `[FromRoute('id')]` | `/users/{id}` |
+| Services (DI) | `[FromServices]` | Injected services |
+
+## Basic JSON Body Binding
+
+### Records (Recommended)
 
 ```pascal
 type
@@ -14,6 +30,18 @@ type
     Age: Integer;
   end;
 
+// Minimal API - automatic binding
+App.MapPost<TCreateUserRequest, IResult>('/users',
+  function(Request: TCreateUserRequest): IResult
+  begin
+    // Request is automatically populated from JSON body
+    Result := Results.Created('/users/1', Request);
+  end);
+```
+
+### Controller Style
+
+```pascal
 App.MapPost('/users', procedure(Ctx: IHttpContext)
   var
     Request: TCreateUserRequest;
@@ -23,90 +51,258 @@ App.MapPost('/users', procedure(Ctx: IHttpContext)
   end);
 ```
 
-### Classes
+## Header Binding
+
+Use `[FromHeader]` for API keys, tenant IDs, or any custom header:
 
 ```pascal
 type
-  TUser = class
-  public
-    Name: string;
-    Email: string;
+  TTenantRequest = record
+    [FromHeader('X-Tenant-Id')]
+    TenantId: string;
+    [FromHeader('Authorization')]
+    Token: string;
   end;
 
-App.MapPost('/users', procedure(Ctx: IHttpContext)
-  var
-    User: TUser;
+App.MapGet<TTenantRequest, IResult>('/api/data',
+  function(Request: TTenantRequest): IResult
   begin
-    User := Ctx.Request.BindBody<TUser>;
-    try
-      // Use User...
-    finally
-      User.Free;
-    end;
+    if Request.TenantId = '' then
+      Exit(Results.BadRequest('X-Tenant-Id header is required'));
+      
+    Result := Results.Ok(Format('Tenant: %s', [Request.TenantId]));
   end);
 ```
+
+**Request:**
+```bash
+curl -H "X-Tenant-Id: acme-corp" \
+     -H "Authorization: Bearer token123" \
+     http://localhost:8080/api/data
+```
+
+## Query Parameter Binding
+
+Use `[FromQuery]` for URL query parameters:
+
+```pascal
+type
+  TSearchRequest = record
+    [FromQuery('q')]
+    Query: string;
+    [FromQuery('page')]
+    Page: Integer;
+    [FromQuery('limit')]
+    Limit: Integer;
+  end;
+
+App.MapGet<TSearchRequest, IResult>('/search',
+  function(Request: TSearchRequest): IResult
+  begin
+    Result := Results.Ok(Format('Search: %s, Page: %d', 
+      [Request.Query, Request.Page]));
+  end);
+```
+
+**Request:**
+```bash
+curl "http://localhost:8080/search?q=delphi&page=1&limit=20"
+```
+
+## Route Parameter Binding
+
+Use `[FromRoute]` for URL path parameters:
+
+```pascal
+type
+  TRouteRequest = record
+    [FromRoute('id')]
+    Id: Integer;
+    [FromRoute('category')]
+    Category: string;
+  end;
+
+App.MapGet<TRouteRequest, IResult>('/products/{id}/category/{category}',
+  function(Request: TRouteRequest): IResult
+  begin
+    Result := Results.Ok(Format('Product %d in %s', 
+      [Request.Id, Request.Category]));
+  end);
+```
+
+**Request:**
+```bash
+curl http://localhost:8080/products/42/category/electronics
+```
+
+## Mixed Binding (Multiple Sources)
+
+The most powerful feature: combine data from different sources in a single record.
+
+### Header + Body (Multi-Tenancy Pattern)
+
+```pascal
+type
+  TProductCreateRequest = record
+    // From HTTP header
+    [FromHeader('X-Tenant-Id')]
+    TenantId: string;
+    
+    // From JSON body (no attribute = default to body)
+    Name: string;
+    Description: string;
+    Price: Currency;
+    Stock: Integer;
+  end;
+
+App.MapPost<IProductService, TProductCreateRequest, IResult>('/api/products',
+  function(Service: IProductService; Request: TProductCreateRequest): IResult
+  begin
+    // TenantId comes from header
+    // Name, Description, Price, Stock come from JSON body
+    
+    if Request.TenantId = '' then
+      Exit(Results.BadRequest('X-Tenant-Id header is required'));
+      
+    var Product := Service.Create(Request);
+    Result := Results.Created('/api/products/' + IntToStr(Product.Id), Product);
+  end);
+```
+
+**Request:**
+```bash
+curl -X POST http://localhost:8080/api/products \
+     -H "X-Tenant-Id: acme-corp" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Widget Pro", "description": "A great widget", "price": 99.99, "stock": 100}'
+```
+
+### Route + Body (Update Pattern)
+
+```pascal
+type
+  TProductUpdateRequest = record
+    [FromRoute('id')]
+    Id: Integer;
+    
+    // From JSON body
+    Name: string;
+    Price: Currency;
+  end;
+
+App.MapPut<TProductUpdateRequest, IResult>('/api/products/{id}',
+  function(Request: TProductUpdateRequest): IResult
+  begin
+    // Id comes from URL path
+    // Name and Price come from JSON body
+    Result := Results.Ok(Format('Updated product %d', [Request.Id]));
+  end);
+```
+
+### Route + Query (Filter Pattern)
+
+```pascal
+type
+  TProductFilterRequest = record
+    [FromRoute('category')]
+    Category: string;
+    [FromQuery('sort')]
+    Sort: string;
+    [FromQuery('page')]
+    Page: Integer;
+  end;
+
+App.MapGet<TProductFilterRequest, IResult>('/api/products/{category}',
+  function(Request: TProductFilterRequest): IResult
+  begin
+    Result := Results.Ok(Format('Category: %s, Sort: %s, Page: %d',
+      [Request.Category, Request.Sort, Request.Page]));
+  end);
+```
+
+### All Sources Combined
+
+```pascal
+type
+  TFullRequest = record
+    [FromHeader('X-Api-Key')]
+    ApiKey: string;
+    [FromRoute('id')]
+    ResourceId: Integer;
+    [FromQuery('include')]
+    Include: string;
+    // Body fields (default)
+    Data: string;
+    Count: Integer;
+  end;
+
+App.MapPut<TFullRequest, IResult>('/api/resources/{id}',
+  function(Request: TFullRequest): IResult
+  begin
+    // ApiKey from header
+    // ResourceId from route /api/resources/123
+    // Include from query ?include=details
+    // Data and Count from JSON body
+    Result := Results.Ok('All binding sources used!');
+  end);
+```
+
+## Binding Priority (Without Explicit Attributes)
+
+When a field has no explicit binding attribute, Dext uses smart fallback:
+
+1. **JSON Body** - First tries to find the field in the request body
+2. **Route Parameters** - If not in body, checks route params (for IDs)
+3. **Query Parameters** - Finally checks query string
+
+This allows fields like `Id` to be automatically bound from the URL without explicit `[FromRoute]`.
+
+## Case Sensitivity
+
+JSON field matching is case-insensitive. All these JSON formats work:
+
+```json
+{"name": "John", "email": "john@example.com"}
+{"Name": "John", "Email": "john@example.com"}
+{"NAME": "John", "EMAIL": "john@example.com"}
+```
+
+## Type Conversion
+
+Automatic conversion for common types:
+
+| Type | Example Values |
+|------|---------------|
+| `string` | Any text |
+| `Integer` | `123`, `-456` |
+| `Int64` | Large numbers |
+| `Double` | `99.99`, `-0.5` |
+| `Currency` | `1234.56` |
+| `Boolean` | `true`, `false`, `1`, `0` |
+| `TDateTime` | ISO 8601 format |
+| `TGUID` | `{UUID-FORMAT}` |
+| `TUUID` | UUID string |
 
 ## Controller Parameter Binding
 
-In controllers, use `[FromBody]`:
+In controllers, use attributes directly on method parameters:
 
 ```pascal
-[HttpPost]
+[HttpGet('/users/{id}')]
+function GetById(
+  [FromRoute] Id: Integer;
+  [FromHeader('Authorization')] Token: string
+): IActionResult;
+
+[HttpPost('/users')]
 function Create([FromBody] Request: TCreateUserRequest): IActionResult;
-begin
-  // Request is automatically bound
-end;
-```
 
-## Route Parameters
-
-```pascal
-// URL: /users/123
-App.MapGet('/users/{id}', procedure(Ctx: IHttpContext)
-  var
-    Id: Integer;
-  begin
-    Id := StrToInt(Ctx.Request.RouteParams['id']);
-  end);
-
-// In controller
-[HttpGet('/{id}')]
-function GetById(Id: Integer): IActionResult;  // Auto-bound from route
-```
-
-## Query Parameters
-
-```pascal
-// URL: /search?q=delphi&page=1&limit=20
-App.MapGet('/search', procedure(Ctx: IHttpContext)
-  var
-    Query: string;
-    Page, Limit: Integer;
-  begin
-    Query := Ctx.Request.QueryParam('q');
-    Page := StrToIntDef(Ctx.Request.QueryParam('page'), 1);
-    Limit := StrToIntDef(Ctx.Request.QueryParam('limit'), 20);
-  end);
-
-// In controller with [FromQuery]
 [HttpGet('/search')]
 function Search(
   [FromQuery] Q: string;
   [FromQuery] Page: Integer;
   [FromQuery] Limit: Integer
 ): IActionResult;
-```
-
-## Header Binding
-
-```pascal
-// In handler
-var Token := Ctx.Request.Header('Authorization');
-var ContentType := Ctx.Request.Header('Content-Type');
-
-// In controller
-[HttpGet('/protected')]
-function GetData([FromHeader('Authorization')] Token: string): IActionResult;
 ```
 
 ## Nested Objects
@@ -156,15 +352,14 @@ JSON:
 }
 ```
 
-## TUUID Binding
+## Best Practices
 
-UUIDs are automatically bound:
-
-```pascal
-// Route: /items/550e8400-e29b-41d4-a716-446655440000
-[HttpGet('/{id}')]
-function GetById(Id: TUUID): IActionResult;  // Works!
-```
+1. **Use Records** for request DTOs (value types, no memory management)
+2. **Be Explicit** with attributes when mixing sources
+3. **Validate Required Headers** in your handler code
+4. **Use `[FromHeader]`** for tenant IDs, API keys, correlation IDs
+5. **Use `[FromQuery]`** for filters, pagination, sorting
+6. **Use `[FromRoute]`** for resource identifiers
 
 ---
 

@@ -156,6 +156,13 @@ type
     ///   Binds a single parameter.
     /// </summary>
     function BindParameter(AParam: TRttiParameter; AContext: IHttpContext): TValue;
+
+    /// <summary>
+    ///   Binds a record from multiple sources (header, query, route, body, services)
+    ///   based on field attributes. This is the preferred method for Minimal API
+    ///   where records may have fields from different sources.
+    /// </summary>
+    function BindRecordHybrid(AType: PTypeInfo; Context: IHttpContext): TValue;
   end;
 
   TModelBinder = class(TInterfacedObject, IModelBinder)
@@ -179,6 +186,12 @@ type
 
     function BindMethodParameters(AMethod: TRttiMethod; AContext: IHttpContext): TArray<TValue>;
     function BindParameter(AParam: TRttiParameter; AContext: IHttpContext): TValue;
+
+    /// <summary>
+    ///   Binds a record from multiple sources based on field attributes.
+    ///   Supports [FromHeader], [FromQuery], [FromRoute], [FromServices] and implicit [FromBody].
+    /// </summary>
+    function BindRecordHybrid(AType: PTypeInfo; Context: IHttpContext): TValue;
   end;
 
   TModelBinderHelper = class
@@ -825,9 +838,6 @@ var
   Attr: TCustomAttribute;
   ParamName: string;
 begin
-  WriteLn(Format('    🔍 Binding parameter: %s (Type: %s)',
-    [AParam.Name, AParam.ParamType.Name]));
-
   // 1. IHttpContext
   if AParam.ParamType.Handle = TypeInfo(IHttpContext) then
   begin
@@ -838,13 +848,11 @@ begin
   // 2. Explicit Attributes
   for Attr in AParam.GetAttributes do
   begin
-    WriteLn(Format('    🔍 Found attribute: %s', [Attr.ClassName]));
     if Attr is FromQueryAttribute then
     begin
       ParamName := FromQueryAttribute(Attr).Name;
       if ParamName = '' then ParamName := AParam.Name;
 
-      WriteLn(Format('    📋 FromQuery: %s', [ParamName]));
       var QueryParams := AContext.Request.Query;
       if QueryParams.IndexOfName(ParamName) >= 0 then
         Result := ConvertStringToType(TNetEncoding.URL.Decode(QueryParams.Values[ParamName]), AParam.ParamType.Handle)
@@ -856,7 +864,6 @@ begin
     begin
       ParamName := FromRouteAttribute(Attr).Name;
       if ParamName = '' then ParamName := AParam.Name;
-      WriteLn(Format('    🛣️  FromRoute: %s', [ParamName]));
 
       var RouteParams := AContext.Request.RouteParams;
       var RouteValue: string;
@@ -868,13 +875,11 @@ begin
     end
     else if Attr is FromBodyAttribute then
     begin
-      WriteLn('    📦 FromBody');
       Result := BindBody(AParam.ParamType.Handle, AContext);
       Exit;
     end
     else if Attr is FromServicesAttribute then
     begin
-      WriteLn(Format('    ⚡ FromServices: %s', [AParam.ParamType.Name]));
       Result := BindServices(AParam.ParamType.Handle, AContext);
       Exit;
     end
@@ -883,7 +888,6 @@ begin
       ParamName := FromHeaderAttribute(Attr).Name;
       if ParamName = '' then ParamName := AParam.Name;
 
-      WriteLn(Format('    📨 FromHeader: %s', [ParamName]));
       var Headers := AContext.Request.Headers;
       if Headers.ContainsKey(LowerCase(ParamName)) then
         Result := ConvertStringToType(Headers[LowerCase(ParamName)], AParam.ParamType.Handle)
@@ -896,11 +900,8 @@ begin
   // 3. Inference
   if (AParam.ParamType.TypeKind = tkRecord) then
   begin
-    // Smart Binding for Records: GET/DELETE -> Query, Others -> Body
-    if (AContext.Request.Method = 'GET') or (AContext.Request.Method = 'DELETE') then
-      Result := BindQuery(AParam.ParamType.Handle, AContext)
-    else
-      Result := BindBody(AParam.ParamType.Handle, AContext);
+    // Use hybrid binding for records - supports Header, Query, Route, Body
+    Result := BindRecordHybrid(AParam.ParamType.Handle, AContext);
   end
   else if (AParam.ParamType.TypeKind = tkClass) then
   begin
@@ -1069,6 +1070,235 @@ begin
   end;
 end;
 
+function TModelBinder.BindRecordHybrid(AType: PTypeInfo; Context: IHttpContext): TValue;
+var
+  ContextRtti: TRttiContext;
+  RttiType: TRttiType;
+  Field: TRttiField;
+  SourceProvider: TBindingSourceProvider;
+  BindingSource: TBindingSource;
+  FieldName: string;
+  FieldValue: TValue;
+  BodyBytes: TBytes;
+  Stream: TStream;
+  Headers: TDictionary<string, string>;
+  RouteParams: TDictionary<string, string>;
+  QueryParams: TStrings;
+  HeaderVal, RouteVal, QueryVal: string;
+  BodyJsonObj: IDextJsonObject;
+begin
+  if AType.Kind <> tkRecord then
+    raise EBindingException.Create('BindRecordHybrid only supports records');
+
+  TValue.Make(nil, AType, Result);
+  BodyJsonObj := nil;
+
+  ContextRtti := TRttiContext.Create;
+  try
+    RttiType := ContextRtti.GetType(AType);
+    SourceProvider := TBindingSourceProvider.Create;
+    try
+      // Get request data sources
+      Headers := Context.Request.Headers;
+      RouteParams := Context.Request.RouteParams;
+      QueryParams := Context.Request.Query;
+
+      // Pre-load body JSON once (if there's a body)
+      Stream := Context.Request.Body;
+      if (Stream <> nil) and (Stream.Size > 0) then
+      begin
+        if Stream is TBytesStream then
+          BodyBytes := TBytesStream(Stream).Bytes
+        else
+        begin
+          Stream.Position := 0;
+          SetLength(BodyBytes, Stream.Size);
+          if Stream.Size > 0 then
+            Stream.ReadBuffer(BodyBytes[0], Stream.Size);
+        end;
+        
+        var BodyJsonStr := TEncoding.UTF8.GetString(BodyBytes);
+        if BodyJsonStr <> '' then
+        begin
+          try
+            var JsonNode := TDextJson.Provider.Parse(BodyJsonStr);
+            if (JsonNode <> nil) and (JsonNode.GetNodeType = jntObject) then
+              BodyJsonObj := JsonNode as IDextJsonObject;
+          except
+            // Body is not valid JSON - ignore and continue with other binding sources
+            BodyJsonObj := nil;
+          end;
+        end;
+      end;
+
+      for Field in RttiType.GetFields do
+      begin
+        try
+          // 1. Determine binding source from field attributes
+          BindingSource := SourceProvider.GetBindingSource(Field);
+          FieldName := SourceProvider.GetBindingName(Field);
+
+          // 2. Bind based on source
+          case BindingSource of
+            bsHeader:
+              begin
+                // Headers are case-insensitive
+                if TryGetCaseInsensitive(Headers, FieldName, HeaderVal) then
+                  FieldValue := ConvertStringToType(HeaderVal, Field.FieldType.Handle)
+                else
+                  FieldValue := ConvertStringToType('', Field.FieldType.Handle);
+              end;
+
+            bsQuery:
+              begin
+                if QueryParams.IndexOfName(FieldName) >= 0 then
+                  QueryVal := TNetEncoding.URL.Decode(QueryParams.Values[FieldName])
+                else
+                  QueryVal := '';
+                FieldValue := ConvertStringToType(QueryVal, Field.FieldType.Handle);
+              end;
+
+            bsRoute:
+              begin
+                if TryGetCaseInsensitive(RouteParams, FieldName, RouteVal) then
+                  FieldValue := ConvertStringToType(RouteVal, Field.FieldType.Handle)
+                else
+                  FieldValue := ConvertStringToType('', Field.FieldType.Handle);
+              end;
+
+            bsServices:
+              begin
+                // For services, delegate to BindServices for the specific field
+                FieldValue := BindServices(Field.FieldType.Handle, Context);
+              end;
+
+            bsBody:
+              begin
+                var FoundInBody := False;
+                
+                // First, try to find in JSON body
+                if (BodyJsonObj <> nil) then
+                begin
+                  // Try to find the field (case-insensitive)
+                  var JsonFieldName := FieldName;
+                  var FieldFound := BodyJsonObj.Contains(JsonFieldName);
+                  
+                  // Try lowercase if not found
+                  if not FieldFound then
+                  begin
+                    JsonFieldName := LowerCase(FieldName);
+                    FieldFound := BodyJsonObj.Contains(JsonFieldName);
+                  end;
+                  
+                  // Try camelCase if not found
+                  if not FieldFound then
+                  begin
+                    if Length(FieldName) > 0 then
+                    begin
+                      JsonFieldName := LowerCase(FieldName[1]) + Copy(FieldName, 2, MaxInt);
+                      FieldFound := BodyJsonObj.Contains(JsonFieldName);
+                    end;
+                  end;
+                  
+                  if FieldFound then
+                  begin
+                    FoundInBody := True;
+                    // For complex types, we need to check the field type
+                    case Field.FieldType.TypeKind of
+                      tkInteger:
+                        begin
+                          var IntVal := BodyJsonObj.GetInteger(JsonFieldName);
+                          FieldValue := TValue.From<Integer>(IntVal);
+                        end;
+                      tkInt64:
+                        begin
+                          var Int64Val := BodyJsonObj.GetInt64(JsonFieldName);
+                          FieldValue := TValue.From<Int64>(Int64Val);
+                        end;
+                      tkFloat:
+                        begin
+                          if (Field.FieldType.Handle = TypeInfo(Currency)) then
+                          begin
+                            var CurrVal := Currency(BodyJsonObj.GetDouble(JsonFieldName));
+                            FieldValue := TValue.From<Currency>(CurrVal);
+                          end
+                          else
+                          begin
+                            var FloatVal := BodyJsonObj.GetDouble(JsonFieldName);
+                            FieldValue := TValue.From<Double>(FloatVal);
+                          end;
+                        end;
+                      tkEnumeration:
+                        begin
+                          if Field.FieldType.Handle = TypeInfo(Boolean) then
+                          begin
+                            var BoolVal := BodyJsonObj.GetBoolean(JsonFieldName);
+                            FieldValue := TValue.From<Boolean>(BoolVal);
+                          end
+                          else
+                          begin
+                            var EnumStr := BodyJsonObj.GetString(JsonFieldName);
+                            FieldValue := ConvertStringToType(EnumStr, Field.FieldType.Handle);
+                          end;
+                        end;
+                    else
+                      // String and other types
+                      var StrVal := BodyJsonObj.GetString(JsonFieldName);
+                      FieldValue := ConvertStringToType(StrVal, Field.FieldType.Handle);
+                    end;
+                  end;
+                end;
+                
+                // Fallback 1: Try RouteParams (for IDs in URL like /api/products/{id})
+                if not FoundInBody then
+                begin
+                  if TryGetCaseInsensitive(RouteParams, FieldName, RouteVal) then
+                  begin
+                    FieldValue := ConvertStringToType(RouteVal, Field.FieldType.Handle);
+                    FoundInBody := True; // Mark as found
+                  end;
+                end;
+                
+                // Fallback 2: Try Query params (for ?param=value)
+                if not FoundInBody then
+                begin
+                  if QueryParams.IndexOfName(FieldName) >= 0 then
+                  begin
+                    QueryVal := TNetEncoding.URL.Decode(QueryParams.Values[FieldName]);
+                    FieldValue := ConvertStringToType(QueryVal, Field.FieldType.Handle);
+                  end
+                  else
+                    FieldValue := ConvertStringToType('', Field.FieldType.Handle);
+                end;
+              end;
+
+            bsForm:
+              begin
+                // Form data not implemented yet
+                FieldValue := ConvertStringToType('', Field.FieldType.Handle);
+              end;
+          end;
+
+          // 3. Set field value
+          if not FieldValue.IsEmpty then
+            Field.SetValue(Result.GetReferenceToRawData, FieldValue);
+
+        except
+          on E: Exception do
+          begin
+            // Silently continue with other fields on binding error
+            // Uncomment for debugging: WriteLn(Format('Warning: Error binding field "%s": %s', [Field.Name, E.Message]));
+          end;
+        end;
+      end;
+    finally
+      SourceProvider.Free;
+    end;
+  finally
+    ContextRtti.Free;
+  end;
+end;
+
 function TModelBinder.ConvertStringToType(const AValue: string; AType: PTypeInfo): TValue;
 begin
   try
@@ -1202,11 +1432,10 @@ begin
       Exit(BindingAttribute(Attr).Source);
   end;
 
-  // Default: FromBody para tipos complexos, FromQuery para simples
-  if Field.FieldType.TypeKind in [tkRecord, tkClass] then
-    Result := bsBody
-  else
-    Result := bsQuery;
+  // Default: FromBody for all field types without explicit binding attribute
+  // This is the expected behavior for records used in POST/PUT requests
+  // Fields that need to come from Query/Route/Header should use explicit attributes
+  Result := bsBody;
 end;
 
 function TBindingSourceProvider.GetBindingName(Field: TRttiField): string;

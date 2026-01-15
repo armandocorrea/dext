@@ -40,7 +40,7 @@ Um bom framework deve guiar o desenvolvedor para o "Caminho Feliz" (*Pit of Succ
 Um framework HTTP leve e poderoso para construir REST APIs e microserviços.
 - **Minimal APIs**: Sintaxe fluente e concisa para definição de rotas.
 - **Controllers**: Suporte tradicional baseado em classes para APIs complexas.
-- **Smart Binding**: Serialização e validação automática de JSON para Records/Classes.
+- **Model Binding Avançado**: Binding automático de múltiplas fontes (Body, Query, Route, Header, Services) diretamente para Records/Classes.
 - **Middlewares**: Pipeline de requisição modular e extensível.
 - **SSL/HTTPS**: Suporte plugável para OpenSSL e TaurusTLS (OpenSSL 1.1x/3.x).
 - **UUIDs de Primeira Classe**: Suporte nativo para binding de `TUUID` (RFC 9562) em Rotas/Body.

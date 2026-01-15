@@ -104,6 +104,38 @@ App.MapGet<ITenantService, TTenantRequest, IResult>('/api/data',
   end);
 ```
 
+## Mixed Binding (Multiple Sources)
+
+Combine data from different sources in a single record:
+
+```pascal
+type
+  TProductCreateRequest = record
+    [FromHeader('X-Tenant-Id')]
+    TenantId: string;         // From header
+    
+    // From JSON body (default for POST)
+    Name: string;
+    Description: string;
+    Price: Currency;
+    Stock: Integer;
+  end;
+
+App.MapPost<IProductService, TProductCreateRequest, IResult>('/api/products',
+  function(Service: IProductService; Request: TProductCreateRequest): IResult
+  begin
+    // TenantId comes from header, rest from body
+    if Request.TenantId = '' then
+      Exit(Results.BadRequest('X-Tenant-Id header required'));
+      
+    var Product := Service.Create(Request);
+    Result := Results.Created('/api/products/' + IntToStr(Product.Id), Product);
+  end);
+```
+
+> 📚 **See Also**: [Model Binding](model-binding.md) for full details on binding from Header, Query, Route, and Body.
+
+
 ## Typed Endpoints with Dependency Injection
 
 The generic overloads automatically inject services and bind request data:

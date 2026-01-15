@@ -37,15 +37,27 @@ try {
     try {
         $ErrorResponse = Invoke-RestMethod -Uri "$BaseUrl/api/products" -Method Get
         Write-Host " UNEXPECTED SUCCESS" -ForegroundColor Red
-    } catch {
+    }
+    catch {
         Write-Host " OK (correctly rejected)" -ForegroundColor Green
     }
 
     Write-Host ""
     Write-Host "[*] All tests passed successfully! 🚀" -ForegroundColor Green
 
-} catch {
+
+}
+catch {
     Write-Host ""
     Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
+    
+    if ($_.Exception.Response) {
+        $Stream = $_.Exception.Response.GetResponseStream()
+        if ($Stream) {
+            $Reader = New-Object System.IO.StreamReader($Stream)
+            $Content = $Reader.ReadToEnd()
+            Write-Host "[RESPONSE BODY] $Content" -ForegroundColor Yellow
+        }
+    }
     exit 1
 }

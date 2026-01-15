@@ -19,7 +19,7 @@ Para detalhes técnicos e status granular de cada módulo, consulte:
 |---------|--------|-------|
 | **Minimal APIs** (`MapGet`, `MapPost`) | ✅ Pronto | Testado em `Web.Dext.Starter.Admin` |
 | **Controllers** (`TController`) | ✅ Pronto | Testado em `Web.ControllerExample` |
-| **Model Binding** (JSON Body -> Record/Class) | ✅ Pronto | Suporte a aninhamento e listas |
+| **Model Binding** (JSON Body -> Record/Class) | ✅ Pronto | Suporte a aninhamento, listas e **Binding Misto** (Header/Query/Route/Body) |
 | **Dependency Injection** (Scoped/Singleton/Transient) | ✅ Pronto | Integração total com HttpContext |
 | **Middleware Pipeline** | ✅ Pronto | Custom Middlewares suportados |
 | **Static Files** | ✅ Pronto | Suporte a MIME types e cache |
