@@ -882,14 +882,12 @@ begin
   begin
     ValPropType := Field.FieldType.Handle;
     
-    begin
-       try
-         // Try standard properties conversion
-         // Now that we registered String->Integer converter, this should work for SQLite strings
-         UnwrappedValue := TValueConverter.Convert(AValue, ValPropType);
-       except
-         UnwrappedValue := AValue;
-       end;
+    try
+      // Try standard properties conversion
+      UnwrappedValue := TValueConverter.Convert(AValue, ValPropType);
+    except
+      on E: Exception do
+        UnwrappedValue := AValue;
     end;
       
     Field.SetValue(Result.GetReferenceToRawData, UnwrappedValue);
@@ -970,5 +968,10 @@ initialization
   // Register missing converters for loose typing (e.g. SQLite returning strings for Integers)
   TValueConverterRegistry.RegisterConverter(TypeInfo(string), TypeInfo(Integer), TVariantToIntegerConverter.Create);
   TValueConverterRegistry.RegisterConverter(TypeInfo(string), TypeInfo(Int64), TVariantToIntegerConverter.Create);
+  TValueConverterRegistry.RegisterConverter(TypeInfo(string), TypeInfo(Double), TVariantToFloatConverter.Create);
+  TValueConverterRegistry.RegisterConverter(TypeInfo(string), TypeInfo(TDateTime), TVariantToDateTimeConverter.Create);
 
+  // Register Kind-based converters at Entity level for extra safety
+  TValueConverterRegistry.RegisterConverter(tkUString, tkFloat, TVariantToFloatConverter.Create);
+  TValueConverterRegistry.RegisterConverter(tkString, tkFloat, TVariantToFloatConverter.Create);
 end.

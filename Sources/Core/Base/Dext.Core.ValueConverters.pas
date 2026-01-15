@@ -181,6 +181,19 @@ begin
   
   // Class -> Class (for object references and inheritance)
   RegisterConverter(tkClass, tkClass, TClassToClassConverter.Create);
+
+  // String -> Primitives (Extra safety for SQLite/Web)
+  RegisterConverter(TypeInfo(string), TypeInfo(Integer), TVariantToIntegerConverter.Create);
+  RegisterConverter(TypeInfo(string), TypeInfo(Int64), TVariantToIntegerConverter.Create);
+  RegisterConverter(TypeInfo(string), TypeInfo(Double), TVariantToFloatConverter.Create);
+  RegisterConverter(TypeInfo(string), TypeInfo(TDateTime), TVariantToDateTimeConverter.Create);
+
+  // Kind-based Catch-all for Strings to Primitives
+  RegisterConverter(tkUString, tkInteger, TVariantToIntegerConverter.Create);
+  RegisterConverter(tkUString, tkFloat, TVariantToFloatConverter.Create);
+  RegisterConverter(tkUString, tkInt64, TVariantToIntegerConverter.Create);
+  RegisterConverter(tkString, tkInteger, TVariantToIntegerConverter.Create);
+  RegisterConverter(tkString, tkFloat, TVariantToFloatConverter.Create);
 end;
 
 class destructor TValueConverterRegistry.Destroy;
@@ -415,12 +428,27 @@ begin
   if VarIsNull(V) or VarIsEmpty(V) then
     Val := 0.0
   else
-    Val := StrToFloatDef(VarToStr(V), 0.0);
+  begin
+    var S := VarToStr(V);
+    // If it looks like a date (ISO or common), use the date parser first!
+    if (S.Contains('-') or S.Contains(':') or S.Contains('/')) and (not S.StartsWith('{')) then
+    begin
+       var Dt: TDateTime;
+       if TryParseCommonDate(S, Dt) then
+         Val := Dt
+       else
+         Val := StrToFloatDef(S, 0.0);
+    end
+    else
+      Val := StrToFloatDef(S, 0.0);
+  end;
 
   if ATargetType = TypeInfo(Currency) then
     Result := TValue.From<Currency>(Val)
   else if ATargetType = TypeInfo(Single) then
     Result := TValue.From<Single>(Val)
+  else if ATargetType = TypeInfo(TDateTime) then
+    Result := TValue.From<TDateTime>(Val)
   else
     Result := TValue.From<Double>(Val);
 end;

@@ -8,12 +8,24 @@ The following dialects are built-in and ready to use:
 
 | Database | Class Name | Status | Features |
 | :--- | :--- | :--- | :--- |
-| **SQLite** | `TSQLiteDialect` | ✅ Validated | AutoInc, Paging, Boolean (0/1) |
+| **SQLite** | `TSQLiteDialect` | ✅ Validated | AutoInc, Paging, Boolean (0/1), Datetime Affinity |
 | **PostgreSQL** | `TPostgreSQLDialect` | ✅ Validated | Serial, Paging, Boolean (TRUE/FALSE), UUID |
 | **Firebird 3.0+** | `TFirebirdDialect` | ✅ Validated | Identity, Paging (OFFSET/FETCH), Boolean (TRUE/FALSE) |
 | **SQL Server** | `TSQLServerDialect` | ✅ Validated | Identity, Paging (OFFSET/FETCH), UUID |
 | **Oracle 12c+** | `TOracleDialect` | ⚠️ Unit Tested | Identity, Paging, UUID (VARCHAR2) |
 | **MySQL / MariaDB** | `TMySQLDialect` | ✅ Validated | AutoIncrement, Paging (LIMIT), JSON |
+
+---
+
+## 💎 Dialect Specifics & Data Types
+
+### SQLite Type Affinity
+SQLite does not have a native `DATETIME` type. Dext maps `TDateTime` properties to `DATETIME` affinity (stored as ISO strings). 
+
+> ⚠️ **Note**: Previous versions mapped `TDateTime` to `REAL`. Upgrading to Dext v1.0+ requires migrating `REAL` date columns to `DATETIME` to ensure sub-second precision and correct string parsing by the FireDAC driver.
+
+### PostgreSQL UUIDs
+Dext automatically handles the conversion between Delphi's `TGUID` and PostgreSQL's native `UUID` type, including the necessary `::uuid` casting in parameters.
 
 ---
 

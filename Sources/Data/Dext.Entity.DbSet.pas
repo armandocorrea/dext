@@ -344,6 +344,7 @@ end;
 function TDbSet<T>.CreateGenerator: TSqlGenerator<T>;
 begin
   Result := TSqlGenerator<T>.Create(FContext.Dialect, FMap);
+  Result.NamingStrategy := FContext.NamingStrategy;
   Result.IgnoreQueryFilters := FIgnoreQueryFilters;
   Result.OnlyDeleted := FOnlyDeleted;
   
@@ -526,7 +527,7 @@ begin
     except
       on E: Exception do
       begin
-        SafeWriteLn(Format('ERROR getting value for col %s: %s', [ColName, E.Message]));
+        // SafeWriteLn(Format('ERROR getting value for col %s: %s', [ColName, E.Message])); // Cleaned up debug log
         raise;
     end;
     end;

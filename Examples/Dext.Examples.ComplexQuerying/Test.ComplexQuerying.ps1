@@ -18,7 +18,8 @@ try {
     # 3. Get order by ID
     Write-Host "[3] Getting order by ID..." -NoNewline
     $Order = Invoke-RestMethod -Uri "$BaseUrl/api/orders/1" -Method Get
-    Write-Host " OK (Order: $($Order.orderNumber))" -ForegroundColor Green
+    Write-Host " OK" -ForegroundColor Green
+    Write-Host "    -> Order Details: $($Order | ConvertTo-Json -Depth 2 -Compress)" -ForegroundColor Gray
 
     # 4. Filter by status
     Write-Host "[4] Filtering by status (pending)..." -NoNewline
@@ -34,16 +35,22 @@ try {
     Write-Host "[6] Getting top customers..." -NoNewline
     $TopCustomers = Invoke-RestMethod -Uri "$BaseUrl/api/reports/top-customers?top=3" -Method Get
     Write-Host " OK ($($TopCustomers.Count) customers)" -ForegroundColor Green
+    $TopCustomers | ForEach-Object {
+        Write-Host "    - $($_.customerName): $($_.totalSpent)" -ForegroundColor DarkGray
+    }
 
     # 7. Advanced search
     Write-Host "[7] Testing advanced search..." -NoNewline
     $SearchResponse = Invoke-RestMethod -Uri "$BaseUrl/api/orders/search" -Method Post -ContentType "application/json" -Body '{"minAmount": 500}'
     Write-Host " OK ($($SearchResponse.Count) matching orders)" -ForegroundColor Green
+    Write-Host "    Result JSON:"
+    Write-Host ($SearchResponse | ConvertTo-Json -Depth 3) -ForegroundColor Cyan
 
     Write-Host ""
     Write-Host "[*] All tests passed successfully! 🚀" -ForegroundColor Green
 
-} catch {
+}
+catch {
     Write-Host ""
     Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
     exit 1

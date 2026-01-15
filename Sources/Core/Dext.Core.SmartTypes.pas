@@ -80,6 +80,7 @@ type
     class function FromQuery(const AExpr: IExpression): BooleanExpression; static;
     class function FromRuntime(const AValue: Boolean): BooleanExpression; static;
 
+    class operator Implicit(const Value: Boolean): BooleanExpression;
     class operator Implicit(const Value: BooleanExpression): Boolean;
     class operator Implicit(const Value: BooleanExpression): TFluentExpression;
 
@@ -314,6 +315,11 @@ begin
     Result := TFluentExpression.From(Value.FExpression)
   else
     Result := TFluentExpression.From(TConstantExpression.Create(Value.FRuntimeValue));
+end;
+
+class operator BooleanExpression.Implicit(const Value: Boolean): BooleanExpression;
+begin
+  Result := BooleanExpression.FromRuntime(True)
 end;
 
 class function BooleanExpression.InternalAnd(const Left, Right: BooleanExpression): BooleanExpression;

@@ -104,6 +104,17 @@ begin
       Result := Results.Ok<IList<TOrder>>(Orders);
     end);
 
+  // POST /api/orders/search - Advanced search
+  // Example: POST /api/orders/search with JSON body {"status": "pending", "minAmount": 100}
+  App.MapPost<IOrderService, TOrderFilter, IResult>('/api/orders/search',
+    function(Service: IOrderService; Filter: TOrderFilter): IResult
+    var
+      Orders: IList<TOrder>;
+    begin
+      Orders := Service.SearchOrders(Filter);
+      Result := Results.Ok<IList<TOrder>>(Orders);
+    end);
+
   // ============================================================
   // REPORT ENDPOINTS
   // ============================================================
@@ -112,14 +123,10 @@ begin
   App.MapGet<IReportService, IResult>('/api/reports/sales',
     function(Service: IReportService): IResult
     var
-      Report: TList<TSalesReportItem>;
+      Report: TArray<TSalesReportItem>;
     begin
       Report := Service.GetSalesReport;
-      try
-        Result := Results.Ok<TList<TSalesReportItem>>(Report);
-      finally
-        Report.Free;
-      end;
+      Result := Results.Ok<TArray<TSalesReportItem>>(Report);
     end);
 
   // GET /api/reports/top-customers - Top customers by spending
@@ -127,17 +134,13 @@ begin
     function(Service: IReportService; Request: TTopCustomersRequest): IResult
     var
       Top: Integer;
-      Report: TList<TTopCustomerItem>;
+      Report: TArray<TTopCustomerItem>;
     begin
       Top := Request.Top;
       if Top <= 0 then Top := 10;
       
       Report := Service.GetTopCustomers(Top);
-      try
-        Result := Results.Ok<TList<TTopCustomerItem>>(Report);
-      finally
-        Report.Free;
-      end;
+      Result := Results.Ok<TArray<TTopCustomerItem>>(Report);
     end);
 
   // ============================================================

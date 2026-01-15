@@ -502,7 +502,7 @@ begin
           Dialect := TSQLiteDialect.Create;
 
         // 3. Create Context
-        var Ctx := TDbContextClass(T).Create(Connection, Dialect, nil);
+        var Ctx := TDbContextClass(T).Create(Connection, Dialect, Options.BuildNamingStrategy);
         Result := Ctx;
         
       except

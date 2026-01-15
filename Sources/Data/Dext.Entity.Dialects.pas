@@ -606,9 +606,9 @@ begin
     tkInt64: Result := 'INTEGER';
     tkFloat: 
       begin
-        if ATypeInfo = TypeInfo(TDateTime) then Result := 'REAL'
-        else if ATypeInfo = TypeInfo(TDate) then Result := 'REAL'
-        else if ATypeInfo = TypeInfo(TTime) then Result := 'REAL'
+        if ATypeInfo = TypeInfo(TDateTime) then Result := 'DATETIME'
+        else if ATypeInfo = TypeInfo(TDate) then Result := 'DATE'
+        else if ATypeInfo = TypeInfo(TTime) then Result := 'TIME'
         else Result := 'REAL';
       end;
     tkChar, tkString, tkWChar, tkLString, tkWString, tkUString: Result := 'VARCHAR(255)';

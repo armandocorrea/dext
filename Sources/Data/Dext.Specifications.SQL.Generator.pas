@@ -40,6 +40,7 @@ uses
   Dext.Entity.Dialects,
   Dext.Entity.Attributes,
   Dext.Entity.Mapping,
+  Dext.Entity.Naming,
   Dext.Entity.TypeConverters,
   Dext.Types.Nullable,
   Dext.Types.UUID,
@@ -90,8 +91,12 @@ type
   end;
 
   TSQLColumnMapper<T: class> = class(TInterfacedObject, ISQLColumnMapper)
+  private
+    FNamingStrategy: INamingStrategy;
   public
+    constructor Create(ANamingStrategy: INamingStrategy = nil);
     function MapColumn(const AName: string): string;
+    property NamingStrategy: INamingStrategy read FNamingStrategy write FNamingStrategy;
   end;
 
   TSQLGeneratorHelper = class
@@ -110,6 +115,7 @@ type
     FParams: TDictionary<string, TValue>;
     FParamCount: Integer;
     FMap: TEntityMap;
+    FNamingStrategy: INamingStrategy;
     // Properties to control filtering
     FIgnoreQueryFilters: Boolean;
     FOnlyDeleted: Boolean;
@@ -126,6 +132,7 @@ type
     function GenerateJoins(const AJoins: TArray<IJoin>): string;
     function GenerateGroupBy(const AGroupBy: TArray<string>): string;
     function QuoteColumnOrAlias(const AName: string): string;
+    function TryUnwrapSmartValue(var AValue: TValue): Boolean;
 
   public
     constructor Create(ADialect: ISQLDialect; AMap: TEntityMap = nil);
@@ -134,6 +141,7 @@ type
     property IgnoreQueryFilters: Boolean read FIgnoreQueryFilters write FIgnoreQueryFilters;
     property OnlyDeleted: Boolean read FOnlyDeleted write FOnlyDeleted;
     property Schema: string read FSchema write FSchema;
+    property NamingStrategy: INamingStrategy read FNamingStrategy write FNamingStrategy;
     
     function GenerateInsert(const AEntity: T): string;
     function GenerateInsertTemplate(out AProps: TList<TPair<TRttiProperty, string>>): string;
@@ -641,12 +649,19 @@ end;
 
 { TSQLColumnMapper<T> }
 
+constructor TSQLColumnMapper<T>.Create(ANamingStrategy: INamingStrategy);
+begin
+  inherited Create;
+  FNamingStrategy := ANamingStrategy;
+end;
+
 function TSQLColumnMapper<T>.MapColumn(const AName: string): string;
 var
   Ctx: TRttiContext;
   Typ: TRttiType;
   Prop: TRttiProperty;
   Attr: TCustomAttribute;
+  PropMap: TPropertyMap;
 begin
   Result := AName;
   Ctx := TRttiContext.Create;
@@ -654,11 +669,21 @@ begin
   Prop := Typ.GetProperty(AName);
   if Prop <> nil then
   begin
+    PropMap := nil;
+    if TModelBuilder.Instance.HasMap(TypeInfo(T)) then
+      TModelBuilder.Instance.GetMap(TypeInfo(T)).Properties.TryGetValue(Prop.Name, PropMap);
+
+    if (PropMap <> nil) and (PropMap.ColumnName <> '') then
+      Exit(PropMap.ColumnName);
+
     for Attr in Prop.GetAttributes do
     begin
       if Attr is ColumnAttribute then Exit(ColumnAttribute(Attr).Name);
       if Attr is ForeignKeyAttribute then Exit(ForeignKeyAttribute(Attr).ColumnName);
     end;
+
+    if (Result = Prop.Name) and (FNamingStrategy <> nil) then
+      Result := FNamingStrategy.GetColumnName(Prop);
   end;
 end;
 
@@ -707,6 +732,9 @@ begin
        for Attr in Typ.GetAttributes do
           if Attr is TableAttribute then
             Result := TableAttribute(Attr).Name;
+       
+       if (Result = Typ.Name) and (FNamingStrategy <> nil) then
+         Result := FNamingStrategy.GetTableName(TypeInfo(T));
     end;
   end;
 
@@ -714,6 +742,31 @@ begin
   
   if (FSchema <> '') and FDialect.UseSchemaPrefix then
     Result := FDialect.QuoteIdentifier(FSchema) + '.' + Result;
+end;
+
+function TSQLGenerator<T>.TryUnwrapSmartValue(var AValue: TValue): Boolean;
+var
+  Ctx: TRttiContext;
+  RType: TRttiType;
+  FValue: TRttiField;
+begin
+  Result := False;
+  if AValue.Kind = tkRecord then
+  begin
+    Ctx := TRttiContext.Create;
+    RType := Ctx.GetType(AValue.TypeInfo);
+    if RType <> nil then
+    begin
+      // Check if it's a Smart Type (Prop<T>)
+      FValue := RType.GetField('FValue');
+      if (FValue <> nil) and 
+         (RType.Name.Contains('Prop<') or (RType.GetProperty('Value') <> nil)) then
+      begin
+        AValue := FValue.GetValue(AValue.GetReferenceToRawData);
+        Result := True;
+      end;
+    end;
+  end;
 end;
 
 function TSQLGenerator<T>.GetSoftDeleteFilter: string;
@@ -798,6 +851,9 @@ begin
     // Match found if Property Name OR Column Name matches
     if SameText(Prop.Name, PropName) or SameText(PropColumnName, PropName) then
     begin
+      if (PropColumnName = Prop.Name) and (FNamingStrategy <> nil) then
+        PropColumnName := FNamingStrategy.GetColumnName(Prop);
+
       ColumnName := PropColumnName;
       TargetPropType := Prop.PropertyType.Handle;
       Break;
@@ -993,6 +1049,9 @@ begin
         end;
       end;
       
+      if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+         ColName := FNamingStrategy.GetColumnName(Prop);
+      
       if not IsMapped or IsAutoInc then Continue;
       
       if not First then
@@ -1024,6 +1083,9 @@ begin
         end;
       end;
 
+      // Check for Prop<T> (Smart Type)
+      TryUnwrapSmartValue(Val);
+
       ParamName := GetNextParamName;
       
       // Check if there's a type converter that needs SQL casting
@@ -1031,7 +1093,7 @@ begin
         Converter := PropMap.Converter
       else
         Converter := TTypeConverterRegistry.Instance.GetConverter(Val.TypeInfo);
-      if Converter <> nil then
+      if (GetDialectEnum <> ddSQLite) and (Converter <> nil) then
       begin
         SQLCast := Converter.GetSQLCast(':' + ParamName, GetDialectEnum);
         SBVals.Append(SQLCast);
@@ -1129,6 +1191,9 @@ begin
         end;
       end;
       
+      if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+         ColName := FNamingStrategy.GetColumnName(Prop);
+      
       if not IsMapped or IsAutoInc then Continue;
       
       AProps.Add(TPair<TRttiProperty, string>.Create(Prop, ColName));
@@ -1170,6 +1235,7 @@ var
   PropMap: TPropertyMap;
   SQLCastStr: string;
   Converter: ITypeConverter;
+  NullableHelper: TNullableHelper;
 begin
   FParams.Clear;
   FParamCount := 0;
@@ -1218,6 +1284,9 @@ begin
         end;
       end;
       
+      if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+         ColName := FNamingStrategy.GetColumnName(Prop);
+      
       if not IsMapped then Continue;
       
       Val := Prop.GetValue(Pointer(AEntity));
@@ -1235,6 +1304,10 @@ begin
         SBWhere.Append(FDialect.QuoteIdentifier(ColName)).Append(' = :').Append(ParamName);
         
         // 2. Add to SET clause: Version = :NewVersion (OldVersion + 1)
+        
+        // Handle Smart Types even for version if needed (unlikely)
+        TryUnwrapSmartValue(Val);
+        
         ParamNameNew := GetNextParamName;
         if Val.IsEmpty then NewVersionVal := 1 else NewVersionVal := Val.AsInteger + 1;
         FParams.Add(ParamNameNew, NewVersionVal);
@@ -1242,9 +1315,7 @@ begin
         if not FirstSet then SBSet.Append(', ');
         FirstSet := False;
         
-        SQLCastStr := '';
-        Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
-        if Converter <> nil then
+        if (GetDialectEnum <> ddSQLite) and (Converter <> nil) then
            SQLCastStr := Converter.GetSQLCast(':' + ParamNameNew, GetDialectEnum)
         else
            SQLCastStr := ':' + ParamNameNew;
@@ -1275,18 +1346,32 @@ begin
       else
       begin
         // Standard Column -> SET clause
+        
+        // Check for Nullable<T>
+        if IsNullable(Val.TypeInfo) then
+        begin
+          NullableHelper := TNullableHelper.Create(Val.TypeInfo);
+          if not NullableHelper.HasValue(Val.GetReferenceToRawData) then
+          begin
+            if not FirstSet then SBSet.Append(', ');
+            FirstSet := False;
+            SBSet.Append(FDialect.QuoteIdentifier(ColName)).Append(' = NULL');
+            Continue;
+          end
+          else
+            Val := NullableHelper.GetValue(Val.GetReferenceToRawData);
+        end;
+
+        // Check for Prop<T> (Smart Type)
+        TryUnwrapSmartValue(Val);
+
         ParamName := GetNextParamName;
         FParams.Add(ParamName, Val);
         
         if not FirstSet then SBSet.Append(', ');
         FirstSet := False;
         
-        SQLCastStr := '';
-        if PropMap <> nil then
-           Converter := PropMap.Converter
-        else
-           Converter := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
-        if Converter <> nil then
+        if (GetDialectEnum <> ddSQLite) and (Converter <> nil) then
            SQLCastStr := Converter.GetSQLCast(':' + ParamName, GetDialectEnum)
         else
            SQLCastStr := ':' + ParamName;
@@ -1353,9 +1438,24 @@ begin
           if Attr is ColumnAttribute then ColName := ColumnAttribute(Attr).Name;
       end;
       
+      if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+         ColName := FNamingStrategy.GetColumnName(Prop);
+      
       if not IsPK then Continue;
       
       Val := Prop.GetValue(Pointer(AEntity));
+
+      // Check for Nullable<PK>? (Unlikely but for consistency)
+      if IsNullable(Val.TypeInfo) then
+      begin
+         var NullableHlp := TNullableHelper.Create(Val.TypeInfo);
+         if NullableHlp.HasValue(Val.GetReferenceToRawData) then
+           Val := NullableHlp.GetValue(Val.GetReferenceToRawData);
+      end;
+      
+      // Check for Smart Type
+      TryUnwrapSmartValue(Val);
+
       ParamName := GetNextParamName;
       FParams.Add(ParamName, Val);
       
@@ -1434,7 +1534,7 @@ begin
   end;
   end;
   
-  WhereGen := TSQLWhereGenerator.Create(FDialect, TSQLColumnMapper<T>.Create);
+  WhereGen := TSQLWhereGenerator.Create(FDialect, TSQLColumnMapper<T>.Create(FNamingStrategy));
     
   try
     WhereSQL := WhereGen.Generate(ASpec.GetExpression);
@@ -1490,6 +1590,9 @@ begin
           end;
         end;
         
+        if (Prop <> nil) and (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+           ColName := FNamingStrategy.GetColumnName(Prop);
+        
         SB.Append(FDialect.QuoteIdentifier(ColName));
       end;
     end
@@ -1525,6 +1628,9 @@ begin
             if Attr is ForeignKeyAttribute then ColName := ForeignKeyAttribute(Attr).ColumnName;
           end;
         end;
+        
+        if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+           ColName := FNamingStrategy.GetColumnName(Prop);
         
         if not IsMapped then Continue;
         
@@ -1686,6 +1792,9 @@ begin
           if Attr is ForeignKeyAttribute then ColName := ForeignKeyAttribute(Attr).ColumnName;
         end;
       end;
+      
+      if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+         ColName := FNamingStrategy.GetColumnName(Prop);
 
       if not IsMapped then Continue;
 
@@ -1905,6 +2014,9 @@ begin
           if Attr is ColumnAttribute then ColName := ColumnAttribute(Attr).Name;
         end;
       end;
+      
+      if (ColName = Prop.Name) and (FNamingStrategy <> nil) then
+         ColName := FNamingStrategy.GetColumnName(Prop);
       
       if not IsMapped then Continue;
       

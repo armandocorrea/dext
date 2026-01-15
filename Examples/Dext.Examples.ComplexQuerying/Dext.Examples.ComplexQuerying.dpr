@@ -36,6 +36,7 @@ begin
     begin
       Options.UseSQLite('complex_queries.db');
       Options.WithPooling(True, 10);
+      Options.UseSnakeCaseNamingConvention;
     end);
 
   // Services
@@ -52,6 +53,7 @@ begin
 
   // Exception Handler
   WebApp.UseExceptionHandler;
+  WebApp.UseMiddleware(TRequestLoggingMiddleware);
 
   // Map Endpoints
   TComplexQueryingEndpoints.Map(WebApp);

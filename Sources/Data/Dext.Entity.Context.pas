@@ -364,9 +364,7 @@ end;
 constructor TDbContext.Create(const AOptions: TDbContextOptions;
   const ATenantProvider: ITenantProvider);
 begin
-  Self.Create(AOptions.BuildConnection, AOptions.BuildDialect, nil, ATenantProvider);
-  // Apply naming strategy from options if implemented in future.
-  // Currently TDbContextOptions doesn't have NamingStrategy property.
+  Self.Create(AOptions.BuildConnection, AOptions.BuildDialect, AOptions.BuildNamingStrategy, ATenantProvider);
 end;
 
 destructor TDbContext.Destroy;
@@ -863,17 +861,16 @@ begin
             if not AddedGroups.ContainsKey(Entity.ClassInfo) then
               AddedGroups.Add(Entity.ClassInfo, TList<TObject>.Create);
             
-             // Auto-populate TenantId if applicable
-             // var TenantAware: ITenantAware;
-             // if (FTenantProvider <> nil) and (FTenantProvider.Tenant <> nil) then
-             // begin
-             //   if Supports(Entity, ITenantAware, TenantAware) then
-             //   begin
-             //      // Only set if empty? Or enforce? Enforce is safer.
-             //      if TenantAware.TenantId = '' then
-             //        TenantAware.TenantId := FTenantProvider.Tenant.Id;
-             //   end;
-             // end;
+             // Auto-populate TenantId if applicable (Security & Convenience)
+             if (FTenantProvider <> nil) and (FTenantProvider.Tenant <> nil) then
+             begin
+               var TenantAware: ITenantAware;
+               if Supports(Entity, ITenantAware, TenantAware) then
+               begin
+                  // Always enforce current tenant ID on insert
+                  TenantAware.TenantId := FTenantProvider.Tenant.Id;
+               end;
+             end;
                
              AddedGroups[Entity.ClassInfo].Add(Entity);
           end;

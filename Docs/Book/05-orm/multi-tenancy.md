@@ -12,18 +12,34 @@ Dext supports three main strategies:
 
 ## Shared Database (Column-based)
 
-Add a `TenantId` column to your tables, and Dext will automatically apply filters to all queries.
+Add the `ITenantAware` interface to your classes, and Dext will automatically apply filters to all queries and populate the `TenantId` on save.
 
 ```pascal
 type
-  [Table('orders'), MultiTenant]
-  TOrder = class
+  [Table('orders')]
+  TOrder = class(TObject, ITenantAware)
+  private
+    FTenantId: string;
+    // ...
   public
     [PK] property Id: Integer;
-    property TenantId: string; // Isolation column
+    property TenantId: string read FTenantId write FTenantId; // Isolation column
     property Description: string;
   end;
 ```
+
+> 💡 **Tip**: You can inherit from `TTenantEntity` to get a default implementation of `ITenantAware`.
+
+## Auto-Population
+
+When you save a new entity that implements `ITenantAware`, the `DbContext` automatically populates the `TenantId` using the current `ITenantProvider`:
+
+1. The entity is tracked by the `DbContext`.
+2. During `SaveChanges`, the framework detects `ITenantAware`.
+3. It assigns `FTenantProvider.Tenant.Id` to the entity.
+4. The record is persisted with the correct isolation ID.
+
+This ensures that even if you forget to set the tenant ID in your business logic, the data remains isolated and secure.
 
 ## Configuring Tenant via Middleware
 

@@ -12,18 +12,34 @@ O Dext suporta três estratégias principais:
 
 ## Banco Compartilhado (Column-based)
 
-Adicione a coluna `TenantId` em suas tabelas e o Dext aplicará filtros automáticos em todas as queries.
+Adicione a interface `ITenantAware` em suas entidades e o Dext aplicará filtros automáticos em todas as queries e preencherá o `TenantId` ao salvar.
 
 ```pascal
 type
-  [Table('orders'), MultiTenant]
-  TOrder = class
+  [Table('orders')]
+  TOrder = class(TObject, ITenantAware)
+  private
+    FTenantId: string;
+    // ...
   public
     [PK] property Id: Integer;
-    property TenantId: string; // Coluna de isolamento
+    property TenantId: string read FTenantId write FTenantId; // Coluna de isolamento
     property Description: string;
   end;
 ```
+
+> 💡 **Dica**: Você pode herdar de `TTenantEntity` para obter uma implementação padrão de `ITenantAware`.
+
+## Auto-Preenchimento (Auto-Population)
+
+Ao salvar uma nova entidade que implementa `ITenantAware`, o `DbContext` preenche automaticamente o `TenantId` usando o `ITenantProvider` atual:
+
+1. A entidade é rastreada pelo `DbContext`.
+2. Durante o `SaveChanges`, o framework detecta `ITenantAware`.
+3. O `TenantId` do inquilino atual é atribuído à entidade.
+4. O registro é persistido com o ID de isolamento correto.
+
+Isso garante que, mesmo que você esqueça de setar o ID do tenant em sua lógica de negócio, os dados permanecerão isolados e seguros.
 
 ## Configuração do Tenant via Middleware
 

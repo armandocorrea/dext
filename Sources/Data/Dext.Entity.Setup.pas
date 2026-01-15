@@ -8,6 +8,7 @@ uses
   System.Generics.Collections,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Dialects,
+  Dext.Entity.Naming,
   Dext.Entity.Drivers.FireDAC,
   Dext.Entity.Drivers.FireDAC.Manager,
   FireDAC.Comp.Client;
@@ -28,6 +29,7 @@ type
     FOptimizations: TFireDACOptimizations; // Connect Optimizations
     FDialect: ISQLDialect;
     FCustomConnection: IDbConnection;
+    FNamingStrategy: INamingStrategy;
   public
     constructor Create;
     destructor Destroy; override;
@@ -42,9 +44,11 @@ type
     property Optimizations: TFireDACOptimizations read FOptimizations write FOptimizations;
     property Dialect: ISQLDialect read FDialect write FDialect;
     property CustomConnection: IDbConnection read FCustomConnection write FCustomConnection;
+    property NamingStrategy: INamingStrategy read FNamingStrategy write FNamingStrategy;
 
     function BuildConnection: IDbConnection;
     function BuildDialect: ISQLDialect;
+    function BuildNamingStrategy: INamingStrategy;
 
     // Fluent Helpers
     function UseSQLite(const DatabaseFile: string): TDbContextOptions;
@@ -53,6 +57,8 @@ type
     function WithPooling(Enable: Boolean = True; MaxSize: Integer = 50): TDbContextOptions;
     function ConfigureOptimizations(AOpts: TFireDACOptimizations): TDbContextOptions;
     function UseCustomDialect(const ADialect: ISQLDialect): TDbContextOptions;
+    function UseNamingStrategy(const AStrategy: INamingStrategy): TDbContextOptions;
+    function UseSnakeCaseNamingConvention: TDbContextOptions;
   end;
 
   /// <summary>
@@ -180,6 +186,25 @@ end;
 function TDbContextOptions.BuildDialect: ISQLDialect;
 begin
   Result := FDialect;
+end;
+
+function TDbContextOptions.BuildNamingStrategy: INamingStrategy;
+begin
+  if FNamingStrategy = nil then
+    FNamingStrategy := TDefaultNamingStrategy.Create;
+  Result := FNamingStrategy;
+end;
+
+function TDbContextOptions.UseNamingStrategy(const AStrategy: INamingStrategy): TDbContextOptions;
+begin
+  FNamingStrategy := AStrategy;
+  Result := Self;
+end;
+
+function TDbContextOptions.UseSnakeCaseNamingConvention: TDbContextOptions;
+begin
+  FNamingStrategy := TSnakeCaseNamingStrategy.Create;
+  Result := Self;
 end;
 
 { TDbContextOptionsBuilder }

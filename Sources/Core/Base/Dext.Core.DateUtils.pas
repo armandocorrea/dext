@@ -50,10 +50,15 @@ begin
     Exit;
 
   try
-    if Length(Value) >= 19 then
+    // Handle YYYY-MM-DD HH:NN:SS... formats
+    if (Length(Value) >= 10) and (Value[5] = '-') and (Value[8] = '-') then
     begin
-      DatePart := Copy(Value, 1, 10);
-      TimePart := Copy(Value, 12, 12);
+      Parts := Value.Split([' ', 'T']);
+      DatePart := Parts[0];
+      if Length(Parts) > 1 then 
+        TimePart := Parts[1]
+      else
+        TimePart := '';
 
       Parts := DatePart.Split(['-']);
       if Length(Parts) = 3 then
@@ -62,21 +67,24 @@ begin
         Month := StrToInt(Parts[1]);
         Day := StrToInt(Parts[2]);
 
-        if (Length(TimePart) >= 8) and (TimePart[3] = ':') and (TimePart[6] = ':') then
+        Hour := 0; Min := 0; Sec := 0; MSec := 0;
+        
+        if TimePart <> '' then
         begin
-          Hour := StrToInt(Copy(TimePart, 1, 2));
-          Min := StrToInt(Copy(TimePart, 4, 2));
-          Sec := StrToInt(Copy(TimePart, 7, 2));
-
-          if (Length(TimePart) > 8) and (TimePart[9] = '.') then
-            MSec := StrToInt(Copy(TimePart, 10, 3))
-          else
-            MSec := 0;
-
-          DateTime := EncodeDateTime(Year, Month, Day, Hour, Min, Sec, MSec);
-          Result := True;
-          Exit;
+          Parts := TimePart.Split([':', '.']);
+          if Length(Parts) >= 3 then
+          begin
+            Hour := StrToInt(Parts[0]);
+            Min := StrToInt(Parts[1]);
+            Sec := StrToInt(Parts[2]);
+            if Length(Parts) > 3 then
+              MSec := StrToIntDef(Copy(Parts[3], 1, 3), 0);
+          end;
         end;
+
+        DateTime := EncodeDateTime(Year, Month, Day, Hour, Min, Sec, MSec);
+        Result := True;
+        Exit;
       end;
     end;
 

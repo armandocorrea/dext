@@ -26,7 +26,7 @@ Este documento centraliza as tarefas pendentes para o lançamento do V1 Beta. Ma
 - [x] **Web.Dext.Starter.Admin** - Testar compression middleware e JWT config
 - [x] **Web.TaskFlowAPI** - Executar `Test.Web.TaskFlowAPI.ps1`
 - [x] **Dext.Examples.MultiTenancy** - Executar `Test.MultiTenancy.ps1`
-- [ ] **Dext.Examples.ComplexQuerying** - Executar `Test.ComplexQuerying.ps1`
+- [x] **Dext.Examples.ComplexQuerying** - Executar `Test.ComplexQuerying.ps1`
 
 ---
 

@@ -24,6 +24,7 @@ type
     function GetOrderById(Id: Int64): TOrder;
     function GetOrdersByStatus(const Status: string): IList<TOrder>;
     function GetOrdersByCustomer(CustomerId: Int64): IList<TOrder>;
+    function SearchOrders(const Filter: TOrderFilter): IList<TOrder>;
     procedure SeedSampleData;
   end;
 
@@ -36,6 +37,7 @@ type
     function GetOrderById(Id: Int64): TOrder;
     function GetOrdersByStatus(const Status: string): IList<TOrder>;
     function GetOrdersByCustomer(CustomerId: Int64): IList<TOrder>;
+    function SearchOrders(const Filter: TOrderFilter): IList<TOrder>;
     procedure SeedSampleData;
   end;
 
@@ -44,8 +46,8 @@ type
   /// </summary>
   IReportService = interface
     ['{D2E3F4A5-B6C7-8901-2345-67890ABCDEF1}']
-    function GetSalesReport: TList<TSalesReportItem>;
-    function GetTopCustomers(Top: Integer): TList<TTopCustomerItem>;
+    function GetSalesReport: TArray<TSalesReportItem>;
+    function GetTopCustomers(Top: Integer): TArray<TTopCustomerItem>;
   end;
 
   TReportService = class(TInterfacedObject, IReportService)
@@ -53,8 +55,8 @@ type
     FDbContext: TQueryDbContext;
   public
     constructor Create(ADbContext: TQueryDbContext);
-    function GetSalesReport: TList<TSalesReportItem>;
-    function GetTopCustomers(Top: Integer): TList<TTopCustomerItem>;
+    function GetSalesReport: TArray<TSalesReportItem>;
+    function GetTopCustomers(Top: Integer): TArray<TTopCustomerItem>;
   end;
 
 implementation
@@ -107,6 +109,34 @@ begin
   end;
 end;
 
+function TOrderService.SearchOrders(const Filter: TOrderFilter): IList<TOrder>;
+begin
+  // Build dynamic query capabilities using Dext Smart Types
+  // The expression is built piece-by-piece and translated to SQL
+  Result := FDbContext.Orders.Where(
+    function(O: TOrder): BooleanExpression
+    begin
+      // Start with a base true condition (1=1) ensures valid SQL generation when appending ANDs
+      //Result := BooleanExpression.FromRuntime(True);
+      Result := True;
+
+      if Filter.Status <> '' then
+        Result := Result and (O.Status = Filter.Status);
+      
+      if Filter.MinAmount > 0 then
+        Result := Result and (O.TotalAmount >= Filter.MinAmount);
+        
+      if Filter.MaxAmount > 0 then
+        Result := Result and (O.TotalAmount <= Filter.MaxAmount);
+        
+      if Filter.FromDate > 0 then
+        Result := Result and (O.CreatedAt >= Filter.FromDate);
+        
+      if Filter.ToDate > 0 then
+        Result := Result and (O.CreatedAt <= Filter.ToDate);
+    end).ToList;
+end;
+
 procedure TOrderService.SeedSampleData;
 var
   Customer: TCustomer;
@@ -114,6 +144,10 @@ var
   Product: TProduct;
 begin
   WriteLn('[Seed] Creating sample data...');
+  
+  // Ensure DB Exists
+  FDbContext.EnsureCreated;
+  FDbContext.BeginTransaction;
   
   // Create sample customers
   Customer := TCustomer.Create;
@@ -218,7 +252,7 @@ begin
   FDbContext := ADbContext;
 end;
 
-function TReportService.GetSalesReport: TList<TSalesReportItem>;
+function TReportService.GetSalesReport: TArray<TSalesReportItem>;
 var
   Orders: IList<TOrder>;
   Order: TOrder;
@@ -227,7 +261,6 @@ var
   Status: string;
 begin
   // Manual aggregation (demonstration - in production use SQL aggregations)
-  Result := TList<TSalesReportItem>.Create;
   StatusMap := TDictionary<string, TSalesReportItem>.Create;
   
   try
@@ -252,37 +285,42 @@ begin
       end;
     end;
     
-    for Item in StatusMap.Values do
-      Result.Add(Item);
+    Result := StatusMap.Values.ToArray;
   finally
     StatusMap.Free;
   end;
 end;
 
-function TReportService.GetTopCustomers(Top: Integer): TList<TTopCustomerItem>;
+function TReportService.GetTopCustomers(Top: Integer): TArray<TTopCustomerItem>;
 var
   Customers: IList<TCustomer>;
   Customer: TCustomer;
   Item: TTopCustomerItem;
   Count: Integer;
+  TempList: TList<TTopCustomerItem>;
 begin
-  Result := TList<TTopCustomerItem>.Create;
-  
-  // Get all customers (in production, use ORDER BY and LIMIT in SQL)
-  Customers := FDbContext.Customers.ToList;
-  
-  Count := 0;
-  for Customer in Customers do
-  begin
-    if Count >= Top then Break;
+  TempList := TList<TTopCustomerItem>.Create;
+  try
+    // Get all customers (in production, use ORDER BY and LIMIT in SQL)
+    Customers := FDbContext.Customers.ToList;
     
-    Item.CustomerId := Customer.Id;
-    Item.CustomerName := string(Customer.Name);
-    Item.TotalSpent := Currency(Customer.TotalSpent);
-    Item.OrderCount := 0; // Would need join to calculate
-    Result.Add(Item);
+    Count := 0;
+    for Customer in Customers do
+    begin
+      if Count >= Top then Break;
+      
+      Item.CustomerId := Customer.Id;
+      Item.CustomerName := string(Customer.Name);
+      Item.TotalSpent := Currency(Customer.TotalSpent);
+      Item.OrderCount := 0; // Would need join to calculate
+      TempList.Add(Item);
+      
+      Inc(Count);
+    end;
     
-    Inc(Count);
+    Result := TempList.ToArray;
+  finally
+    TempList.Free;
   end;
 end;
 

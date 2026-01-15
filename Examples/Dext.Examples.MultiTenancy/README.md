@@ -9,6 +9,7 @@ Demonstrates how to build a **SaaS-style multi-tenant application** with Dext, f
 - **Tenant Resolution Middleware** - Extracts tenant ID from `X-Tenant-Id` header
 - **Tenant Management** - Create and list tenants
 - **Tenant-Scoped Data** - Products are isolated per tenant
+- **Auto-Population** - `TenantId` is automatically assigned to new entities via `ITenantAware`
 - **Schema-per-Tenant Pattern** - Conceptual pattern for database isolation
 
 ## Running the Example
