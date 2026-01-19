@@ -21,6 +21,9 @@
         <Projects Include="Dext.Testing.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="Dext.UI.dproj">
+            <Dependencies/>
+        </Projects>
         <Projects Include="..\Apps\CLI\DextTool.dproj">
             <Dependencies/>
         </Projects>
@@ -86,6 +89,15 @@
     <Target Name="Dext_Testing:Make">
         <MSBuild Projects="Dext.Testing.dproj" Targets="Make"/>
     </Target>
+    <Target Name="Dext_UI">
+        <MSBuild Projects="Dext.UI.dproj"/>
+    </Target>
+    <Target Name="Dext_UI:Clean">
+        <MSBuild Projects="Dext.UI.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Dext_UI:Make">
+        <MSBuild Projects="Dext.UI.dproj" Targets="Make"/>
+    </Target>
     <Target Name="DextTool">
         <MSBuild Projects="..\Apps\CLI\DextTool.dproj"/>
     </Target>
@@ -96,13 +108,13 @@
         <MSBuild Projects="..\Apps\CLI\DextTool.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Web_Hubs;Dext_Hosting;Dext_Testing;DextTool"/>
+        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Web_Hubs;Dext_Hosting;Dext_Testing;Dext_UI;DextTool"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Web_Hubs:Clean;Dext_Hosting:Clean;Dext_Testing:Clean;DextTool:Clean"/>
+        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Web_Hubs:Clean;Dext_Hosting:Clean;Dext_Testing:Clean;Dext_UI:Clean;DextTool:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Web_Hubs:Make;Dext_Hosting:Make;Dext_Testing:Make;DextTool:Make"/>
+        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Web_Hubs:Make;Dext_Hosting:Make;Dext_Testing:Make;Dext_UI:Make;DextTool:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>
