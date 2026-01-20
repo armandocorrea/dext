@@ -1,4 +1,4 @@
-program DesktopMVVMCustomer;
+program DesktopMVVMCustomerCRUD;
 
 uses
   Dext.MM,
