@@ -60,7 +60,7 @@ type
     Control: TControl;
     PropertyPath: string;
     Format: string;
-    BindingType: (btText, btChecked, btEnabled, btVisible, btItems);
+    BindingType: (btText, btChecked, btEnabled, btVisible, btItems, btEdit, btMemo);
     Invert: Boolean;
   end;
   
@@ -78,20 +78,26 @@ type
   /// Discovers binding attributes on Frame fields and automates updates.
   /// </summary>
   TMVUBinder<TModel; TMsg: TMessage> = class
+  public
+    type PModel = ^TModel;
   private
     FFrame: TComponent;
     FDispatch: TProc<TMsg>;
     FBindings: TList<TBindingInfo>;
     FWirings: TList<TEventWiring>;
     FContext: TRttiContext;
+    FModel: Pointer; // Pointer to the current model instance
     
     procedure DiscoverBindings;
     procedure DiscoverEventsWiring;
     procedure ApplyBinding(const Binding: TBindingInfo; const Model: TModel);
+    procedure UpdateModelFromControl(const Binding: TBindingInfo; const Control: TControl);
     function GetPropertyValue(const Model: TModel; const PropertyPath: string): TValue;
+    procedure SetPropertyValue(var Model: TModel; const PropertyPath: string; const Value: TValue);
     
     // Event handlers
     procedure HandleClick(Sender: TObject);
+    procedure HandleChange(Sender: TObject);
   public
     constructor Create(AFrame: TComponent; ADispatch: TProc<TMsg>);
     destructor Destroy; override;
@@ -100,7 +106,7 @@ type
     /// Updates all bound controls from the current Model state.
     /// Call this after every Update.
     /// </summary>
-    procedure Render(const Model: TModel);
+    procedure Render(var Model: TModel);
   end;
 
 implementation
@@ -186,6 +192,24 @@ begin
         Binding.BindingType := btVisible;
         Binding.Invert := BindVisibleAttribute(Attr).Invert;
         FBindings.Add(Binding);
+      end
+      else if Attr is BindEditAttribute then
+      begin
+        Binding.Control := Control;
+        Binding.PropertyPath := BindEditAttribute(Attr).PropertyPath;
+        Binding.Format := '';
+        Binding.BindingType := btEdit;
+        Binding.Invert := False;
+        FBindings.Add(Binding);
+      end
+      else if Attr is BindMemoAttribute then
+      begin
+        Binding.Control := Control;
+        Binding.PropertyPath := BindMemoAttribute(Attr).PropertyPath;
+        Binding.Format := '';
+        Binding.BindingType := btMemo;
+        Binding.Invert := False;
+        FBindings.Add(Binding);
       end;
     end;
   end;
@@ -230,6 +254,18 @@ begin
         // Store message class reference in control's Tag
         Control.Tag := NativeInt(Wiring.MessageClass);
       end;
+      
+      // Automatic two-way binding wiring
+      if (Attr is BindEditAttribute) or (Attr is BindMemoAttribute) or 
+         (Attr is BindCheckedAttribute) or (Attr is BindTextAttribute) then
+      begin
+        if Control is TEdit then
+          TEdit(Control).OnChange := HandleChange
+        else if Control is TMemo then
+          TMemo(Control).OnChange := HandleChange
+        else if Control is TCheckBox then
+          TCheckBox(Control).OnClick := HandleChange;
+      end;
     end;
   end;
 end;
@@ -256,12 +292,60 @@ begin
   end;
 end;
 
-procedure TMVUBinder<TModel, TMsg>.Render(const Model: TModel);
+procedure TMVUBinder<TModel, TMsg>.HandleChange(Sender: TObject);
+var
+  Binding: TBindingInfo;
+  Control: TControl;
+begin
+  if not (Sender is TControl) then Exit;
+  Control := TControl(Sender);
+  
+  // Find binding for this control
+  for Binding in FBindings do
+  begin
+    if Binding.Control = Control then
+    begin
+      UpdateModelFromControl(Binding, Control);
+      Break;
+    end;
+  end;
+end;
+
+procedure TMVUBinder<TModel, TMsg>.Render(var Model: TModel);
 var
   Binding: TBindingInfo;
 begin
+  FModel := @Model;
   for Binding in FBindings do
     ApplyBinding(Binding, Model);
+end;
+
+procedure TMVUBinder<TModel, TMsg>.UpdateModelFromControl(const Binding: TBindingInfo; const Control: TControl);
+var
+  NewValue: TValue;
+begin
+  if FModel = nil then Exit;
+  
+  case Binding.BindingType of
+    btEdit, btText:
+      if Control is TEdit then
+        NewValue := TEdit(Control).Text
+      else if Control is TLabel then
+        NewValue := TLabel(Control).Caption;
+        
+    btMemo:
+      if Control is TMemo then
+        NewValue := TMemo(Control).Text;
+        
+    btChecked:
+      if Control is TCheckBox then
+        NewValue := TCheckBox(Control).Checked;
+  else
+    Exit;
+  end;
+  
+  if FModel <> nil then
+    SetPropertyValue(PModel(FModel)^, Binding.PropertyPath, NewValue);
 end;
 
 procedure TMVUBinder<TModel, TMsg>.ApplyBinding(const Binding: TBindingInfo; const Model: TModel);
@@ -301,6 +385,26 @@ begin
           TCheckBox(Binding.Control).Checked := BoolValue;
       end;
       
+    btEdit:
+      begin
+        StrValue := Value.ToString;
+        if Binding.Control is TEdit then
+        begin
+          if TEdit(Binding.Control).Text <> StrValue then
+            TEdit(Binding.Control).Text := StrValue;
+        end;
+      end;
+      
+    btMemo:
+      begin
+        StrValue := Value.ToString;
+        if Binding.Control is TMemo then
+        begin
+          if TMemo(Binding.Control).Text <> StrValue then
+            TMemo(Binding.Control).Text := StrValue;
+        end;
+      end;
+      
     btEnabled:
       begin
         BoolValue := Value.AsBoolean;
@@ -322,17 +426,24 @@ var
   RttiType: TRttiType;
   Field: TRttiField;
   Prop: TRttiProperty;
+  Instance: TObject;
 begin
   Result := TValue.Empty;
-  
   RttiType := FContext.GetType(TypeInfo(TModel));
   if RttiType = nil then Exit;
-  
+
+  Instance := nil;
+  if RttiType.IsInstance then
+    Instance := TObject((@Model)^);
+
   // Try field first
   Field := RttiType.GetField(PropertyPath);
   if Field <> nil then
   begin
-    Result := Field.GetValue(@Model);
+    if Instance <> nil then
+      Result := Field.GetValue(Instance)
+    else
+      Result := Field.GetValue(@Model);
     Exit;
   end;
   
@@ -340,9 +451,54 @@ begin
   Prop := RttiType.GetProperty(PropertyPath);
   if Prop <> nil then
   begin
-    // For records, we need to box it differently
-    var RecValue := TValue.From<TModel>(Model);
-    Result := Prop.GetValue(RecValue.GetReferenceToRawData);
+    if Instance <> nil then
+      Result := Prop.GetValue(Instance)
+    else
+    begin
+      Result := Prop.GetValue(@Model);
+    end;
+  end;
+end;
+
+procedure TMVUBinder<TModel, TMsg>.SetPropertyValue(var Model: TModel; const PropertyPath: string; const Value: TValue);
+var
+  RttiType: TRttiType;
+  Field: TRttiField;
+  Prop: TRttiProperty;
+  ModelValue: TValue;
+  Instance: TObject;
+begin
+  RttiType := FContext.GetType(TypeInfo(TModel));
+  if RttiType = nil then Exit;
+  
+  Instance := nil;
+  if RttiType.IsInstance then
+    Instance := TObject((@Model)^);
+
+  // Try field first
+  Field := RttiType.GetField(PropertyPath);
+  if Field <> nil then
+  begin
+    if Instance <> nil then
+      Field.SetValue(Instance, Value)
+    else
+      Field.SetValue(@Model, Value);
+    Exit;
+  end;
+  
+  // Try property
+  Prop := RttiType.GetProperty(PropertyPath);
+  if (Prop <> nil) and Prop.IsWritable then
+  begin
+    if Instance <> nil then
+      Prop.SetValue(Instance, Value)
+    else
+    begin
+      ModelValue := TValue.From<TModel>(Model);
+      Prop.SetValue(ModelValue.GetReferenceToRawData, Value);
+      if RttiType.TypeKind = tkRecord then
+        Model := ModelValue.AsType<TModel>;
+    end;
   end;
 end;
 

@@ -3,13 +3,13 @@
         <ProjectGuid>{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}</ProjectGuid>
         <ProjectVersion>20.3</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
-        <MainSource>DesktopModernCustomerCRUD.dpr</MainSource>
+        <MainSource>DesktopMVVMCustomerCRUD.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Application</AppType>
-        <ProjectName Condition="'$(ProjectName)'==''">DesktopModernCustomerCRUD</ProjectName>
+        <ProjectName Condition="'$(ProjectName)'==''">DesktopMVVMCustomerCRUD</ProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -48,7 +48,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <SanitizedProjectName>DesktopModernCustomerCRUD</SanitizedProjectName>
+        <SanitizedProjectName>DesktopMVVMCustomerCRUD</SanitizedProjectName>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_44.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_150.png</UWP_DelphiLogo150>
@@ -86,21 +86,22 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="Views\Main.Form.pas">
+        <DCCReference Include="Features\Layout\Main.Form.pas">
             <Form>MainForm</Form>
         </DCCReference>
-        <DCCReference Include="Entities\Customer.Entity.pas"/>
-        <DCCReference Include="Services\Customer.Service.pas"/>
-        <DCCReference Include="ViewModels\Customer.ViewModel.pas"/>
-        <DCCReference Include="Views\Customer.List.pas">
+        <DCCReference Include="Features\Customers\Customer.Entity.pas"/>
+        <DCCReference Include="Features\Customers\Customer.Service.pas"/>
+        <DCCReference Include="Features\Customers\Customer.ViewModel.pas"/>
+        <DCCReference Include="Features\Customers\Customer.List.pas">
             <Form>CustomerListFrame</Form>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
-        <DCCReference Include="Views\Customer.Edit.pas">
+        <DCCReference Include="Features\Customers\Customer.Edit.pas">
             <Form>CustomerEditFrame</Form>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
         <DCCReference Include="App\App.Startup.pas"/>
+        <DCCReference Include="Features\Customers\Customer.Controller.pas"/>
         <DCCReference Include="Data\Customer.Context.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
@@ -120,7 +121,7 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">DesktopModernCustomerCRUD.dpr</Source>
+                    <Source Name="MainSource">DesktopMVVMCustomerCRUD.dpr</Source>
                 </Source>
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dcloffice2k370.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -132,9 +133,9 @@
                 <Platform value="Win64">False</Platform>
             </Platforms>
             <Deployment Version="5">
-                <DeployFile LocalName="..\Output\DesktopModernCustomerCRUD.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="..\Output\DesktopMVVMCustomerCRUD.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>DesktopModernCustomerCRUD.exe</RemoteName>
+                        <RemoteName>DesktopMVVMCustomerCRUD.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

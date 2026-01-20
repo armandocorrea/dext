@@ -116,6 +116,28 @@ type
     property PropertyPath: string read FPropertyPath;
     property DisplayMember: string read FDisplayMember;
   end;
+
+  /// <summary>
+  /// Binds a Model property to a TEdit.Text with two-way binding.
+  /// </summary>
+  BindEditAttribute = class(TCustomAttribute)
+  private
+    FPropertyPath: string;
+  public
+    constructor Create(const APropertyPath: string);
+    property PropertyPath: string read FPropertyPath;
+  end;
+
+  /// <summary>
+  /// Binds a Model property to a TMemo.Lines.Text with two-way binding.
+  /// </summary>
+  BindMemoAttribute = class(TCustomAttribute)
+  private
+    FPropertyPath: string;
+  public
+    constructor Create(const APropertyPath: string);
+    property PropertyPath: string read FPropertyPath;
+  end;
   
   {$ENDREGION}
   
@@ -207,6 +229,20 @@ constructor BindItemsAttribute.Create(const APropertyPath: string; const ADispla
 begin
   FPropertyPath := APropertyPath;
   FDisplayMember := ADisplayMember;
+end;
+
+{ BindEditAttribute }
+
+constructor BindEditAttribute.Create(const APropertyPath: string);
+begin
+  FPropertyPath := APropertyPath;
+end;
+
+{ BindMemoAttribute }
+
+constructor BindMemoAttribute.Create(const APropertyPath: string);
+begin
+  FPropertyPath := APropertyPath;
 end;
 
 { OnClickMsgAttribute }

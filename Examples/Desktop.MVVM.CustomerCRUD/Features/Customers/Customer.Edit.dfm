@@ -81,7 +81,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Width = 418
       Height = 23
       TabOrder = 0
-      OnChange = NameEditChange
     end
     object EmailEdit: TEdit
       Left = 16
@@ -89,7 +88,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Width = 418
       Height = 23
       TabOrder = 1
-      OnChange = EmailEditChange
     end
     object PhoneEdit: TEdit
       Left = 16
@@ -97,7 +95,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Width = 200
       Height = 23
       TabOrder = 2
-      OnChange = PhoneEditChange
     end
     object DocumentEdit: TEdit
       Left = 234
@@ -105,7 +102,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Width = 200
       Height = 23
       TabOrder = 3
-      OnChange = DocumentEditChange
     end
     object ActiveCheckBox: TCheckBox
       Left = 16
@@ -116,7 +112,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Checked = True
       State = cbChecked
       TabOrder = 4
-      OnClick = ActiveCheckBoxClick
     end
     object NotesMemo: TMemo
       Left = 16
@@ -124,7 +119,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Width = 418
       Height = 100
       TabOrder = 5
-      OnChange = NotesMemoChange
     end
     object ErrorPanel: TPanel
       Left = 16
@@ -177,7 +171,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Font.Style = [fsBold]
       ParentFont = False
       TabOrder = 0
-      OnClick = SaveButtonClick
     end
     object CancelButton: TButton
       Left = 350
@@ -186,7 +179,6 @@ object CustomerEditFrame: TCustomerEditFrame
       Height = 30
       Caption = 'Cancel'
       TabOrder = 1
-      OnClick = CancelButtonClick
     end
   end
 end

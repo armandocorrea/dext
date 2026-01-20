@@ -1,15 +1,16 @@
-program DesktopModernCustomerCRUD;
+program DesktopMVVMCustomer;
 
 uses
   Dext.MM,
   Vcl.Forms,
-  Main.Form in 'Views\Main.Form.pas' {MainForm},
-  Customer.Entity in 'Entities\Customer.Entity.pas',
-  Customer.Service in 'Services\Customer.Service.pas',
-  Customer.ViewModel in 'ViewModels\Customer.ViewModel.pas',
-  Customer.List in 'Views\Customer.List.pas' {CustomerListFrame: TFrame},
-  Customer.Edit in 'Views\Customer.Edit.pas' {CustomerEditFrame: TFrame},
+  Main.Form in 'Features\Layout\Main.Form.pas' {MainForm},
+  Customer.Entity in 'Features\Customers\Customer.Entity.pas',
+  Customer.Service in 'Features\Customers\Customer.Service.pas',
+  Customer.ViewModel in 'Features\Customers\Customer.ViewModel.pas',
+  Customer.List in 'Features\Customers\Customer.List.pas' {CustomerListFrame: TFrame},
+  Customer.Edit in 'Features\Customers\Customer.Edit.pas' {CustomerEditFrame: TFrame},
   App.Startup in 'App\App.Startup.pas',
+  Customer.Controller in 'Features\Customers\Customer.Controller.pas',
   Vcl.Themes,
   Vcl.Styles,
   Customer.Context in 'Data\Customer.Context.pas';
@@ -27,11 +28,9 @@ begin
     Application.Title := 'Customer Management';
     TStyleManager.TrySetStyle('Windows11 Impressive Dark SE');
     Application.CreateForm(TMainForm, MainForm);
-  // Inject dependencies into MainForm
-    MainForm.InjectDependencies(
-      TAppStartup.GetCustomerService,
-      TAppStartup.GetLogger
-    );
+    
+    // Inject dependencies into MainForm
+    MainForm.InjectDependencies(TAppStartup.GetCustomerController);
     
     Application.Run;
   finally

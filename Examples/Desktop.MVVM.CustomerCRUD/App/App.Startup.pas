@@ -18,6 +18,7 @@ uses
   Dext.Entity,
   Customer.Entity,
   Customer.Service,
+  Customer.Controller,
   Customer.Context;
 
 type
@@ -38,6 +39,7 @@ type
     
     class function GetCustomerService: ICustomerService;
     class function GetLogger: ILogger;
+    class function GetCustomerController: ICustomerController;
   end;
 
 implementation
@@ -68,8 +70,10 @@ begin
   FServices.AddDbContext<TCustomerContext>(FConfig.GetSection('Database'));
   
   // Register Customer Service
-  // Using auto-injection via [ServiceConstructor]
   FServices.AddSingleton<ICustomerService, TCustomerService>;
+  
+  // Register Controller
+  FServices.AddTransient<ICustomerController, TCustomerController>;
   
   // Build provider
   FProvider := FServices.BuildServiceProvider;
@@ -132,6 +136,11 @@ end;
 class function TAppStartup.GetLogger: ILogger;
 begin
   Result := FLogger;
+end;
+
+class function TAppStartup.GetCustomerController: ICustomerController;
+begin
+  Result := TServiceProviderExtensions.GetService<ICustomerController>(FProvider);
 end;
 
 end.

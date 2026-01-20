@@ -118,7 +118,7 @@ function TCustomerService.Search(const Term: string): IList<TCustomer>;
 begin
   // Using Smart Properties for type-safe query
   Result := FContext.Customers.Where(
-    function(C: TCustomer): BooleanExpression
+    function(C: TCustomer): BoolExpr
     begin
       Result := (C.Name.Contains(Term)) or (C.Email.Contains(Term));
     end
