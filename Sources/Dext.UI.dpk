@@ -31,14 +31,20 @@ package Dext.UI;
 
 requires
   rtl,
-  vcl;
+  vcl,
+  Dext.Core;
 
 contains
-  Dext.UI in 'UI\Dext.UI.pas',
   Dext.UI.Attributes in 'UI\Dext.UI.Attributes.pas',
   Dext.UI.Binder in 'UI\Dext.UI.Binder.pas',
   Dext.UI.Message in 'UI\Dext.UI.Message.pas',
   Dext.UI.Module in 'UI\Dext.UI.Module.pas',
+  Dext.UI.Navigator.Adapters in 'UI\Dext.UI.Navigator.Adapters.pas',
+  Dext.UI.Navigator.Interfaces in 'UI\Dext.UI.Navigator.Interfaces.pas',
+  Dext.UI.Navigator.Middlewares in 'UI\Dext.UI.Navigator.Middlewares.pas',
+  Dext.UI.Navigator in 'UI\Dext.UI.Navigator.pas',
+  Dext.UI.Navigator.Types in 'UI\Dext.UI.Navigator.Types.pas',
+  Dext.UI in 'UI\Dext.UI.pas',
   Dext.UI.State in 'UI\Dext.UI.State.pas';
 
 end.

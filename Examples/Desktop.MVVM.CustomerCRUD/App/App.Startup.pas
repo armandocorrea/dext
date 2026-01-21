@@ -16,6 +16,8 @@ uses
   Dext.Configuration.Interfaces,
   Dext.Configuration.Yaml,
   Dext.Entity,
+  Dext.UI.Navigator.Interfaces,
+  Dext.UI.Navigator,
   Customer.Entity,
   Customer.Service,
   Customer.Controller,
@@ -31,6 +33,7 @@ type
     class var FProvider: IServiceProvider;
     class var FLogger: ILogger;
     class var FConfig: IConfiguration;
+    class var FNavigator: INavigator;
     
     class procedure SeedDemoData;
   public
@@ -40,6 +43,7 @@ type
     class function GetCustomerService: ICustomerService;
     class function GetLogger: ILogger;
     class function GetCustomerController: ICustomerController;
+    class function GetNavigator: INavigator;
   end;
 
 implementation
@@ -48,7 +52,6 @@ implementation
 
 class procedure TAppStartup.Configure;
 begin
-  // Load Configuration from YAML
   // Load Configuration from YAML with in-memory defaults
   FConfig := TYamlConfigurationBuilder.Create
     .AddValues([
@@ -78,7 +81,10 @@ begin
   // Build provider
   FProvider := FServices.BuildServiceProvider;
   
-  FLogger.Info('Application configured successfully (YAML + DB)');
+  // Create Navigator singleton (configured in MainForm)
+  FNavigator := TNavigator.Create(FProvider);
+  
+  FLogger.Info('Application configured successfully (YAML + DB + Navigator)');
   
   // Seed demo data
   SeedDemoData;
@@ -124,6 +130,7 @@ end;
 class procedure TAppStartup.Shutdown;
 begin
   FLogger.Info('Application shutting down');
+  FNavigator := nil;
   FProvider := nil;
   FServices := Default(TDextServices);
 end;
@@ -141,6 +148,11 @@ end;
 class function TAppStartup.GetCustomerController: ICustomerController;
 begin
   Result := TServiceProviderExtensions.GetService<ICustomerController>(FProvider);
+end;
+
+class function TAppStartup.GetNavigator: INavigator;
+begin
+  Result := FNavigator;
 end;
 
 end.

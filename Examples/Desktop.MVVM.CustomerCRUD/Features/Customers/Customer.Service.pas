@@ -20,6 +20,7 @@ uses
   Customer.Context;
 
 type
+  {$M+}
   /// <summary>
   /// Service interface for Customer operations
   /// </summary>
@@ -32,7 +33,8 @@ type
     function Search(const Term: string): IList<TCustomer>;
     function Count: Integer;
   end;
-  
+  {$M-}
+
   /// <summary>
   /// Modernized customer service using Dext ORM
   /// </summary>

@@ -13,7 +13,8 @@ uses
   Customer.Controller in 'Features\Customers\Customer.Controller.pas',
   Vcl.Themes,
   Vcl.Styles,
-  Customer.Context in 'Data\Customer.Context.pas';
+  Customer.Context in 'Data\Customer.Context.pas',
+  Customer.Rules in 'Features\Customers\Customer.Rules.pas';
 
 {$R *.res}
 
@@ -28,8 +29,7 @@ begin
     Application.Title := 'Customer Management';
     TStyleManager.TrySetStyle('Windows11 Impressive Dark SE');
     Application.CreateForm(TMainForm, MainForm);
-    
-    // Inject dependencies into MainForm
+  // Inject controller (Navigator is created internally by MainForm)
     MainForm.InjectDependencies(TAppStartup.GetCustomerController);
     
     Application.Run;

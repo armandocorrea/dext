@@ -45,7 +45,7 @@ type
     Critical = 5,
     None = 6
   );
-
+{$M+}
   /// <summary>
   ///   Represents a type used to perform logging.
   /// </summary>
@@ -116,6 +116,7 @@ type
     function CreateLogger(const ACategoryName: string): ILogger;
     procedure AddProvider(const AProvider: ILoggerProvider);
   end;
+{$M-}
 
   /// <summary>
   ///   Base class for ILogger implementations.

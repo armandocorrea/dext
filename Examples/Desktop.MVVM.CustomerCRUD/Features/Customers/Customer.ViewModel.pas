@@ -7,8 +7,8 @@ uses
   System.Classes,
   Dext,
   Dext.Collections,
-  Dext.Validation,
-  Customer.Entity;
+  Customer.Entity,
+  Customer.Rules;
 
 type
   /// <summary>
@@ -99,18 +99,13 @@ end;
 
 function TCustomerViewModel.Validate: Boolean;
 var
-  ValRes: TValidationResult;
-  Error: TValidationError;
+  ErrorArray: TArray<string>;
+  S: string;
 begin
   FErrors.Clear;
-  ValRes := TValidator.Validate(FCustomer);
-  try
-    for Error in ValRes.Errors do
-      FErrors.Add(Error.ErrorMessage);
-  finally
-    ValRes.Free;
-  end;
-  Result := FErrors.Count = 0;
+  Result := TCustomerRules.ValidateAll(FCustomer, ErrorArray);
+  for S in ErrorArray do
+    FErrors.Add(S);
 end;
 
 function TCustomerViewModel.GetEntity: TCustomer;

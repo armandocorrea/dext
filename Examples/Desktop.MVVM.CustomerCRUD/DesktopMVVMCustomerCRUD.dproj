@@ -103,6 +103,7 @@
         <DCCReference Include="App\App.Startup.pas"/>
         <DCCReference Include="Features\Customers\Customer.Controller.pas"/>
         <DCCReference Include="Data\Customer.Context.pas"/>
+        <DCCReference Include="Features\Customers\Customer.Rules.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

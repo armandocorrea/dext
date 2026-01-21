@@ -12,6 +12,7 @@ uses
   Customer.ViewModel;
 
 type
+{$M+}
   /// <summary>
   /// View interface for Customer management.
   /// Used by the Controller to update the UI without direct coupling.
@@ -40,6 +41,7 @@ type
     function GetView: ICustomerView;
     property View: ICustomerView read GetView write SetView;
   end;
+{$M-}
 
   /// <summary>
   /// Controller for Customer management.

@@ -105,7 +105,23 @@ The definitive, modern testing framework for Delphi, inspired by NUnit, FluentAs
 - **Live Dashboard** ⭐ NEW: Monitor your tests in real-time with a beautiful dark-themed web dashboard and historical analysis.
 - **Code Coverage & CLI**: Run tests and generate SonarQube-ready coverage reports with `dext test --coverage`. Enforce quality gates with thresholds.
 
+### 🖥️ Dext.UI (Desktop Framework) ⭐ NEW
+A modern UI framework for building professional VCL desktop applications.
+- **Navigator Framework**: Flutter-inspired navigation with middleware pipeline support.
+  - Push/Pop/Replace navigation patterns
+  - Middleware support (Logging, Auth guards, Role checks)
+  - Pluggable adapters (Container, PageControl, MDI)
+  - `INavigationAware` lifecycle hooks (`OnNavigatedTo`, `OnNavigatedFrom`)
+- **Magic Binding**: Automatic two-way binding via attributes.
+  - `[BindEdit]`, `[BindText]`, `[BindCheckBox]` for property sync
+  - `[OnClickMsg]` for message-based event dispatch
+- **MVVM Patterns**: Clean architecture for desktop apps.
+  - ViewModel pattern with validation
+  - Controller pattern for orchestration
+  - View interfaces for decoupling
+
 ---
+
 
 ## 📚 Documentation Index
 
@@ -342,6 +358,7 @@ The repository contains practical example projects:
 - **`Examples/Web.DatabaseAsApi`**: Demonstrates Database as API feature - zero-code REST endpoints from entities.
 - **`Examples/Web.SmartPropsDemo`**: Demonstrates usage of Smart Properties with Model Binding and ORM persistence.
 - **`Examples/Hubs/HubsExample`** ⭐ NEW: Real-time communication demo with groups, messaging, and server-time broadcast. [Read the Guide](Examples/Hubs/README.md).
+- **`Examples/Desktop.MVVM.CustomerCRUD`** ⭐ NEW: Modern Desktop MVVM pattern with Navigator, DI, and unit testing. [Read the Guide](Examples/Desktop.MVVM.CustomerCRUD/README.md).
 
 
 ---
