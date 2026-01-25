@@ -10,6 +10,7 @@ uses
   Dext.Vcl.Helpers in 'Lib\Dext.Vcl.Helpers.pas',
   Dext.Classes in 'Lib\Dext.Classes.pas',
   Dext.Services.FileWatcher in 'Dext.Services.FileWatcher.pas',
+  Dext.Dashboard.Routes in '..\..\Sources\Dashboard\Dext.Dashboard.Routes.pas',
   Dext.Sidecar.Server in 'Dext.Sidecar.Server.pas',
   Vcl.Themes,
   Vcl.Styles;

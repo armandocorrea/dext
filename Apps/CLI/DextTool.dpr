@@ -22,6 +22,7 @@ uses
   Dext.Hosting.CLI.Commands.MigrateUp in 'Commands\Dext.Hosting.CLI.Commands.MigrateUp.pas',
   Dext.Hosting.CLI.Commands.Scaffold in 'Commands\Dext.Hosting.CLI.Commands.Scaffold.pas',
   Dext.Hosting.CLI.Commands.Test in 'Commands\Dext.Hosting.CLI.Commands.Test.pas',
+  Dext.Dashboard.Routes in '..\..\Sources\Dashboard\Dext.Dashboard.Routes.pas',
   Dext.Hosting.CLI.Commands.UI in 'Commands\Dext.Hosting.CLI.Commands.UI.pas',
   Dext.Hosting.CLI.Tools.DocGen in 'Tools\Dext.Hosting.CLI.Tools.DocGen.pas',
   Dext.Hosting.CLI.Hubs.Dashboard in 'Hubs\Dext.Hosting.CLI.Hubs.Dashboard.pas';
