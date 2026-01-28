@@ -25,7 +25,9 @@ uses
   Dext.Dashboard.Routes in '..\..\Sources\Dashboard\Dext.Dashboard.Routes.pas',
   Dext.Hosting.CLI.Commands.UI in 'Commands\Dext.Hosting.CLI.Commands.UI.pas',
   Dext.Hosting.CLI.Tools.DocGen in 'Tools\Dext.Hosting.CLI.Tools.DocGen.pas',
-  Dext.Hosting.CLI.Hubs.Dashboard in 'Hubs\Dext.Hosting.CLI.Hubs.Dashboard.pas';
+  Dext.Hosting.CLI.Hubs.Dashboard in 'Hubs\Dext.Hosting.CLI.Hubs.Dashboard.pas',
+  Dext.Dashboard.TestScanner in '..\..\Sources\Dashboard\Dext.Dashboard.TestScanner.pas',
+  Dext.Dashboard.TestRunner in '..\..\Sources\Dashboard\Dext.Dashboard.TestRunner.pas';
 
 function CreateDbContext: IDbContext;
 var
