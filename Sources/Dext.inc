@@ -43,7 +43,7 @@
 // ---------------------------------------------------------------------------
 // Standard Drivers
 {$DEFINE DEXT_ENABLE_DB_SQLITE}
-{$DEFINE DEXT_ENABLE_DB_POSTGRES}
+{.$DEFINE DEXT_ENABLE_DB_POSTGRES}
 {.$DEFINE DEXT_ENABLE_DB_MYSQL}
 {.$DEFINE DEXT_ENABLE_DB_MSSQL}
 {.$DEFINE DEXT_ENABLE_DB_ORACLE}
