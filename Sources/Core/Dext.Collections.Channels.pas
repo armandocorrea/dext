@@ -5,7 +5,6 @@ interface
 uses
   System.SysUtils,
   System.SyncObjs,
-
   System.TypInfo,
   Dext.Collections.Memory;
 

@@ -687,7 +687,7 @@ begin
       RelatedIds.Add(V);
     end;
       
-    if (RelatedIds.GetCount = 0) then
+    if (RelatedIds.Count = 0) then
     begin
        // Initialize empty list to avoid returning nil to the property
        if (not UseExistingInterface) and (ListObj = nil) and (not FValue.IsEmpty) then
@@ -722,9 +722,9 @@ begin
     
     // Load related objects
     RelatedDbSet := TDbContext(FContext).DataSet(ItemType.Handle);
-    
-    SetLength(IdValues, RelatedIds.GetCount);
-    for var i := 0 to RelatedIds.GetCount - 1 do
+
+    SetLength(IdValues, RelatedIds.Count);
+    for var i := 0 to RelatedIds.Count - 1 do
       IdValues[i] := RelatedIds[i].AsVariant;
     
     PropHelper := TPropExpression.Create('Id');

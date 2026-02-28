@@ -131,6 +131,7 @@ var
   Res: TBenchResult;
   Diff: Double;
   CurrentCat: string;
+  HasBottlenecks: Boolean;
 begin
   // Sort by Category to group properly
   FResults.Sort(TComparer<TBenchResult>.Construct(
@@ -154,16 +155,41 @@ begin
     Lines.Add('# Performance Results');
     Lines.Add(Format('Generated on: %s', [DateTimeToStr(Now)]));
 
+    // Section 1: Bottlenecks (> 100%) - Grouped for focused analysis
+    HasBottlenecks := False;
+    for Res in FResults do
+    begin
+      if (Res.RTL_ms > 0) and ((Res.Dext_ms / Res.RTL_ms) * 100 > 100) then
+      begin
+        HasBottlenecks := True;
+        Break;
+      end;
+    end;
+
+    if HasBottlenecks then
+    begin
+      Lines.Add('');
+      Lines.Add('## Bottlenecks (> 100%)');
+      Lines.Add('');
+      Lines.Add('| Category | Scenario | Type | Size | RTL (ms) | Dext (ms) | Ratio % | Status |');
+      Lines.Add('| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |');
+      for Res in FResults do
+      begin
+        Diff := 0;
+        if Res.RTL_ms > 0 then Diff := (Res.Dext_ms / Res.RTL_ms) * 100;
+
+        if Diff > 100 then
+          Lines.Add(Format('| %s | **%s** | **`%s`** | %d | %.4f | %.4f | **%.1f%%** | 🔴 Needs Optimization |',
+            [Res.Category, Res.Scenario, Res.DataType, Res.Size, Res.RTL_ms, Res.Dext_ms, Diff]));
+      end;
+    end;
+
+    // Section 2: Full Results
     CurrentCat := '';
     for Res in FResults do
     begin
       if Res.Category <> CurrentCat then
       begin
-        if CurrentCat <> '' then
-        begin
-          Lines.Add(''); // End previous table/section
-        end;
-        
         CurrentCat := Res.Category;
         Lines.Add('');
         Lines.Add('## ' + CurrentCat);
@@ -172,15 +198,17 @@ begin
         Lines.Add('| :--- | :--- | :--- | :--- | :--- | :--- |');
       end;
 
-      if Res.RTL_ms > 0 then
-        Diff := (Res.Dext_ms / Res.RTL_ms) * 100
-      else
-        Diff := 0;
+      Diff := 0;
+      if Res.RTL_ms > 0 then Diff := (Res.Dext_ms / Res.RTL_ms) * 100;
 
-      Lines.Add(Format('| %s | %s | %d | %.4f | %.4f | %.1f%% |',
-        [Res.Scenario, Res.DataType, Res.Size, Res.RTL_ms, Res.Dext_ms, Diff]));
+      if Diff > 100 then
+        Lines.Add(Format('| **%s** | **`%s`** | %d | %.4f | %.4f | **%.1f%%** |',
+          [Res.Scenario, Res.DataType, Res.Size, Res.RTL_ms, Res.Dext_ms, Diff]))
+      else
+        Lines.Add(Format('| %s | `%s` | %d | %.4f | %.4f | %.1f%% |',
+          [Res.Scenario, Res.DataType, Res.Size, Res.RTL_ms, Res.Dext_ms, Diff]));
     end;
-    Lines.Add(''); // Final table closing break
+    Lines.Add('');
 
     Lines.SaveToFile(AFilename);
   finally

@@ -23,15 +23,15 @@ implementation
 
 class procedure TDextBench.RunInteger(Bench: TBenchmark; Size: Integer);
 var
-  List: IList<Integer>;
-  Dict: IDictionary<Integer, string>;
+  List: TList<Integer>;
+  Dict: TDictionary<Integer, string>;
   I, Val: Integer;
   S: string;
   Stop: TStopwatch;
 begin
   Bench.StartScenario('List', 'Add/Populate', 'Integer', Size);
   Stop := TStopwatch.StartNew;
-  List := TCollections.CreateList<Integer>;
+  List := TList<Integer>.Create(False);
   try
     for I := 1 to Size do List.Add(I);
     Stop.Stop;
@@ -57,7 +57,7 @@ begin
 
     Bench.StartScenario('Dictionary', 'Add', 'Integer', Size);
     Stop := TStopwatch.StartNew;
-    Dict := TCollections.CreateDictionary<Integer, string>;
+    Dict := TDictionary<Integer, string>.Create(Size);
     try
       for I := 1 to Size do Dict.Add(I, 'val' + IntToStr(I));
       Stop.Stop;
@@ -85,14 +85,14 @@ end;
 
 class procedure TDextBench.RunString(Bench: TBenchmark; Size: Integer);
 var
-  List: IList<string>;
+  List: TList<string>;
   I: Integer;
   Val: string;
   Stop: TStopwatch;
 begin
   Bench.StartScenario('List', 'Add/Populate', 'String', Size);
   Stop := TStopwatch.StartNew;
-  List := TCollections.CreateList<string>;
+  List := TList<string>.Create(False);
   try
     for I := 1 to Size do List.Add('Value' + IntToStr(I));
     Stop.Stop;
@@ -122,14 +122,14 @@ end;
 
 class procedure TDextBench.RunRecordSmall(Bench: TBenchmark; Size: Integer);
 var
-  List: IList<TTestRecordSmall>;
+  List: TList<TTestRecordSmall>;
   I: Integer;
   R: TTestRecordSmall;
   Stop: TStopwatch;
 begin
   Bench.StartScenario('List', 'Add/Populate', 'RecordSmall', Size);
   Stop := TStopwatch.StartNew;
-  List := TCollections.CreateList<TTestRecordSmall>;
+  List := TList<TTestRecordSmall>.Create(False);
   try
     for I := 1 to Size do
     begin
@@ -153,14 +153,14 @@ end;
 
 class procedure TDextBench.RunObject(Bench: TBenchmark; Size: Integer);
 var
-  List: IList<TTestObject>;
+  List: TList<TTestObject>;
   I: Integer;
   Obj: TTestObject;
   Stop: TStopwatch;
 begin
   Bench.StartScenario('List', 'Add/Populate', 'Object', Size);
   Stop := TStopwatch.StartNew;
-  List := TCollections.CreateObjectList<TTestObject>(True);
+  List := TList<TTestObject>.Create(True);
   try
     for I := 1 to Size do
     begin
@@ -184,14 +184,14 @@ end;
 
 class procedure TDextBench.RunCurrency(Bench: TBenchmark; Size: Integer);
 var
-  List: IList<Currency>;
+  List: TList<Currency>;
   I: Integer;
   Val: Currency;
   Stop: TStopwatch;
 begin
   Bench.StartScenario('List', 'Add/Populate', 'Currency', Size);
   Stop := TStopwatch.StartNew;
-  List := TCollections.CreateList<Currency>;
+  List := TList<Currency>.Create(False);
   try
     for I := 1 to Size do List.Add(I * 1.5);
     Stop.Stop;
@@ -209,14 +209,14 @@ end;
 
 class procedure TDextBench.RunPointer(Bench: TBenchmark; Size: Integer);
 var
-  List: IList<Pointer>;
+  List: TList<Pointer>;
   I: Integer;
   P: Pointer;
   Stop: TStopwatch;
 begin
   Bench.StartScenario('List', 'Add/Populate', 'Pointer', Size);
   Stop := TStopwatch.StartNew;
-  List := TCollections.CreateList<Pointer>;
+  List := TList<Pointer>.Create(False);
   try
     for I := 1 to Size do List.Add(Pointer(I));
     Stop.Stop;

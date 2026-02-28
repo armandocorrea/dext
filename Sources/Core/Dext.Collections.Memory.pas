@@ -105,8 +105,6 @@ begin
       Result := True;
 
     tkRecord{$IF Declared(tkMRecord)}, tkMRecord{$IFEND}:
-      // Records may or may not contain managed fields.
-      // We use the RTL intrinsic to detect this.
       Result := System.HasWeakRef(ATypeInfo) or
                 (GetTypeData(ATypeInfo).ManagedFldCount > 0);
   else
@@ -120,17 +118,12 @@ begin
   if (Count <= 0) or (Dest = nil) then
     Exit;
 
-  if IsManagedType(ATypeInfo) then
+  // Faster check: if ATypeInfo is nil, it's definitely not managed
+  if (ATypeInfo <> nil) and IsManagedType(ATypeInfo) then
   begin
-    // Zero-fill first, then let InitializeArray set up managed fields
     FillChar(Dest^, Count * ElementSize, 0);
-    // InitializeArray handles strings, interfaces, dynamic arrays etc.
-    // For records with managed fields, it recursively initializes them.
     {$IF CompilerVersion >= 35.0}  // Delphi 11+
     System.InitializeArray(Dest, ATypeInfo, Count);
-    {$ELSE}
-    // Older compilers: just zero-fill is sufficient for initialization
-    // since all managed types start as nil/empty when zeroed
     {$IFEND}
   end
   else
@@ -140,12 +133,11 @@ end;
 procedure RawFinalize(Dest: Pointer; Count: NativeInt;
   ElementSize: NativeInt; ATypeInfo: PTypeInfo);
 begin
-  if (Count <= 0) or (Dest = nil) then
+  if (Count <= 0) or (Dest = nil) or (ATypeInfo = nil) then
     Exit;
 
   if IsManagedType(ATypeInfo) then
     System.FinalizeArray(Dest, ATypeInfo, Count);
-  // For unmanaged types: no-op (no resources to release)
 end;
 
 procedure RawCopy(Dest, Source: Pointer; Count: NativeInt;
@@ -183,12 +175,8 @@ begin
 
   TotalSize := Count * ElementSize;
 
-  if IsManagedType(ATypeInfo) then
+  if (ATypeInfo <> nil) and IsManagedType(ATypeInfo) then
   begin
-    // For managed types, we must be careful:
-    // 1. Finalize the destination (release existing refs)
-    // 2. Move the raw bytes (transfers ownership)
-    // 3. Zero the source (so finalizing source won't double-free)
     System.FinalizeArray(Dest, ATypeInfo, Count);
     System.Move(Source^, Dest^, TotalSize);
     FillChar(Source^, TotalSize, 0);

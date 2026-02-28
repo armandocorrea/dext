@@ -33,6 +33,15 @@
         <Projects Include="..\Apps\Sidecar\DextSidecar.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="..\Tests\Collections\TestCollections.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\Benchmarks\CollectionsPerformance\Benchmarks.Performance.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\Benchmarks\GenericsScalability\Benchmark.GenericsScalability.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -131,14 +140,41 @@
     <Target Name="DextSidecar:Make">
         <MSBuild Projects="..\Apps\Sidecar\DextSidecar.dproj" Targets="Make"/>
     </Target>
+    <Target Name="TestCollections">
+        <MSBuild Projects="..\Tests\Collections\TestCollections.dproj"/>
+    </Target>
+    <Target Name="TestCollections:Clean">
+        <MSBuild Projects="..\Tests\Collections\TestCollections.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TestCollections:Make">
+        <MSBuild Projects="..\Tests\Collections\TestCollections.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Benchmarks_Performance">
+        <MSBuild Projects="..\Benchmarks\CollectionsPerformance\Benchmarks.Performance.dproj"/>
+    </Target>
+    <Target Name="Benchmarks_Performance:Clean">
+        <MSBuild Projects="..\Benchmarks\CollectionsPerformance\Benchmarks.Performance.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Benchmarks_Performance:Make">
+        <MSBuild Projects="..\Benchmarks\CollectionsPerformance\Benchmarks.Performance.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Benchmark_GenericsScalability">
+        <MSBuild Projects="..\Benchmarks\GenericsScalability\Benchmark.GenericsScalability.dproj"/>
+    </Target>
+    <Target Name="Benchmark_GenericsScalability:Clean">
+        <MSBuild Projects="..\Benchmarks\GenericsScalability\Benchmark.GenericsScalability.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Benchmark_GenericsScalability:Make">
+        <MSBuild Projects="..\Benchmarks\GenericsScalability\Benchmark.GenericsScalability.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Testing;Dext_Web_Hubs;Dext_Net;Dext_Hosting;Dext_UI;DextTool;DextSidecar"/>
+        <CallTarget Targets="Dext_Core;Dext_EF_Core;Dext_Web_Core;Dext_Testing;Dext_Web_Hubs;Dext_Net;Dext_Hosting;Dext_UI;DextTool;DextSidecar;TestCollections;Benchmarks_Performance;Benchmark_GenericsScalability"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Testing:Clean;Dext_Web_Hubs:Clean;Dext_Net:Clean;Dext_Hosting:Clean;Dext_UI:Clean;DextTool:Clean;DextSidecar:Clean"/>
+        <CallTarget Targets="Dext_Core:Clean;Dext_EF_Core:Clean;Dext_Web_Core:Clean;Dext_Testing:Clean;Dext_Web_Hubs:Clean;Dext_Net:Clean;Dext_Hosting:Clean;Dext_UI:Clean;DextTool:Clean;DextSidecar:Clean;TestCollections:Clean;Benchmarks_Performance:Clean;Benchmark_GenericsScalability:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Testing:Make;Dext_Web_Hubs:Make;Dext_Net:Make;Dext_Hosting:Make;Dext_UI:Make;DextTool:Make;DextSidecar:Make"/>
+        <CallTarget Targets="Dext_Core:Make;Dext_EF_Core:Make;Dext_Web_Core:Make;Dext_Testing:Make;Dext_Web_Hubs:Make;Dext_Net:Make;Dext_Hosting:Make;Dext_UI:Make;DextTool:Make;DextSidecar:Make;TestCollections:Make;Benchmarks_Performance:Make;Benchmark_GenericsScalability:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

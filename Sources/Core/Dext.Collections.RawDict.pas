@@ -72,11 +72,15 @@ type
     FValueIsManaged: Boolean;
     FHashFunc: TRawHashFunc;
     FEqualFunc: TRawEqualFunc;
+    function GetCount: Integer; inline;
+    function GetCapacity: Integer; inline;
+    function GetKeySize: Integer; inline;
+    function GetValueSize: Integer; inline;
 
     function GetSlotPtr(Index: Integer): Pointer; inline;
     function GetKeyPtr(SlotPtr: Pointer): Pointer; inline;
     function GetValuePtr(SlotPtr: Pointer): Pointer; inline;
-    function FindSlot(Key: Pointer; out SlotIndex: Integer): Boolean;
+    function FindSlot(Key: Pointer; out SlotIndex: Integer): Boolean; inline;
     procedure Grow;
     procedure Rehash(NewCapacity: Integer);
     procedure FreeSlotContent(SlotPtr: Pointer);
@@ -94,7 +98,7 @@ type
     procedure AddRaw(Key, Value: Pointer);
 
     /// <summary>Tries to get the value for a key. Returns pointer to value storage or nil</summary>
-    function TryGetRaw(Key: Pointer; out ValuePtr: Pointer): Boolean;
+    function TryGetRaw(Key: Pointer; out ValuePtr: Pointer): Boolean; inline;
 
     /// <summary>Returns True if the key exists</summary>
     function ContainsKeyRaw(Key: Pointer): Boolean;
@@ -115,10 +119,10 @@ type
     function GetKeyPtrAtIndex(Index: Integer): Pointer; inline;
     function GetValuePtrAtIndex(Index: Integer): Pointer; inline;
 
-    property Count: Integer read FCount;
-    property Capacity: Integer read FCapacity;
-    property KeySize: Integer read FKeySize;
-    property ValueSize: Integer read FValueSize;
+    property Count: Integer read GetCount;
+    property Capacity: Integer read GetCapacity;
+    property KeySize: Integer read GetKeySize;
+    property ValueSize: Integer read GetValueSize;
   end;
 
 /// <summary>Default hash function using BobJenkins one-at-a-time</summary>
@@ -223,6 +227,26 @@ end;
 
 { TRawDictionary }
 
+function TRawDictionary.GetCapacity: Integer;
+begin
+  Result := FCapacity;
+end;
+
+function TRawDictionary.GetCount: Integer;
+begin
+  Result := FCount;
+end;
+
+function TRawDictionary.GetKeySize: Integer;
+begin
+  Result := FKeySize;
+end;
+
+function TRawDictionary.GetValueSize: Integer;
+begin
+  Result := FValueSize;
+end;
+
 constructor TRawDictionary.Create(AKeySize, AValueSize: Integer;
   AKeyTypeInfo, AValueTypeInfo: PTypeInfo;
   AHashFunc: TRawHashFunc; AEqualFunc: TRawEqualFunc;
@@ -298,9 +322,9 @@ end;
 procedure TRawDictionary.FreeSlotContent(SlotPtr: Pointer);
 begin
   if FKeyIsManaged then
-    RawFinalizeElement(GetKeyPtr(SlotPtr), FKeySize, FKeyTypeInfo);
+    System.FinalizeArray(SlotPtr, FKeyTypeInfo, 1);
   if FValueIsManaged then
-    RawFinalizeElement(GetValuePtr(SlotPtr), FValueSize, FValueTypeInfo);
+    System.FinalizeArray(Pointer(NativeUInt(SlotPtr) + NativeUInt(FKeySize)), FValueTypeInfo, 1);
   FillChar(SlotPtr^, FSlotSize, 0);
 end;
 
@@ -311,9 +335,10 @@ var
   Idx: Integer;
   FirstTombstone: Integer;
   MetaPtr: PByte;
-  Meta: Byte;
+  Meta, H2: Byte;
 begin
   Hash := FHashFunc(Key, FKeySize);
+  H2 := Byte(Hash shr 24) or $80; // H2 Metadata: store high bits of hash
   Mask := FCapacity - 1;
   Idx := Integer(Hash and Cardinal(Mask));
   FirstTombstone := -1;
@@ -335,14 +360,18 @@ begin
       if FirstTombstone < 0 then
         FirstTombstone := Idx;
     end
-    else // SLOT_OCCUPIED
+    else // SLOT_OCCUPIED (or H2 bit set)
     begin
-      // Direct pointer access to avoid GetSlotPtr call overhead
-      if FEqualFunc(Pointer(NativeUInt(FSlots) + NativeUInt(Idx * FSlotSize)), Key, FKeySize) then
+      // H2 Metadata Optimization: Only run FEqualFunc if Hash fragments match
+      // For very small dictionaries, skip H2 check to save instructions (H1 collisions are rare)
+      if (FCapacity < 256) or (Meta = H2) then
       begin
-        SlotIndex := Idx;
-        Result := True;
-        Exit;
+        if FEqualFunc(Pointer(NativeUInt(FSlots) + NativeUInt(Idx * FSlotSize)), Key, FKeySize) then
+        begin
+          SlotIndex := Idx;
+          Result := True;
+          Exit;
+        end;
       end;
     end;
 
@@ -438,15 +467,27 @@ begin
   begin
     // Update existing value
     if FValueIsManaged then
-      RawFinalizeElement(GetValuePtr(SlotPtr), FValueSize, FValueTypeInfo);
-    RawCopyElement(GetValuePtr(SlotPtr), Value, FValueSize, FValueTypeInfo);
+    begin
+      System.FinalizeArray(GetValuePtr(SlotPtr), FValueTypeInfo, 1);
+      System.CopyArray(GetValuePtr(SlotPtr), Value, FValueTypeInfo, 1);
+    end
+    else
+      System.Move(Value^, GetValuePtr(SlotPtr)^, FValueSize);
   end
   else
   begin
     // Insert new entry
-    RawCopyElement(GetKeyPtr(SlotPtr), Key, FKeySize, FKeyTypeInfo);
-    RawCopyElement(GetValuePtr(SlotPtr), Value, FValueSize, FValueTypeInfo);
-    PByte(NativeUInt(FMetadata) + NativeUInt(SlotIndex))^ := SLOT_OCCUPIED;
+    if FKeyIsManaged then
+      System.CopyArray(SlotPtr, Key, FKeyTypeInfo, 1)
+    else
+      System.Move(Key^, SlotPtr^, FKeySize);
+
+    if FValueIsManaged then
+      System.CopyArray(GetValuePtr(SlotPtr), Value, FValueTypeInfo, 1)
+    else
+      System.Move(Value^, GetValuePtr(SlotPtr)^, FValueSize);
+
+    PByte(NativeUInt(FMetadata) + NativeUInt(SlotIndex))^ := Byte(FHashFunc(Key, FKeySize) shr 24) or $80;
     Inc(FCount);
   end;
 end;
@@ -466,9 +507,18 @@ begin
     raise Exception.Create('An item with the same key has already been added.');
 
   SlotPtr := GetSlotPtr(SlotIndex);
-  RawCopyElement(GetKeyPtr(SlotPtr), Key, FKeySize, FKeyTypeInfo);
-  RawCopyElement(GetValuePtr(SlotPtr), Value, FValueSize, FValueTypeInfo);
-  PByte(NativeUInt(FMetadata) + NativeUInt(SlotIndex))^ := SLOT_OCCUPIED;
+
+  if FKeyIsManaged then
+    System.CopyArray(SlotPtr, Key, FKeyTypeInfo, 1)
+  else
+    System.Move(Key^, SlotPtr^, FKeySize);
+
+  if FValueIsManaged then
+    System.CopyArray(GetValuePtr(SlotPtr), Value, FValueTypeInfo, 1)
+  else
+    System.Move(Value^, GetValuePtr(SlotPtr)^, FValueSize);
+
+  PByte(NativeUInt(FMetadata) + NativeUInt(SlotIndex))^ := Byte(FHashFunc(Key, FKeySize) shr 24) or $80;
   Inc(FCount);
 end;
 

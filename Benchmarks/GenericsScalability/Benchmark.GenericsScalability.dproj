@@ -3,7 +3,7 @@
         <ProjectGuid>{B7E3F2A1-9C4D-4E5F-8A6B-1D2E3F4A5B6C}</ProjectGuid>
         <MainSource>Benchmark.GenericsScalability.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <ProjectName Condition="'$(ProjectName)'==''">Benchmark.GenericsScalability</ProjectName>
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Console</AppType>

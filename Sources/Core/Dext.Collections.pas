@@ -44,7 +44,7 @@ type
   TCollectionNotification = (cnAdded, cnRemoved, cnExtracted);
   
   {$M+}
-  IList<T> = interface(IEnumerable<T>)
+  IList<T> = interface(Dext.Collections.Base.IEnumerable<T>)
     ['{8877539D-3522-488B-933B-8C4581177699}']
     function GetCount: Integer;
     function GetItem(Index: Integer): T;
@@ -105,7 +105,7 @@ type
   end;
 
   /// <summary>Generic Queue (FIFO) interface</summary>
-  IQueue<T> = interface(IEnumerable<T>)
+  IQueue<T> = interface(Dext.Collections.Base.IEnumerable<T>)
     ['{AD1F2E3D-4C5B-6A7B-8C9D-0E1F2A3B4C5D}']
     function GetCount: Integer;
     procedure Enqueue(const Value: T);
@@ -120,7 +120,7 @@ type
   end;
 
   /// <summary>Generic HashSet interface</summary>
-  IHashSet<T> = interface(IEnumerable<T>)
+  IHashSet<T> = interface(Dext.Collections.Base.IEnumerable<T>)
     ['{6B7C8D9E-0F1A-2B3C-4D5E-6F7A8B9C0D1E}']
     function GetCount: Integer;
     function Add(const Value: T): Boolean;
@@ -140,14 +140,13 @@ type
     FCurrent: PByte;
     FEndPtr: PByte;
   public
-    constructor Create(ACore: TRawList);
     function MoveNext: Boolean; inline;
     function GetCurrent: T; inline;
     property Current: T read GetCurrent;
   end;
 
   /// <summary>Enumerator class for interface-based access (legacy/compatibility)</summary>
-  TEnumerator<T> = class(TInterfacedObject, IEnumerator<T>)
+  TEnumerator<T> = class(TInterfacedObject, Dext.Collections.Base.IEnumerator<T>)
   private
     FCore: TRawList;
     FIndex: Integer;
@@ -159,27 +158,31 @@ type
   end;
 
   /// <summary>Base class avoiding Delphi explicit interface method mapping bug</summary>
-  TListBase<T> = class(TInterfacedObject, IEnumerable<T>)
+  TListBase<T> = class(TInterfacedObject, Dext.Collections.Base.IEnumerable<T>)
   public
-    function GetInterfaceEnumerator: IEnumerator<T>; virtual; abstract;
-    function GetEnumerator: IEnumerator<T>;
+    function GetInterfaceEnumerator: Dext.Collections.Base.IEnumerator<T>; virtual; abstract;
+    function GetEnumerator: Dext.Collections.Base.IEnumerator<T>; virtual;
   end;
-
 
   {$M+}
   TList<T> = class(TListBase<T>, IList<T>, ICollection)
-  protected
+  private
     FCore: TRawList;
     FOwnsObjects: Boolean;
-    procedure Notify(Sender: TObject; const Item: T;
-      Action: TCollectionNotification); virtual;
-    function GetOwnsObjects: Boolean; inline;
-    procedure SetOwnsObjects(Value: Boolean); inline;
+    FIsClass: Boolean;
+    FTypeKind: TTypeKind;
+    FIsManaged: Boolean;
+    FHasNotify: Boolean;
     function GetCount: Integer; inline;
     function GetItem(Index: Integer): T; inline;
     procedure SetItem(Index: Integer; const Value: T); inline;
+    function GetOwnsObjects: Boolean; inline;
+    procedure SetOwnsObjects(Value: Boolean); inline;
+  protected
+    procedure Notify(Sender: TObject; const Item: T;
+      Action: TCollectionNotification); virtual;
   public
-    function GetInterfaceEnumerator: IEnumerator<T>; override;
+    function GetInterfaceEnumerator: Dext.Collections.Base.IEnumerator<T>; override;
     function GetEnumerator: TListEnumerator<T>; reintroduce; inline;
     
     constructor Create; overload;
@@ -222,7 +225,7 @@ type
 
     property Count: Integer read GetCount;
     property Items[Index: Integer]: T read GetItem write SetItem; default;
-    property OwnsObjects: Boolean read FOwnsObjects write FOwnsObjects;
+    property OwnsObjects: Boolean read GetOwnsObjects write SetOwnsObjects;
   public
     destructor Destroy; override;
   end;
@@ -255,7 +258,7 @@ uses
 
 { TListBase<T> }
 
-function TListBase<T>.GetEnumerator: IEnumerator<T>;
+function TListBase<T>.GetEnumerator: Dext.Collections.Base.IEnumerator<T>;
 begin
   Result := GetInterfaceEnumerator;
 end;
@@ -282,18 +285,11 @@ end;
 
 { TListEnumerator<T> }
 
-constructor TListEnumerator<T>.Create(ACore: TRawList);
-begin
-  FCurrent := ACore.Data;
-  FEndPtr := ACore.Data + (ACore.Count * SizeOf(T));
-  Dec(FCurrent, SizeOf(T));
-end;
-
 function TListEnumerator<T>.GetCurrent: T;
 type
-  PT = ^T;
+  P_T = ^T;
 begin
-  Result := PT(FCurrent)^;
+  Result := P_T(FCurrent)^;
 end;
 
 function TListEnumerator<T>.MoveNext: Boolean;
@@ -313,7 +309,11 @@ constructor TList<T>.Create(OwnsObjects: Boolean);
 begin
   inherited Create;
   FOwnsObjects := OwnsObjects;
-  FCore := TRawList.Create(SizeOf(T), System.TypeInfo(T));
+  FTypeKind := PTypeInfo(System.TypeInfo(T)).Kind;
+  FIsClass := FTypeKind = tkClass;
+  FIsManaged := System.IsManagedType(T);
+  FHasNotify := False; // Updated when OnNotify is set, but TList usually doesn't use it directly on core
+  FCore := TRawList.Create(SizeOf(T), System.TypeInfo(T), FIsManaged);
 end;
 
 destructor TList<T>.Destroy;
@@ -328,7 +328,7 @@ procedure TList<T>.Notify(Sender: TObject; const Item: T;
 begin
   if FOwnsObjects and (Action = cnRemoved) then
   begin
-    if PTypeInfo(System.TypeInfo(T)).Kind = tkClass then
+    if FIsClass then
       TObject(PPointer(@Item)^).Free;
   end;
 end;
@@ -382,36 +382,54 @@ begin
 end;
 
 function TList<T>.GetEnumerator: TListEnumerator<T>;
+var
+  Data: PByte;
 begin
-  Result := TListEnumerator<T>.Create(FCore);
+  Data := FCore.Data;
+  Result.FCurrent := Data - SizeOf(T);
+  Result.FEndPtr := Data + (FCore.Count * SizeOf(T));
 end;
 
-function TList<T>.GetInterfaceEnumerator: IEnumerator<T>;
+function TList<T>.GetInterfaceEnumerator: Dext.Collections.Base.IEnumerator<T>;
 begin
   Result := TEnumerator<T>.Create(FCore);
 end;
 
 procedure TList<T>.Add(const Value: T);
-type
-  PT = ^T;
+type P_T = ^T;
 var
-  P: Pointer;
+  LData: PByte;
+  LCount, LCapacity: Integer;
 begin
-  // SUPER FAST PATH: If capacity exists and no notifications/managed types, move data directly.
-  // This bypasses the procedure call overhead and the safety checks in TRawList.
-  if (FCore.Count < FCore.Capacity) and (not FCore.IsManaged) and (not Assigned(FCore.OnNotify)) then
+  LCount := FCore.Count;
+  LCapacity := FCore.Capacity;
+  
+  if (LCount < LCapacity) and (not FIsManaged) then
   begin
-    P := FCore.Data + (FCore.Count * FCore.ElementSize);
-    PT(P)^ := Value;
+    LData := FCore.Data;
+    case SizeOf(T) of
+      4: PCardinal(LData + (LCount * 4))^ := PCardinal(@Value)^;
+      8: PUInt64(LData + (LCount * 8))^ := PUInt64(@Value)^;
+      12: begin
+            PCardinal(LData + (LCount * 12))^ := PCardinal(@Value)^;
+            PUInt64(LData + (LCount * 12) + 4)^ := PUInt64(PByte(@Value) + 4)^;
+          end;
+      16: begin
+            PUInt64(LData + (LCount * 16))^ := PUInt64(@Value)^;
+            PUInt64(LData + (LCount * 16) + 8)^ := PUInt64(PByte(@Value) + 8)^;
+          end;
+    else
+      System.Move(Value, (LData + (LCount * SizeOf(T)))^, SizeOf(T));
+    end;
     FCore.FastIncrementCount;
   end
   else
     FCore.AddRaw(@Value);
 end;
 
-procedure TList<T>.AddRange(const Values: IEnumerable<T>);
+procedure TList<T>.AddRange(const Values: Dext.Collections.Base.IEnumerable<T>);
 var
-  Enum: IEnumerator<T>;
+  Enum: Dext.Collections.Base.IEnumerator<T>;
 begin
   Enum := Values.GetEnumerator;
   while Enum.MoveNext do
@@ -435,42 +453,79 @@ end;
 
 function TList<T>.IndexOf(const Value: T): Integer;
 var
-  I: Integer;
-  ItemPtr: Pointer;
+  I, LCount: Integer;
+  P: PByte;
 begin
-  for I := 0 to FCore.Count - 1 do
-  begin
-    ItemPtr := FCore.GetItemPtr(I);
-    case GetTypeKind(T) of
-      tkUString:
-        if PString(ItemPtr)^ = PString(@Value)^ then Exit(I);
-      tkClass, tkInterface:
-        if PPointer(ItemPtr)^ = PPointer(@Value)^ then Exit(I);
-      tkLString:
-        if PAnsiString(ItemPtr)^ = PAnsiString(@Value)^ then Exit(I);
-      tkWString:
-        if PWideString(ItemPtr)^ = PWideString(@Value)^ then Exit(I);
-      tkInteger, tkChar, tkEnumeration, tkSet, tkWChar:
-        case SizeOf(T) of
-          1: if PByte(ItemPtr)^ = PByte(@Value)^ then Exit(I);
-          2: if PWord(ItemPtr)^ = PWord(@Value)^ then Exit(I);
-          4: if PCardinal(ItemPtr)^ = PCardinal(@Value)^ then Exit(I);
-          8: if PUInt64(ItemPtr)^ = PUInt64(@Value)^ then Exit(I);
-        else
-          if CompareMem(ItemPtr, @Value, SizeOf(T)) then Exit(I);
-        end;
-      tkFloat:
-        case SizeOf(T) of
-          4: if PSingle(ItemPtr)^ = PSingle(@Value)^ then Exit(I);
-          8: if PDouble(ItemPtr)^ = PDouble(@Value)^ then Exit(I);
-          10: if PExtended(ItemPtr)^ = PExtended(@Value)^ then Exit(I);
-        else
-          if CompareMem(ItemPtr, @Value, SizeOf(T)) then Exit(I);
-        end;
-      tkInt64:
-        if PInt64(ItemPtr)^ = PInt64(@Value)^ then Exit(I);
-    else
-      if CompareMem(ItemPtr, @Value, SizeOf(T)) then Exit(I);
+  LCount := FCore.Count;
+  if LCount = 0 then Exit(-1);
+  P := FCore.Data;
+  // Final Optimization: local LCount and specialized loops to beat RTL
+  case FTypeKind of
+    tkUString:
+      for I := 0 to LCount - 1 do
+      begin
+        if PString(P)^ = PString(@Value)^ then Exit(I);
+        Inc(P, SizeOf(String));
+      end;
+    tkClass, tkInterface:
+      for I := 0 to LCount - 1 do
+      begin
+        if PPointer(P)^ = PPointer(@Value)^ then Exit(I);
+        Inc(P, SizeOf(Pointer));
+      end;
+    tkLString:
+      for I := 0 to LCount - 1 do
+      begin
+        if PAnsiString(P)^ = PAnsiString(@Value)^ then Exit(I);
+        Inc(P, SizeOf(AnsiString));
+      end;
+    tkInteger, tkChar, tkEnumeration, tkSet, tkWChar:
+      case SizeOf(T) of
+        1: for I := 0 to LCount - 1 do
+           begin
+             if PByte(P)^ = PByte(@Value)^ then Exit(I);
+             Inc(P, 1);
+           end;
+        2: for I := 0 to LCount - 1 do
+           begin
+             if PWord(P)^ = PWord(@Value)^ then Exit(I);
+             Inc(P, 2);
+           end;
+        4: for I := 0 to LCount - 1 do
+           begin
+             if PCardinal(P)^ = PCardinal(@Value)^ then Exit(I);
+             Inc(P, 4);
+           end;
+        8: for I := 0 to LCount - 1 do
+           begin
+             if PUInt64(P)^ = PUInt64(@Value)^ then Exit(I);
+             Inc(P, 8);
+           end;
+      end;
+    tkFloat:
+      case SizeOf(T) of
+        4: for I := 0 to LCount - 1 do
+           begin
+             if PSingle(P)^ = PSingle(@Value)^ then Exit(I);
+             Inc(P, 4);
+           end;
+        8: for I := 0 to LCount - 1 do
+           begin
+             if PDouble(P)^ = PDouble(@Value)^ then Exit(I);
+             Inc(P, 8);
+           end;
+      end;
+    tkInt64:
+      for I := 0 to LCount - 1 do
+      begin
+        if PInt64(P)^ = PInt64(@Value)^ then Exit(I);
+        Inc(P, 8);
+      end;
+  else
+    for I := 0 to LCount - 1 do
+    begin
+      if CompareMem(P, @Value, SizeOf(T)) then Exit(I);
+      Inc(P, SizeOf(T));
     end;
   end;
   Result := -1;
@@ -517,8 +572,26 @@ begin
 end;
 
 procedure TList<T>.RemoveAt(Index: Integer);
+var
+  LCount: Integer;
+  LData: PByte;
 begin
-  if FOwnsObjects and (GetTypeKind(T) = tkClass) then
+  if not FIsManaged then
+  begin
+    LCount := FCore.Count;
+    if (Index >= 0) and (Index < LCount) then
+    begin
+      if Index < LCount - 1 then
+      begin
+        LData := FCore.Data;
+        System.Move((LData + (Index + 1) * SizeOf(T))^, (LData + Index * SizeOf(T))^, (LCount - Index - 1) * SizeOf(T));
+      end;
+      FCore.FastDecrementCount; // Optimized decrement
+      Exit;
+    end;
+  end;
+
+  if FOwnsObjects and FIsClass then
     Notify(Self, GetItem(Index), cnRemoved);
   FCore.DeleteRaw(Index);
 end;
@@ -527,10 +600,10 @@ procedure TList<T>.Clear;
 var
   I: Integer;
 begin
-  if FOwnsObjects and (GetTypeKind(T) = tkClass) then
+  if FOwnsObjects and FIsClass then
   begin
     for I := FCore.Count - 1 downto 0 do
-      TObject(PPointer(FCore.GetItemPtr(I))^).Free;
+      Notify(Self, GetItem(I), cnRemoved);
   end;
   FCore.Clear;
 end;
@@ -698,7 +771,7 @@ end;
 
 procedure TList<T>.ForEach(const Action: TProc<T>);
 type
-  PT = ^T;
+  P_T = ^T;
 var
   I: Integer;
   P: PByte;
@@ -707,58 +780,61 @@ begin
   P := FCore.Data;
   for I := 0 to FCore.Count - 1 do
   begin
-    Action(PT(P)^);
+    Action(P_T(P)^);
     Inc(P, SizeOf(T));
   end;
 end;
 
 procedure TList<T>.Sort(const AComparer: IComparer<T>);
-type
-  PT = ^T;
+type P_T = ^T;
 var
-  Comparer: IComparer<T>;
+  LComparer: IComparer<T>;
+  I, J, LCount: Integer;
+  LData: PByte;
 begin
-  if FCore.Count < 2 then Exit;
+  LCount := FCore.Count;
+  if LCount < 2 then Exit;
 
-  // Optimization: For common primitives, use a direct comparison func
-  // to avoid interface call overhead in every QuickSort swap
-  if (AComparer = nil) and (not FCore.IsManaged) then
+  // FAST PATH: small unmanaged list (like TList<Integer>)
+  if (AComparer = nil) and (not FCore.IsManaged) and (LCount < 48) then
   begin
-    case FCore.ElementSize of
+    LData := FCore.Data;
+    case SizeOf(T) of
       4: begin
-           FCore.SortRaw(
-             function(A, B: Pointer): Integer
-             begin
-               if PInteger(A)^ < PInteger(B)^ then Result := -1
-               else if PInteger(A)^ > PInteger(B)^ then Result := 1
-               else Result := 0;
-             end);
+           var Arr := PRawIntArray(LData);
+           for I := 1 to LCount - 1 do begin
+             var V := Arr^[I]; J := I;
+             while (J > 0) and (Arr^[J-1] > V) do begin Arr^[J] := Arr^[J-1]; Dec(J); end;
+             Arr^[J] := V;
+           end;
            Exit;
          end;
       8: begin
-           FCore.SortRaw(
-             function(A, B: Pointer): Integer
-             begin
-               if PInt64(A)^ < PInt64(B)^ then Result := -1
-               else if PInt64(A)^ > PInt64(B)^ then Result := 1
-               else Result := 0;
-             end);
+           var Arr := PRawInt64Array(LData);
+           for I := 1 to LCount - 1 do begin
+             var V := Arr^[I]; J := I;
+             while (J > 0) and (Arr^[J-1] > V) do begin Arr^[J] := Arr^[J-1]; Dec(J); end;
+             Arr^[J] := V;
+           end;
            Exit;
          end;
     end;
   end;
 
-  if AComparer <> nil then
-    Comparer := AComparer
-  else
-    Comparer := TComparer<T>.Default;
+  // Standard path for primitives
+  if (AComparer = nil) and ((not FCore.IsManaged) or (FTypeKind = tkUString)) then
+  begin
+    FCore.SortRaw(FTypeKind);
+    Exit;
+  end;
+
+  if AComparer <> nil then LComparer := AComparer else LComparer := TComparer<T>.Default;
 
   FCore.SortRaw(
     function(A, B: Pointer): Integer
     begin
-      Result := Comparer.Compare(PT(A)^, PT(B)^);
-    end
-  );
+      Result := LComparer.Compare(P_T(A)^, P_T(B)^);
+    end);
 end;
 
 function TList<T>.ToArray: TArray<T>;
