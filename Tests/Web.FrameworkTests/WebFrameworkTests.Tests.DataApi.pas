@@ -146,6 +146,7 @@ var
   Node: IDextJsonNode;
 begin
   Log('--- Starting Data API Tests ---');
+  JsonDefaultSettings(JsonSettings.SnakeCase);
 
   // 1. Test basic GetList
   Resp := FClient.Get(GetBaseUrl + '/api/test-items');
@@ -173,19 +174,24 @@ begin
   // 4. Test pagination: _limit and _offset
   Resp := FClient.Get(GetBaseUrl + '/api/test-items?_limit=2&_offset=1&_orderby=id');
   var content := Resp.ContentAsString;
+  WriteLn('Content: ', content);
   JsonArray := TDextJson.Provider.Parse(Resp.ContentAsString) as IDextJsonArray;
   AssertTrue(JsonArray.GetCount = 2, 'Should return 2 items due to limit', 'Returned ' + JsonArray.GetCount.ToString + ' items');
   AssertEqual('Item 2', JsonArray.GetObject(0).GetString('name'), 'First item should be Item 2 (offset 1)');
 
   // 5. Test ordering: _orderby
   Resp := FClient.Get(GetBaseUrl + '/api/test-items?_orderby=Value desc&_limit=1');
-  JsonArray := TDextJson.Provider.Parse(Resp.ContentAsString) as IDextJsonArray;
+  content := Resp.ContentAsString;
+  WriteLn('Content: ', content);
+  JsonArray := TDextJson.Provider.Parse(content) as IDextJsonArray;
   AssertEqual('100', JsonArray.GetObject(0).GetInteger('value').ToString, 'Highest value should be 100');
 {}
   // 6. Test Multi-Mapping (Joins/Nested)
   Resp := FClient.Get(GetBaseUrl + '/api/composed-items?_limit=1');
+  content := Resp.ContentAsString;
+  WriteLn('Content: ', content);
   AssertEqual('200', Resp.StatusCode.ToString, 'Composed GET List');
-  JsonArray := TDextJson.Provider.Parse(Resp.ContentAsString) as IDextJsonArray;
+  JsonArray := TDextJson.Provider.Parse(content) as IDextJsonArray;
   AssertTrue(JsonArray.GetCount = 1, 'Should return 1 item', 'Should return 1 item but got ' + JsonArray.GetCount.ToString);
   
   Item := JsonArray.GetObject(0);

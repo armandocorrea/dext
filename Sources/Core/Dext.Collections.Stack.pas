@@ -32,6 +32,7 @@ uses
   Dext.Collections.Base,
   Dext.Collections.Memory,
   Dext.Collections.Raw,
+  Dext.Collections.Comparers,
   Dext.Collections;
 
 type
@@ -57,6 +58,8 @@ type
 
   /// <summary>Stack implementation backed by TRawList</summary>
   TStack<T> = class(TStackBase<T>, IStack<T>)
+  private
+    type P_T = ^T;
   private
     FCore: TRawList;
     function GetCount: Integer; inline;
@@ -122,9 +125,13 @@ end;
 function TStack<T>.Contains(const Value: T): Boolean;
 var
   I: Integer;
+  Comp: IEqualityComparer<T>;
+  VP: Pointer;
 begin
+  VP := @Value;
+  Comp := TEqualityComparer<T>.Default;
   for I := FCore.Count - 1 downto 0 do
-    if CompareMem(FCore.GetItemPtr(I), @Value, SizeOf(T)) then
+    if Comp.Equals(P_T(FCore.GetItemPtr(I))^, P_T(VP)^) then
       Exit(True);
   Result := False;
 end;

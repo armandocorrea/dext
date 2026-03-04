@@ -43,6 +43,7 @@ uses
   System.Hash;
 
 type
+  PIInterface = ^IInterface;
   TComparison<T> = reference to function(const Left, Right: T): Integer;
 
   /// <summary>
@@ -67,7 +68,12 @@ type
   ///   Uses GetTypeKind for compile-time specialization per type kind.
   /// </summary>
   TDefaultComparer<T> = class(TInterfacedObject, IComparer<T>)
+  private
+    type P_T = ^T;
+  private
+    FIsUnsigned: Boolean;
   public
+    constructor Create;
     function Compare(const Left, Right: T): Integer;
   end;
 
@@ -76,6 +82,8 @@ type
   ///   Uses GetTypeKind for compile-time specialization and BobJenkins hash.
   /// </summary>
   TDefaultEqualityComparer<T> = class(TInterfacedObject, IEqualityComparer<T>)
+  private
+    type P_T = ^T;
   public
     function Equals(const Left, Right: T): Boolean; reintroduce;
     function GetHashCode(const Value: T): Integer; reintroduce;
@@ -86,6 +94,8 @@ type
   ///   Usage: TComparer&lt;string&gt;.Default
   /// </summary>
   TComparer<T> = class
+  private
+    class var FDefault: IComparer<T>;
   public
     class function Default: IComparer<T>; static;
     class function Construct(const AComparison: TComparison<T>): IComparer<T>; static;
@@ -104,6 +114,8 @@ type
   ///   Usage: TEqualityComparer&lt;string&gt;.Default
   /// </summary>
   TEqualityComparer<T> = class
+  private
+    class var FDefault: IEqualityComparer<T>;
   public
     class function Default: IEqualityComparer<T>; static;
   end;
@@ -132,25 +144,45 @@ end;
 
 { TDefaultComparer<T> }
 
-function TDefaultComparer<T>.Compare(const Left, Right: T): Integer;
+constructor TDefaultComparer<T>.Create;
+var
+  TI: PTypeInfo;
+  TD: PTypeData;
 begin
+  inherited Create;
+  FIsUnsigned := False;
+  TI := TypeInfo(T);
+  if Assigned(TI) then
+  begin
+    TD := GetTypeData(TI);
+    if TI^.Kind = tkInt64 then
+      FIsUnsigned := TD^.MinInt64Value >= 0
+    else if TI^.Kind in [tkInteger, tkChar, tkEnumeration, tkSet, tkWChar] then
+      FIsUnsigned := TD^.OrdType in [otUByte, otUWord, otULong];
+  end;
+end;
+
+function TDefaultComparer<T>.Compare(const Left, Right: T): Integer;
+var
+  LP, RP: Pointer;
+begin
+  LP := @Left;
+  RP := @Right;
   case GetTypeKind(T) of
     tkUString:
-    begin
-      Result := CompareStr(PString(@Left)^, PString(@Right)^);
-    end;
+      Result := CompareStr(PString(LP)^, PString(RP)^);
 
     tkLString:
     begin
-      if PAnsiString(@Left)^ < PAnsiString(@Right)^ then Result := -1
-      else if PAnsiString(@Left)^ > PAnsiString(@Right)^ then Result := 1
+      if PAnsiString(LP)^ < PAnsiString(RP)^ then Result := -1
+      else if PAnsiString(LP)^ > PAnsiString(RP)^ then Result := 1
       else Result := 0;
     end;
 
     tkWString:
     begin
-      if PWideString(@Left)^ < PWideString(@Right)^ then Result := -1
-      else if PWideString(@Left)^ > PWideString(@Right)^ then Result := 1
+      if PWideString(LP)^ < PWideString(RP)^ then Result := -1
+      else if PWideString(LP)^ > PWideString(RP)^ then Result := 1
       else Result := 0;
     end;
 
@@ -158,23 +190,37 @@ begin
     begin
       case SizeOf(T) of
         1:
-          if PByte(@Left)^ < PByte(@Right)^ then Result := -1
-          else if PByte(@Left)^ > PByte(@Right)^ then Result := 1
+          if PByte(LP)^ < PByte(RP)^ then Result := -1
+          else if PByte(LP)^ > PByte(RP)^ then Result := 1
           else Result := 0;
         2:
-          if PWord(@Left)^ < PWord(@Right)^ then Result := -1
-          else if PWord(@Left)^ > PWord(@Right)^ then Result := 1
+          if PWord(LP)^ < PWord(RP)^ then Result := -1
+          else if PWord(LP)^ > PWord(RP)^ then Result := 1
           else Result := 0;
         4:
-          if PCardinal(@Left)^ < PCardinal(@Right)^ then Result := -1
-          else if PCardinal(@Left)^ > PCardinal(@Right)^ then Result := 1
-          else Result := 0;
+          if FIsUnsigned then
+          begin
+            if PCardinal(LP)^ < PCardinal(RP)^ then Result := -1
+            else if PCardinal(LP)^ > PCardinal(RP)^ then Result := 1
+            else Result := 0;
+          end else begin
+            if PInteger(LP)^ < PInteger(RP)^ then Result := -1
+            else if PInteger(LP)^ > PInteger(RP)^ then Result := 1
+            else Result := 0;
+          end;
         8:
-          if PUInt64(@Left)^ < PUInt64(@Right)^ then Result := -1
-          else if PUInt64(@Left)^ > PUInt64(@Right)^ then Result := 1
-          else Result := 0;
+          if FIsUnsigned then
+          begin
+            if PUInt64(LP)^ < PUInt64(RP)^ then Result := -1
+            else if PUInt64(LP)^ > PUInt64(RP)^ then Result := 1
+            else Result := 0;
+          end else begin
+            if PInt64(LP)^ < PInt64(RP)^ then Result := -1
+            else if PInt64(LP)^ > PInt64(RP)^ then Result := 1
+            else Result := 0;
+          end;
       else
-        Result := BinaryCompare(@Left, @Right, SizeOf(T));
+        Result := BinaryCompare(LP, RP, SizeOf(T));
       end;
     end;
 
@@ -182,104 +228,127 @@ begin
     begin
       case SizeOf(T) of
         4: // Single
-          if PSingle(@Left)^ < PSingle(@Right)^ then Result := -1
-          else if PSingle(@Left)^ > PSingle(@Right)^ then Result := 1
+          if PSingle(LP)^ < PSingle(RP)^ then Result := -1
+          else if PSingle(LP)^ > PSingle(RP)^ then Result := 1
           else Result := 0;
         8: // Double or Currency
           if TypeInfo(T) = TypeInfo(Currency) then
           begin
-            if PCurrency(@Left)^ < PCurrency(@Right)^ then Result := -1
-            else if PCurrency(@Left)^ > PCurrency(@Right)^ then Result := 1
+            if PCurrency(LP)^ < PCurrency(RP)^ then Result := -1
+            else if PCurrency(LP)^ > PCurrency(RP)^ then Result := 1
             else Result := 0;
           end
           else
           begin
-            if PDouble(@Left)^ < PDouble(@Right)^ then Result := -1
-            else if PDouble(@Left)^ > PDouble(@Right)^ then Result := 1
+            if PDouble(LP)^ < PDouble(RP)^ then Result := -1
+            else if PDouble(LP)^ > PDouble(RP)^ then Result := 1
             else Result := 0;
           end;
         10: // Extended
-          if PExtended(@Left)^ < PExtended(@Right)^ then Result := -1
-          else if PExtended(@Left)^ > PExtended(@Right)^ then Result := 1
+          if PExtended(LP)^ < PExtended(RP)^ then Result := -1
+          else if PExtended(LP)^ > PExtended(RP)^ then Result := 1
           else Result := 0;
       else
-        Result := BinaryCompare(@Left, @Right, SizeOf(T));
+        Result := BinaryCompare(LP, RP, SizeOf(T));
       end;
     end;
 
     tkInt64:
     begin
-      if PInt64(@Left)^ < PInt64(@Right)^ then Result := -1
-      else if PInt64(@Left)^ > PInt64(@Right)^ then Result := 1
-      else Result := 0;
+      if FIsUnsigned then
+      begin
+        if PUInt64(LP)^ < PUInt64(RP)^ then Result := -1
+        else if PUInt64(LP)^ > PUInt64(RP)^ then Result := 1
+        else Result := 0;
+      end else begin
+        if PInt64(LP)^ < PInt64(RP)^ then Result := -1
+        else if PInt64(LP)^ > PInt64(RP)^ then Result := 1
+        else Result := 0;
+      end;
     end;
 
     tkClass, tkInterface:
     begin
-      if NativeUInt(PPointer(@Left)^) < NativeUInt(PPointer(@Right)^) then Result := -1
-      else if NativeUInt(PPointer(@Left)^) > NativeUInt(PPointer(@Right)^) then Result := 1
+      if NativeUInt(PPointer(LP)^) < NativeUInt(PPointer(RP)^) then Result := -1
+      else if NativeUInt(PPointer(LP)^) > NativeUInt(PPointer(RP)^) then Result := 1
       else Result := 0;
     end;
   else
     // Records, variants, and other types: byte-level comparison
-    Result := BinaryCompare(@Left, @Right, SizeOf(T));
+    Result := BinaryCompare(LP, RP, SizeOf(T));
   end;
 end;
 
 { TDefaultEqualityComparer<T> }
 
 function TDefaultEqualityComparer<T>.Equals(const Left, Right: T): Boolean;
+var
+  LP, RP: Pointer;
 begin
+  LP := @Left;
+  RP := @Right;
   case GetTypeKind(T) of
     tkUString:
-      Result := PString(@Left)^ = PString(@Right)^;
+      Result := PString(LP)^ = PString(RP)^;
     tkLString:
-      Result := PAnsiString(@Left)^ = PAnsiString(@Right)^;
+      Result := PAnsiString(LP)^ = PAnsiString(RP)^;
     tkWString:
-      Result := PWideString(@Left)^ = PWideString(@Right)^;
+      Result := PWideString(LP)^ = PWideString(RP)^;
     tkInteger, tkChar, tkEnumeration, tkSet, tkWChar:
       case SizeOf(T) of
-        1: Result := PByte(@Left)^ = PByte(@Right)^;
-        2: Result := PWord(@Left)^ = PWord(@Right)^;
-        4: Result := PCardinal(@Left)^ = PCardinal(@Right)^;
-        8: Result := PUInt64(@Left)^ = PUInt64(@Right)^;
+        1: Result := PByte(LP)^ = PByte(RP)^;
+        2: Result := PWord(LP)^ = PWord(RP)^;
+        4: Result := PCardinal(LP)^ = PCardinal(RP)^;
+        8: Result := PUInt64(LP)^ = PUInt64(RP)^;
       else
-        Result := CompareMem(@Left, @Right, SizeOf(T));
+        Result := CompareMem(LP, RP, SizeOf(T));
       end;
     tkFloat:
       case SizeOf(T) of
-        4: Result := PSingle(@Left)^ = PSingle(@Right)^;
+        4: Result := PSingle(LP)^ = PSingle(RP)^;
         8:
           if TypeInfo(T) = TypeInfo(Currency) then
-            Result := PCurrency(@Left)^ = PCurrency(@Right)^
+            Result := PCurrency(LP)^ = PCurrency(RP)^
           else
-            Result := PDouble(@Left)^ = PDouble(@Right)^;
-        10: Result := PExtended(@Left)^ = PExtended(@Right)^;
+            Result := PDouble(LP)^ = PDouble(RP)^;
+        10: Result := PExtended(LP)^ = PExtended(RP)^;
       else
-        Result := CompareMem(@Left, @Right, SizeOf(T));
+        Result := CompareMem(LP, RP, SizeOf(T));
       end;
     tkInt64:
-      Result := PInt64(@Left)^ = PInt64(@Right)^;
-    tkClass, tkInterface:
-      Result := PPointer(@Left)^ = PPointer(@Right)^;
+      Result := PInt64(LP)^ = PInt64(RP)^;
+    tkClass:
+      Result := PPointer(LP)^ = PPointer(RP)^;
+    tkInterface:
+      begin
+        // Robust MI-safe interface identity check
+        Result := PIInterface(LP)^ = PIInterface(RP)^;
+      end;
+    tkRecord:
+      begin
+        Result := CompareMem(LP, RP, SizeOf(T));
+      end;
   else
-    Result := CompareMem(@Left, @Right, SizeOf(T));
+    Result := CompareMem(LP, RP, SizeOf(T));
   end;
 end;
 
 function TDefaultEqualityComparer<T>.GetHashCode(const Value: T): Integer;
+var
+  VP: Pointer;
 begin
+  VP := @Value;
   case GetTypeKind(T) of
     tkUString:
-      Result := THashBobJenkins.GetHashValue(PString(@Value)^);
+      Result := THashBobJenkins.GetHashValue(PString(VP)^);
     tkLString:
-      Result := THashBobJenkins.GetHashValue(string(PAnsiString(@Value)^));
+      Result := THashBobJenkins.GetHashValue(string(PAnsiString(VP)^));
     tkWString:
-      Result := THashBobJenkins.GetHashValue(string(PWideString(@Value)^));
+      Result := THashBobJenkins.GetHashValue(string(PWideString(VP)^));
     tkClass:
-      Result := THashBobJenkins.GetHashValue(PPointer(@Value)^, SizeOf(Pointer));
+      Result := THashBobJenkins.GetHashValue(PPointer(VP)^, SizeOf(Pointer));
     tkInterface:
-      Result := THashBobJenkins.GetHashValue(PPointer(@Value)^, SizeOf(Pointer));
+      Result := THashBobJenkins.GetHashValue(PPointer(VP)^, SizeOf(Pointer));
   else
     // Integer, Float, Int64, Enum, Set, Record, etc: hash raw bytes
     Result := THashBobJenkins.GetHashValue(Value, SizeOf(T));
@@ -290,7 +359,9 @@ end;
 
 class function TComparer<T>.Default: IComparer<T>;
 begin
-  Result := TDefaultComparer<T>.Create;
+  if FDefault = nil then
+    FDefault := TDefaultComparer<T>.Create;
+  Result := FDefault;
 end;
 
 class function TComparer<T>.Construct(const AComparison: TComparison<T>): IComparer<T>;
@@ -315,7 +386,9 @@ end;
 
 class function TEqualityComparer<T>.Default: IEqualityComparer<T>;
 begin
-  Result := TDefaultEqualityComparer<T>.Create;
+  if FDefault = nil then
+    FDefault := TDefaultEqualityComparer<T>.Create;
+  Result := FDefault;
 end;
 
 end.

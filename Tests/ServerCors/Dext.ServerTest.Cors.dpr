@@ -187,4 +187,5 @@ begin
     on E: Exception do
       Writeln('Server error: ', E.ClassName, ': ', E.Message);
   end;
+  ConsolePause;
 end.

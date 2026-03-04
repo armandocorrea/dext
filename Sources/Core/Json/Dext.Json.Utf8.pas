@@ -212,8 +212,8 @@ begin
      Exit;
    end;
 
-   // Try to use framework serializer for other complex types (objects/arrays)
-   if AVal.Kind in [tkRecord, tkMRecord, tkDynArray, tkArray, tkClass] then
+   // Try to use framework serializer for other complex types (objects/arrays/interfaces)
+   if AVal.Kind in [tkRecord, tkMRecord, tkDynArray, tkArray, tkClass, tkInterface] then
    begin
      // For normal records/objects, delegate to Dext.Json
      Result := TDextJson.Serialize(AVal, ASettings);
@@ -707,29 +707,12 @@ begin
         else
           WriteNumber(AValue.AsOrdinal);
       end;
-    tkClass:
+    tkClass, tkInterface:
       begin
-        var Obj := AValue.AsObject;
-        if Obj = nil then WriteNull
-        else
-        begin
-          var Ctx := TRttiContext.Create;
-          try
-            var Typ := Ctx.GetType(Obj.ClassInfo);
-            WriteStartObject;
-            for var Prop in Typ.GetProperties do
-            begin
-              if Prop.IsReadable and (Prop.Visibility in [mvPublic, mvPublished]) then
-              begin
-                 WritePropertyName(TJsonUtils.ApplyCaseStyle(Prop.Name, FSettings.CaseStyle));
-                 WriteValue(Prop.GetValue(Obj));
-              end;
-            end;
-            WriteEndObject;
-          finally
-            Ctx.Free;
-          end;
-        end;
+        CheckComma;
+        WriteIndent;
+        // Delegate to full framework serializer to handle attributes, mapping and complex types
+        WriteRaw(TDextJson.Serialize(AValue, FSettings));
       end;
     tkRecord, tkMRecord:
       begin

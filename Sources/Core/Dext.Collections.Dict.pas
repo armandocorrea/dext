@@ -35,11 +35,17 @@ uses
   System.TypInfo,
   Dext.Collections.Base,
   Dext.Collections.Memory,
+  Dext.Collections.Comparers,
   Dext.Collections.RawDict;
 
 type
   /// <summary>Key-value pair record</summary>
   TPair<K, V> = record
+  private
+    type
+      P_K = ^K;
+      P_V = ^V;
+  public
     Key: K;
     Value: V;
     constructor Create(const AKey: K; const AValue: V);
@@ -102,6 +108,10 @@ type
 
   /// <summary>Generic dictionary implementation backed by TRawDictionary</summary>
   TDictionary<K, V> = class(TDictionaryBase<K, V>, IDictionary<K, V>)
+  private
+    type
+      P_K = ^K;
+      P_V = ^V;
   private
     FCore: TRawDictionary;
     FOwnsValues: Boolean;
@@ -173,27 +183,27 @@ constructor TDictionary<K, V>.Create(AIgnoreCase: Boolean; AOwnsValues: Boolean;
 var
   HF: TRawHashFunc;
   EF: TRawEqualFunc;
+  Comp: IEqualityComparer<K>;
 begin
   inherited Create;
   FOwnsValues := AOwnsValues;
 
-  if PTypeInfo(System.TypeInfo(K)).Kind in [tkUString, tkLString, tkWString] then
+  if AIgnoreCase and (PTypeInfo(System.TypeInfo(K))^.Kind in [tkUString, tkLString, tkWString]) then
   begin
-    if AIgnoreCase then
-    begin
-      HF := @StringRawHashIgnoreCase;
-      EF := @StringRawEqualIgnoreCase;
-    end
-    else
-    begin
-      HF := @StringRawHash;
-      EF := @StringRawEqual;
-    end;
+    HF := StringRawHashIgnoreCase;
+    EF := StringRawEqualIgnoreCase;
   end
   else
   begin
-    HF := @DefaultRawHash;
-    EF := @DefaultRawEqual;
+    Comp := TEqualityComparer<K>.Default;
+    HF := function(Key: Pointer; KeySize: Integer): Cardinal
+          begin
+            Result := Cardinal(Comp.GetHashCode(P_K(Key)^));
+          end;
+    EF := function(A, B: Pointer; KeySize: Integer): Boolean
+          begin
+            Result := Comp.Equals(P_K(A)^, P_K(B)^);
+          end;
   end;
 
   FCore := TRawDictionary.Create(
@@ -206,7 +216,7 @@ end;
 
 destructor TDictionary<K, V>.Destroy;
 begin
-  if FOwnsValues and (PTypeInfo(System.TypeInfo(V)).Kind = tkClass) then
+  if FOwnsValues and (PTypeInfo(System.TypeInfo(V))^.Kind = tkClass) then
   begin
     FCore.ForEachRaw(
       function(KeyPtr, ValuePtr: Pointer): Boolean
@@ -238,8 +248,10 @@ end;
 function TDictionary<K, V>.GetItem(const Key: K): V;
 var
   VP: Pointer;
+  KP: Pointer;
 begin
-  if not FCore.TryGetRaw(@Key, VP) then
+  KP := @Key;
+  if not FCore.TryGetRaw(KP, VP) then
     raise Exception.Create('Key not found in dictionary');
   
   RawCopyElement(@Result, VP, SizeOf(V), System.TypeInfo(V));
@@ -251,30 +263,37 @@ begin
 end;
 
 procedure TDictionary<K, V>.Add(const Key: K; const Value: V);
+var
+  KP: Pointer;
 begin
-  FCore.AddRaw(@Key, @Value);
+  KP := @Key;
+  FCore.AddRaw(KP, @Value);
 end;
 
 procedure TDictionary<K, V>.AddOrSetValue(const Key: K; const Value: V);
 var
   VP: Pointer;
+  KP: Pointer;
 begin
-  if FOwnsValues and (PTypeInfo(System.TypeInfo(V)).Kind = tkClass) then
+  KP := @Key;
+  if FOwnsValues and (PTypeInfo(System.TypeInfo(V))^.Kind = tkClass) then
   begin
-    if FCore.TryGetRaw(@Key, VP) then
+    if FCore.TryGetRaw(KP, VP) then
     begin
       if PPointer(VP)^ <> nil then
         TObject(PPointer(VP)^).Free;
     end;
   end;
-  FCore.AddOrSetRaw(@Key, @Value);
+  FCore.AddOrSetRaw(KP, @Value);
 end;
 
 function TDictionary<K, V>.TryGetValue(const Key: K; out Value: V): Boolean;
 var
   VP: Pointer;
+  KP: Pointer;
 begin
-  Result := FCore.TryGetRaw(@Key, VP);
+  KP := @Key;
+  Result := FCore.TryGetRaw(KP, VP);
   if Result then
     RawCopyElement(@Value, VP, SizeOf(V), System.TypeInfo(V))
   else
@@ -282,32 +301,40 @@ begin
 end;
 
 function TDictionary<K, V>.ContainsKey(const Key: K): Boolean;
+var
+  KP: Pointer;
 begin
-  Result := FCore.ContainsKeyRaw(@Key);
+  KP := @Key;
+  Result := FCore.ContainsKeyRaw(KP);
 end;
 
 function TDictionary<K, V>.Remove(const Key: K): Boolean;
+var
+  KP: Pointer;
 begin
-  if FOwnsValues and (PTypeInfo(System.TypeInfo(V)).Kind = tkClass) then
+  KP := @Key;
+  if FOwnsValues and (PTypeInfo(System.TypeInfo(V))^.Kind = tkClass) then
   begin
     var VP: Pointer;
-    if FCore.TryGetRaw(@Key, VP) then
+    if FCore.TryGetRaw(KP, VP) then
     begin
       if PPointer(VP)^ <> nil then
         TObject(PPointer(VP)^).Free;
     end;
   end;
-  Result := FCore.RemoveRaw(@Key);
+  Result := FCore.RemoveRaw(KP);
 end;
 
 function TDictionary<K, V>.Extract(const Key: K): V;
 var
   VP: Pointer;
+  KP: Pointer;
 begin
-  if FCore.TryGetRaw(@Key, VP) then
+  KP := @Key;
+  if FCore.TryGetRaw(KP, VP) then
   begin
     RawCopyElement(@Result, VP, SizeOf(V), System.TypeInfo(V));
-    FCore.RemoveRaw(@Key);
+    FCore.RemoveRaw(KP);
   end
   else
     Result := Default(V);
@@ -315,7 +342,7 @@ end;
 
 procedure TDictionary<K, V>.Clear;
 begin
-  if FOwnsValues and (PTypeInfo(System.TypeInfo(V)).Kind = tkClass) then
+  if FOwnsValues and (PTypeInfo(System.TypeInfo(V))^.Kind = tkClass) then
   begin
     FCore.ForEachRaw(
       function(KeyPtr, ValuePtr: Pointer): Boolean

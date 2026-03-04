@@ -9,6 +9,7 @@ uses
   System.Rtti,
   System.TypInfo,
   Dext.Json,
+  Dext.Json.Types,
   Dext.DI.Core,
   Dext.DI.Extensions,
   Dext.DI.Interfaces,
@@ -67,6 +68,16 @@ procedure TestFinalIntegration;
 procedure TestWebHostIntegration;
 procedure TestConciseIntegration;
 procedure TestProviders;
+
+type
+  TSimpleUser = record
+    Id: Integer;
+    Name: string;
+  end;
+
+var
+  Users: TArray<TSimpleUser>;
+  UserList: IList<TSimpleUser>;
 
 implementation
 
@@ -209,15 +220,7 @@ begin
 end;
 
 procedure TestDextJsonArrays;
-type
-  TUser = record
-    Id: Integer;
-    Name: string;
-  end;
-
 var
-  Users: TArray<TUser>;
-  UserList: IList<TUser>;
   UserIds: TArray<Integer>;
   Json: string;
 begin
@@ -241,24 +244,24 @@ begin
     Users[0].Id := 1; Users[0].Name := 'John';
     Users[1].Id := 2; Users[1].Name := 'Jane';
 
-    Json := TDextJson.Serialize<TArray<TUser>>(Users);
+    Json := TDextJson.Serialize<TArray<TSimpleUser>>(Users);
     Writeln('TArray<TUser> JSON: ', Json);
 
-    var DeserializedUsers := TDextJson.Deserialize<TArray<TUser>>(Json);
+    var DeserializedUsers := TDextJson.Deserialize<TArray<TSimpleUser>>(Json);
     Writeln('Deserialized Users Count: ', Length(DeserializedUsers));
 
     // ✅ TESTE 2: IList<T> (como List<T> no C#)
-    UserList := TCollections.CreateList<TUser>;
+    UserList := TCollections.CreateList<TSimpleUser>;
     try
-      var User1: TUser; User1.Id := 3; User1.Name := 'Bob';
-      var User2: TUser; User2.Id := 4; User2.Name := 'Alice';
+      var User1: TSimpleUser; User1.Id := 3; User1.Name := 'Bob';
+      var User2: TSimpleUser; User2.Id := 4; User2.Name := 'Alice';
       UserList.Add(User1);
       UserList.Add(User2);
 
-      Json := TDextJson.Serialize<IList<TUser>>(UserList);
+      Json := TDextJson.Serialize<IList<TSimpleUser>>(UserList);
       Writeln('IList<TUser> JSON: ', Json);
 
-      var DeserializedList := TDextJson.Deserialize<IList<TUser>>(Json);
+      var DeserializedList := TDextJson.Deserialize<IList<TSimpleUser>>(Json);
       Writeln('Deserialized List Count: ', DeserializedList.Count);
       // DeserializedList.Free;
     finally
@@ -274,30 +277,23 @@ begin
 end;
 
 procedure TestListOnly;
-type
-  TUser = record
-    Id: Integer;
-    Name: string;
-  end;
-
 var
-  UserList: IList<TUser>;
   Json: string;
 begin
   Writeln('=== TESTE APENAS IList<T> ===');
 
-  UserList := TCollections.CreateList<TUser>;
+  UserList := TCollections.CreateList<TSimpleUser>;
   try
-    var User1: TUser; User1.Id := 3; User1.Name := 'Bob';
-    var User2: TUser; User2.Id := 4; User2.Name := 'Alice';
+    var User1: TSimpleUser; User1.Id := 3; User1.Name := 'Bob';
+    var User2: TSimpleUser; User2.Id := 4; User2.Name := 'Alice';
     UserList.Add(User1);
     UserList.Add(User2);
 
-    Json := TDextJson.Serialize<IList<TUser>>(UserList);
+    Json := TDextJson.Serialize<IList<TSimpleUser>>(UserList);
     Writeln('JSON Serializado: ', Json);
 
     // Aqui deve dar o erro
-    var DeserializedList := TDextJson.Deserialize<IList<TUser>>(Json);
+    var DeserializedList := TDextJson.Deserialize<IList<TSimpleUser>>(Json);
     Writeln('Deserializado Count: ', DeserializedList.Count);
     // DeserializedList.Free;
 

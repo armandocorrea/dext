@@ -17,6 +17,7 @@ uses
   System.TypInfo,
   Dext.Collections.Base,
   Dext.Collections.Memory,
+  Dext.Collections.Comparers,
   Dext.Collections;
 
 type
@@ -47,6 +48,8 @@ type
 
   /// <summary>Queue implementation using a circular buffer for O(1) ops</summary>
   TQueue<T> = class(TQueueBase<T>, IQueue<T>)
+  private
+    type P_T = ^T;
   private
     FData: PByte;
     FCount: Integer;
@@ -157,11 +160,15 @@ end;
 function TQueue<T>.Contains(const Value: T): Boolean;
 var
   I, Idx: Integer;
+  Comp: IEqualityComparer<T>;
+  VP: Pointer;
 begin
+  VP := @Value;
+  Comp := TEqualityComparer<T>.Default;
   for I := 0 to FCount - 1 do
   begin
     Idx := (FHead + I) mod FCapacity;
-    if CompareMem(FData + (Idx * FElementSize), @Value, FElementSize) then
+    if Comp.Equals(P_T(FData + (Idx * FElementSize))^, P_T(VP)^) then
       Exit(True);
   end;
   Result := False;

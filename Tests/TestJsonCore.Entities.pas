@@ -49,6 +49,9 @@ type
     property Name: string read FName write FName;
   end;
 
+  TPostList = IList<TPost>;
+  TEntityWithUuidList = IList<TEntityWithUuid>;
+
 implementation
 
 constructor TThreadContent.Create;
@@ -58,8 +61,6 @@ end;
 
 destructor TThreadContent.Destroy;
 begin
-  // FInternalPosts is an interface, it will be freed automatically if not circular
-  // But wait, it's assigned to FInternalPosts.
   inherited;
 end;
 

@@ -60,18 +60,21 @@ type
     class function CreateInstance<T: class>(const AArgs: array of TValue): T; overload;
     class function CreateInstance<T: class>: T; overload;
 
-    /// <summary>
-    ///  Registers a default implementation class for a base class or interface.
-    /// </summary>
-    class procedure RegisterDefault(ABase: TClass; AImpl: TClass);
+    class procedure RegisterDefault(ABase: TClass; AImpl: TClass); overload;
+    class procedure RegisterDefault(AInterface: PTypeInfo; AImpl: TClass); overload;
+    class procedure RegisterDefault<TIntf, TImpl: class>; overload;
     class function ResolveImplementation(AClass: TClass): TClass;
+    class function GetDictionaryValueType(AType: PTypeInfo): PTypeInfo;
+    class function IsListType(AType: PTypeInfo): Boolean;
+    class function GetListElementType(AType: PTypeInfo): PTypeInfo;
+    class function IsDictionaryType(AType: PTypeInfo): Boolean;
+    class function GetDictionaryKeyType(AType: PTypeInfo): PTypeInfo;
   private
     class var FDefaultImplementations: IDictionary<TClass, TClass>;
+    class var FInterfaceDefaultImpl: IDictionary<PTypeInfo, TClass>;
     class constructor Create;
     class destructor Destroy;
     class function TryResolveService(AProvider: IServiceProvider; AParamType: TRttiType; out AResolvedService: TValue): Boolean;
-    class function IsListType(AType: PTypeInfo): Boolean;
-    class function GetListElementType(AType: PTypeInfo): PTypeInfo;
   end;
 
 implementation
@@ -84,6 +87,7 @@ uses
 class constructor TActivator.Create;
 begin
   FDefaultImplementations := TCollections.CreateDictionary<TClass, TClass>;
+  FInterfaceDefaultImpl := TCollections.CreateDictionary<PTypeInfo, TClass>;
   // Default framework mappings
   RegisterDefault(TStrings, TStringList);
 end;
@@ -91,11 +95,27 @@ end;
 class destructor TActivator.Destroy;
 begin
   FDefaultImplementations := nil;
+  FInterfaceDefaultImpl := nil;
 end;
 
 class procedure TActivator.RegisterDefault(ABase: TClass; AImpl: TClass);
 begin
-  FDefaultImplementations.AddOrSetValue(ABase, AImpl);
+  if ABase <> nil then
+    FDefaultImplementations.AddOrSetValue(ABase, AImpl);
+end;
+
+class procedure TActivator.RegisterDefault(AInterface: PTypeInfo; AImpl: TClass);
+begin
+  if AInterface <> nil then
+    FInterfaceDefaultImpl.AddOrSetValue(AInterface, AImpl);
+end;
+
+class procedure TActivator.RegisterDefault<TIntf, TImpl>;
+begin
+  if PTypeInfo(TypeInfo(TIntf))^.Kind = tkClass then
+    RegisterDefault(TClass(GetTypeData(TypeInfo(TIntf))^.ClassType), TImpl)
+  else
+    RegisterDefault(TypeInfo(TIntf), TImpl);
 end;
 
 class function TActivator.ResolveImplementation(AClass: TClass): TClass;
@@ -431,6 +451,7 @@ var
   RttiType: TRttiType;
   ServiceType: TServiceType;
   ElementType: PTypeInfo;
+  KeyType, ValueType: PTypeInfo;
 begin
   if AType = nil then
     Exit(TValue.Empty);
@@ -444,7 +465,20 @@ begin
     try
       RttiType := Context.GetType(AType);
       
-      // 1. Try to resolve via DI
+      // 1. Try explicit mapping
+      var RegisteredImpl: TClass;
+      if FInterfaceDefaultImpl.TryGetValue(AType, RegisteredImpl) then
+      begin
+        var Instance := CreateInstance(AProvider, RegisteredImpl);
+        var Intf: IInterface;
+        if Instance.GetInterface(TRttiInterfaceType(RttiType).GUID, Intf) then
+          TValue.Make(@Intf, AType, Result)
+        else
+          Result := TValue.From(Instance);
+        Exit;
+      end;
+
+      // 2. Try to resolve via DI
       if AProvider <> nil then
       begin
         var Guid := TRttiInterfaceType(RttiType).GUID;
@@ -465,95 +499,131 @@ begin
       begin
         ElementType := GetListElementType(AType);
         if ElementType = nil then
-          raise EArgumentException.CreateFmt('TActivator: Could not determine element type for %s', [AType.NameFld.ToString]);
+          raise EArgumentException.CreateFmt('TActivator: Could not determine element type for %s', [string(AType^.Name)]);
 
-        // A. Try to find TList<T> or TSmartList<T> directly
-        var TypeName := RttiType.QualifiedName;
-        if TypeName = '' then TypeName := string(AType.Name);
+        var ImplRtti: TRttiType;
+        var TypeName := string(AType^.Name);
+        var ElementTypeName := string(ElementType^.Name);
         
+        // Create implementation name from interface name (e.g., IList<T> -> TList<T>)
         var ImplName := TypeName.Replace('IList<', 'TList<').Replace('IEnumerable<', 'TList<');
-        var ImplRtti: TRttiType := Context.FindType(ImplName);
-        
-        // Fallback to TSmartList if TList fails
+        ImplRtti := Context.FindType(ImplName);
+        if ImplRtti = nil then
+          ImplRtti := Context.FindType('Dext.Collections.' + ImplName);
+
+        // Strategy B: Scan all types for ANY TList<ElementType> or TSmartList<ElementType>
         if ImplRtti = nil then
         begin
-           ImplName := TypeName.Replace('IList<', 'TSmartList<').Replace('IEnumerable<', 'TSmartList<');
-           ImplRtti := Context.FindType(ImplName);
-        end;
-
-        if (ImplRtti = nil) and not ImplName.Contains('.') then
-           ImplRtti := Context.FindType('Dext.Collections.' + ImplName);
-
-        // B. Deep Search fallback (scanning all types)
-        if ImplRtti = nil then
-        begin
-          var SimpleSufix := '<' + string(ElementType.Name) + '>';
-          var ElementQualifiedName: string;
-          var ElementTypeRtti := Context.GetType(ElementType);
-          if ElementTypeRtti <> nil then
-            ElementQualifiedName := ElementTypeRtti.QualifiedName;
-
           for var TmpType in Context.GetTypes do
           begin
-            if TmpType.IsInstance then
+            if TmpType.IsInstance and (TmpType.Name.StartsWith('TList<') or TmpType.Name.StartsWith('TSmartList<')) then
             begin
-               var IsMatch := TmpType.Name.EndsWith(SimpleSufix);
-               if (not IsMatch) and (ElementQualifiedName <> '') then
-                 IsMatch := TmpType.Name.EndsWith('<' + ElementQualifiedName + '>');
-
-               if IsMatch then
-               begin
-                  if TmpType.Name.StartsWith('TSmartList<') or TmpType.Name.StartsWith('TList<') then
-                  begin
-                     ImplRtti := TmpType;
-                     Break;
-                  end;
-               end;
+               var AddM := TmpType.GetMethod('Add');
+               if Assigned(AddM) and (Length(AddM.GetParameters) = 1) then
+                 if AddM.GetParameters[0].ParamType.Handle = ElementType then
+                 begin
+                   ImplRtti := TmpType;
+                   Break;
+                 end;
             end;
           end;
         end;
 
         if (ImplRtti <> nil) and (ImplRtti is TRttiInstanceType) then
         begin
-           var TargetClass := TRttiInstanceType(ImplRtti).MetaclassType;
-           
-           // Search for the best constructor (parameterless or Boolean)
-           var BestConstructor: TRttiMethod := nil;
-           for var Method in ImplRtti.GetMethods do
-           begin
-             if Method.IsConstructor and ((Method.Name = 'Create') or (Method.Name = 'CreateList')) then
-             begin
-                if Length(Method.GetParameters) = 0 then
-                begin
+            var TargetClass := TRttiInstanceType(ImplRtti).MetaclassType;
+            var BestConstructor: TRttiMethod := nil;
+            // Prefer parameterless constructor for collections
+            for var Method in ImplRtti.GetMethods do
+              if Method.IsConstructor then
+              begin
+                if (Length(Method.GetParameters) = 0) then 
+                begin 
+                  BestConstructor := Method; 
+                  Break; 
+                end;
+                if (BestConstructor = nil) and (Length(Method.GetParameters) = 1) and 
+                   (Method.GetParameters[0].ParamType.TypeKind = tkEnumeration) then
                   BestConstructor := Method;
-                  Break; // Found perfect match
-                end
-                else if (Length(Method.GetParameters) = 1) and 
-                        (Method.GetParameters[0].ParamType.TypeKind = tkEnumeration) then
-                  BestConstructor := Method;
-             end;
-           end;
+              end;
 
-           if BestConstructor <> nil then
-           begin
-             var Instance: TValue;
-             if Length(BestConstructor.GetParameters) = 0 then
-               Instance := BestConstructor.Invoke(TargetClass, [])
-             else
-               Instance := BestConstructor.Invoke(TargetClass, [False]);
-               
-             if AType.Kind = tkInterface then
-             begin
-               var Intf: IInterface;
-               if Instance.AsObject.GetInterface(TRttiInterfaceType(RttiType).GUID, Intf) then
-                 TValue.Make(@Intf, AType, Result)
-               else
-                 Result := Instance;
-             end
-             else
-               Result := Instance;
-             Exit;
-           end;
+            if BestConstructor <> nil then
+            begin
+              var Instance: TValue;
+              if Length(BestConstructor.GetParameters) = 0 then 
+                Instance := BestConstructor.Invoke(TargetClass, [])
+              else 
+                Instance := BestConstructor.Invoke(TargetClass, [TValue.FromOrdinal(TypeInfo(Boolean), 0)]); // OwnsObjects = False
+                 
+              if AType.Kind = tkInterface then
+              begin
+                var Intf: IInterface;
+                if Instance.AsObject.GetInterface(TRttiInterfaceType(RttiType).GUID, Intf) then
+                  TValue.Make(@Intf, AType, Result)
+                else 
+                  Result := Instance;
+              end
+              else 
+                Result := Instance;
+              Exit;
+            end;
+        end;
+      end;
+
+      // 3. Fallback for IDictionary
+      if IsDictionaryType(AType) then
+      begin
+        KeyType := GetDictionaryKeyType(AType);
+        ValueType := GetDictionaryValueType(AType);
+        if (KeyType <> nil) and (ValueType <> nil) then
+        begin
+          var ImplRtti: TRttiType := nil;
+          var KeyName := string(KeyType^.Name);
+          var ValName := string(ValueType^.Name);
+          
+          for var TmpType in Context.GetTypes do
+            if TmpType.IsInstance and TmpType.Name.StartsWith('TDictionary<') then
+            begin
+               var AddM := TmpType.GetMethod('Add');
+               if Assigned(AddM) and (Length(AddM.GetParameters) = 2) then
+                 if (AddM.GetParameters[0].ParamType.Handle = KeyType) and 
+                    (AddM.GetParameters[1].ParamType.Handle = ValueType) then
+                 begin
+                   ImplRtti := TmpType;
+                   Break;
+                 end;
+            end;
+
+          if (ImplRtti <> nil) and (ImplRtti is TRttiInstanceType) then
+          begin
+            var TargetClass := TRttiInstanceType(ImplRtti).MetaclassType;
+            var BestConstructor: TRttiMethod := nil;
+            for var Method in ImplRtti.GetMethods do
+              if Method.IsConstructor then
+              begin
+                if Length(Method.GetParameters) = 0 then begin BestConstructor := Method; Break; end;
+                if (BestConstructor = nil) and (Length(Method.GetParameters) <= 3) then 
+                  BestConstructor := Method;
+              end;
+
+            if BestConstructor <> nil then
+            begin
+              var CtorArgs: TArray<TValue>;
+              SetLength(CtorArgs, Length(BestConstructor.GetParameters));
+              for var J := 0 to High(CtorArgs) do CtorArgs[J] := TValue.Empty; 
+              
+              var Instance := BestConstructor.Invoke(TargetClass, CtorArgs);
+              if AType.Kind = tkInterface then
+              begin
+                var Intf: IInterface;
+                if Instance.AsObject.GetInterface(TRttiInterfaceType(RttiType).GUID, Intf) then
+                  TValue.Make(@Intf, AType, Result)
+                else Result := Instance;
+              end
+              else Result := Instance;
+              Exit;
+            end;
+          end;
         end;
       end;
       
@@ -568,13 +638,65 @@ begin
 end;
 
 class function TActivator.IsListType(AType: PTypeInfo): Boolean;
+var
+  LName: string;
 begin
   if AType = nil then Exit(False);
-  var LName := string(AType.Name);
+  LName := string(AType^.Name);
   Result := ((AType.Kind = tkClass) or (AType.Kind = tkInterface)) and
             (LName.Contains('IList<') or LName.Contains('IEnumerable<') or 
              LName.Contains('TList<') or LName.Contains('TSmartList<') or
-             (Pos('Dext.Collections', string(AType.TypeData^.UnitName)) > 0));
+             (Pos('Dext.Collections', string(AType.TypeData^.UnitName)) > 0) or
+             (LName.EndsWith('List')) 
+            );
+end;
+
+class function TActivator.IsDictionaryType(AType: PTypeInfo): Boolean;
+var
+  LName: string;
+begin
+  if AType = nil then Exit(False);
+  LName := string(AType^.Name);
+  Result := (AType.Kind = tkInterface) and 
+            (LName.Contains('IDictionary<') or (Pos('Dext.Collections', string(AType.TypeData^.UnitName)) > 0));
+end;
+
+class function TActivator.GetDictionaryKeyType(AType: PTypeInfo): PTypeInfo;
+var
+  Context: TRttiContext;
+  RttiType: TRttiType;
+  Method: TRttiMethod;
+begin
+  Context := TRttiContext.Create;
+  try
+    RttiType := Context.GetType(AType);
+    if RttiType = nil then Exit(nil);
+    Method := RttiType.GetMethod('ContainsKey');
+    if Assigned(Method) and (Length(Method.GetParameters) = 1) then
+      Exit(Method.GetParameters[0].ParamType.Handle);
+    Result := nil;
+  finally
+    Context.Free;
+  end;
+end;
+
+class function TActivator.GetDictionaryValueType(AType: PTypeInfo): PTypeInfo;
+var
+  Context: TRttiContext;
+  RttiType: TRttiType;
+  Method: TRttiMethod;
+begin
+  Context := TRttiContext.Create;
+  try
+    RttiType := Context.GetType(AType);
+    if RttiType = nil then Exit(nil);
+    Method := RttiType.GetMethod('TryGetValue');
+    if Assigned(Method) and (Length(Method.GetParameters) = 2) then
+      Exit(Method.GetParameters[1].ParamType.Handle);
+    Result := nil;
+  finally
+    Context.Free;
+  end;
 end;
 
 class function TActivator.GetListElementType(AType: PTypeInfo): PTypeInfo;

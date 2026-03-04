@@ -41,10 +41,10 @@ uses
 
 type
   /// <summary>Callback for hashing a raw key to a 32-bit hash code</summary>
-  TRawHashFunc = function(Key: Pointer; KeySize: Integer): Cardinal;
+  TRawHashFunc = reference to function(Key: Pointer; KeySize: Integer): Cardinal;
 
   /// <summary>Callback for comparing two raw keys for equality</summary>
-  TRawEqualFunc = function(A, B: Pointer; KeySize: Integer): Boolean;
+  TRawEqualFunc = reference to function(A, B: Pointer; KeySize: Integer): Boolean;
 
   /// <summary>
   ///   Non-generic hash map with open addressing and linear probing.
@@ -296,18 +296,18 @@ begin
     FHashFunc := AHashFunc;
     FEqualFunc := AEqualFunc;
   end
-  else if PTypeInfo(AKeyTypeInfo).Kind in [tkUString, tkLString, tkWString] then
+  else if PTypeInfo(AKeyTypeInfo)^.Kind in [tkUString, tkLString, tkWString] then
   begin
-    FHashFunc := @StringRawHash;
-    FEqualFunc := @StringRawEqual;
+    FHashFunc := StringRawHash;
+    FEqualFunc := StringRawEqual;
   end
   else
   begin
     case AKeySize of
-      4: begin FHashFunc := @FastHash4; FEqualFunc := @FastEqual4; end;
-      8: begin FHashFunc := @FastHash8; FEqualFunc := @FastEqual8; end;
+      4: begin FHashFunc := FastHash4; FEqualFunc := FastEqual4; end;
+      8: begin FHashFunc := FastHash8; FEqualFunc := FastEqual8; end;
     else
-      begin FHashFunc := @DefaultRawHash; FEqualFunc := @DefaultRawEqual; end;
+      begin FHashFunc := DefaultRawHash; FEqualFunc := DefaultRawEqual; end;
     end;
   end;
 

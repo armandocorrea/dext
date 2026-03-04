@@ -48,7 +48,8 @@ uses
   TestCollections.Channels in 'TestCollections.Channels.pas',
   TestCollections.Algorithms in 'TestCollections.Algorithms.pas',
   TestCollections.Comparers in 'TestCollections.Comparers.pas',
-  TestCollections.QueuesAndStacks in 'TestCollections.QueuesAndStacks.pas';
+  TestCollections.QueuesAndStacks in 'TestCollections.QueuesAndStacks.pas',
+  TestCollections.Robustness in 'TestCollections.Robustness.pas';
 
 begin
   SetConsoleCharSet;
@@ -83,7 +84,8 @@ begin
           TChannelTests,
           TAlgorithmsTests,
           TComparerTests,
-          TTestQueuesAndStacks
+          TTestQueuesAndStacks,
+          TRobustnessTests
         ])
         .Run
     );

@@ -28,6 +28,7 @@ uses
   Dext.Collections.Memory;
 
 type
+  /// Callback para comparação de elementos brutos
   TRawCompareFunc = reference to function(A, B: Pointer): Integer;
   TRawEqualFunc = function(A, B: Pointer; Size: Integer): Boolean;
   TRawEqualityFunc = reference to function(A, B: Pointer): Boolean;
@@ -38,6 +39,14 @@ type
   PRawIntArray = ^TRawIntArray;
   TRawInt64Array = array[0..MaxInt div 8 - 1] of Int64;
   PRawInt64Array = ^TRawInt64Array;
+  TRawUInt64Array = array[0..MaxInt div 8 - 1] of UInt64;
+  PRawUInt64Array = ^TRawUInt64Array;
+  TRawUIntArray = array[0..$0FFFFFFF] of Cardinal;
+  PRawUIntArray = ^TRawUIntArray;
+  TRawWordArray = array[0..$1FFFFFFF] of Word;
+  PRawWordArray = ^TRawWordArray;
+  TRawByteArray = array[0..$3FFFFFFF] of Byte;
+  PRawByteArray = ^TRawByteArray;
   TRawStrArray = array[0..MaxInt div SizeOf(string) - 1] of string;
   PRawStrArray = ^TRawStrArray;
   TRawDblArray = array[0..MaxInt div 8 - 1] of Double;
@@ -56,10 +65,15 @@ type
     procedure InternalDeleteComplex(Index: Integer);
     procedure InternalSortHybrid(L, R: Integer; AKind: TTypeKind);
     procedure InternalSortInt(L, R: Integer);
+    procedure InternalSortUInt(L, R: Integer);
+    procedure InternalSortWord(L, R: Integer);
+    procedure InternalSortByte(L, R: Integer);
     procedure InternalSortInt64(L, R: Integer);
+    procedure InternalSortUInt64(L, R: Integer);
     procedure InternalSortDbl(L, R: Integer);
     procedure InternalSortStr(L, R: Integer);
-    procedure InternalSortGeneric(L, R: Integer; CompareFunc: TRawCompareFunc);
+    procedure InternalSortGeneric(L, R: Integer; const CompareFunc: TRawCompareFunc);
+    procedure InternalSortIndices(Indices: PInteger; L, R: Integer; const CompareFunc: TRawCompareFunc);
     function GetData: PByte; inline;
     function GetCount: Integer; inline;
     function GetCapacity: Integer; inline;
@@ -84,14 +98,16 @@ type
     function RemoveRaw(Value: Pointer; EqualityFunc: TRawEqualityFunc): Integer;
     function ExtractRaw(Value: Pointer; EqualityFunc: TRawEqualityFunc): Integer;
     procedure Clear; inline;
-    function IndexOfRaw(Value: Pointer; EqualityFunc: TRawEqualityFunc = nil): Integer;
-    function ContainsRaw(Value: Pointer; EqualityFunc: TRawEqualityFunc): Boolean;
+    function IndexOfRaw(Value: Pointer; const EqualityFunc: TRawEqualityFunc = nil): Integer;
+    function ContainsRaw(Value: Pointer; const EqualityFunc: TRawEqualityFunc = nil): Boolean;
+    procedure SortRaw(const CompareFunc: TRawCompareFunc); overload;
+    procedure SortRaw(AKind: TTypeKind); overload;
+    procedure ExchangeRaw(Index1, Index2: Integer); overload;
+    function BinarySearchRaw(Value: Pointer; out Index: Integer; const CompareFunc: TRawCompareFunc): Boolean;
+    procedure IndexedSortRaw(var Indices: TArray<Integer>; const CompareFunc: TRawCompareFunc);
     procedure GetRawItem(Index: Integer; Dest: Pointer); inline;
     procedure SetRawItem(Index: Integer; Value: Pointer); inline;
     procedure GetRawData(Dest: Pointer);
-    procedure ExchangeRaw(Index1, Index2: Integer);
-    procedure SortRaw(CompareFunc: TRawCompareFunc); overload;
-    procedure SortRaw(AKind: TTypeKind); overload;
     property Data: PByte read GetData;
     property Count: Integer read GetCount;
     property Capacity: Integer read GetCapacity write SetCapacity;
@@ -264,6 +280,51 @@ begin
   until I >= R;
 end;
 
+procedure TRawList.InternalSortUInt(L, R: Integer);
+var I, J: Integer; Pivot, T: Cardinal; PData: PRawUIntArray;
+begin
+  PData := PRawUIntArray(FData);
+  repeat
+    I := L; J := R; Pivot := PData^[(L + R) div 2];
+    repeat
+      while PData^[I] < Pivot do Inc(I); while PData^[J] > Pivot do Dec(J);
+      if I <= J then begin T := PData^[I]; PData^[I] := PData^[J]; PData^[J] := T; Inc(I); Dec(J); end;
+    until I > J;
+    if L < J then InternalSortUInt(L, J);
+    L := I;
+  until I >= R;
+end;
+
+procedure TRawList.InternalSortWord(L, R: Integer);
+var I, J: Integer; Pivot, T: Word; PData: PRawWordArray;
+begin
+  PData := PRawWordArray(FData);
+  repeat
+    I := L; J := R; Pivot := PData^[(L + R) div 2];
+    repeat
+      while PData^[I] < Pivot do Inc(I); while PData^[J] > Pivot do Dec(J);
+      if I <= J then begin T := PData^[I]; PData^[I] := PData^[J]; PData^[J] := T; Inc(I); Dec(J); end;
+    until I > J;
+    if L < J then InternalSortWord(L, J);
+    L := I;
+  until I >= R;
+end;
+
+procedure TRawList.InternalSortByte(L, R: Integer);
+var I, J: Integer; Pivot, T: Byte; PData: PRawByteArray;
+begin
+  PData := PRawByteArray(FData);
+  repeat
+    I := L; J := R; Pivot := PData^[(L + R) div 2];
+    repeat
+      while PData^[I] < Pivot do Inc(I); while PData^[J] > Pivot do Dec(J);
+      if I <= J then begin T := PData^[I]; PData^[I] := PData^[J]; PData^[J] := T; Inc(I); Dec(J); end;
+    until I > J;
+    if L < J then InternalSortByte(L, J);
+    L := I;
+  until I >= R;
+end;
+
 procedure TRawList.InternalSortInt64(L, R: Integer);
 var I, J: Integer; Pivot, T: Int64; PData: PRawInt64Array;
 begin
@@ -275,6 +336,20 @@ begin
       if I <= J then begin T := PData^[I]; PData^[I] := PData^[J]; PData^[J] := T; Inc(I); Dec(J); end;
     until I > J;
     if L < J then InternalSortInt64(L, J); L := I;
+  until I >= R;
+end;
+
+procedure TRawList.InternalSortUInt64(L, R: Integer);
+var I, J: Integer; Pivot, T: UInt64; PData: PRawUInt64Array;
+begin
+  PData := PRawUInt64Array(FData);
+  repeat
+    I := L; J := R; Pivot := PData^[(L + R) div 2];
+    repeat
+      while PData^[I] < Pivot do Inc(I); while PData^[J] > Pivot do Dec(J);
+      if I <= J then begin T := PData^[I]; PData^[I] := PData^[J]; PData^[J] := T; Inc(I); Dec(J); end;
+    until I > J;
+    if L < J then InternalSortUInt64(L, J); L := I;
   until I >= R;
 end;
 
@@ -307,41 +382,105 @@ begin
 end;
 
 procedure TRawList.InternalSortHybrid(L, R: Integer; AKind: TTypeKind);
-var I, J: Integer;
+var 
+  I, J: Integer;
+  IsUnsigned: Boolean;
 begin
   if R - L < 1 then Exit;
+  
+  IsUnsigned := False;
+  if Assigned(FTypeInfo) then
+  begin
+    var TData := GetTypeData(FTypeInfo);
+    if FTypeInfo.Kind = tkInt64 then
+      IsUnsigned := TData.MinInt64Value >= 0
+    else
+      IsUnsigned := TData.OrdType in [otUByte, otUWord, otULong];
+  end;
+
   if R - L < 24 then begin
     case AKind of
-      tkInteger: begin
-        var PArr := PRawIntArray(FData);
-        for I := L + 1 to R do begin
-          var V := PArr^[I]; J := I;
-          while (J > L) and (PArr^[J-1] > V) do begin PArr^[J] := PArr^[J-1]; Dec(J); end;
-          PArr^[J] := V;
+      tkInteger, tkChar, tkWChar, tkEnumeration, tkSet: begin
+        case FElementSize of
+          1: begin
+            var PByteArray := PRawByteArray(FData);
+            for I := L + 1 to R do begin
+              var VB := PByteArray^[I]; J := I;
+              while (J > L) and (PByteArray^[J-1] > VB) do begin PByteArray^[J] := PByteArray^[J-1]; Dec(J); end;
+              PByteArray^[J] := VB;
+            end;
+          end;
+          2: begin
+            var PWordArray := PRawWordArray(FData);
+            for I := L + 1 to R do begin
+              var VW := PWordArray^[I]; J := I;
+              while (J > L) and (PWordArray^[J-1] > VW) do begin PWordArray^[J] := PWordArray^[J-1]; Dec(J); end;
+              PWordArray^[J] := VW;
+            end;
+          end;
+          4: if IsUnsigned then begin
+            var PUIntArray := PRawUIntArray(FData);
+            for I := L + 1 to R do begin
+              var VU := PUIntArray^[I]; J := I;
+              while (J > L) and (PUIntArray^[J-1] > VU) do begin PUIntArray^[J] := PUIntArray^[J-1]; Dec(J); end;
+              PUIntArray^[J] := VU;
+            end;
+          end else begin
+            var PIntArray := PRawIntArray(FData);
+            for I := L + 1 to R do begin
+              var VI := PIntArray^[I]; J := I;
+              while (J > L) and (PIntArray^[J-1] > VI) do begin PIntArray^[J] := PIntArray^[J-1]; Dec(J); end;
+              PIntArray^[J] := VI;
+            end;
+          end;
+        end;
+      end;
+      tkInt64: begin
+        if IsUnsigned then begin
+          var PUInt64Array := PRawUInt64Array(FData);
+          for I := L + 1 to R do begin
+            var V64U := PUInt64Array^[I]; J := I;
+            while (J > L) and (PUInt64Array^[J-1] > V64U) do begin PUInt64Array^[J] := PUInt64Array^[J-1]; Dec(J); end;
+            PUInt64Array^[J] := V64U;
+          end;
+        end else begin
+          var PInt64Array := PRawInt64Array(FData);
+          for I := L + 1 to R do begin
+            var V64 := PInt64Array^[I]; J := I;
+            while (J > L) and (PInt64Array^[J-1] > V64) do begin PInt64Array^[J] := PInt64Array^[J-1]; Dec(J); end;
+            PInt64Array^[J] := V64;
+          end;
         end;
       end;
       tkFloat: begin
-        var PArr := PRawDblArray(FData);
+        var PDblArray := PRawDblArray(FData);
         for I := L + 1 to R do begin
-          var V := PArr^[I]; J := I;
-          while (J > L) and (PArr^[J-1] > V) do begin PArr^[J] := PArr^[J-1]; Dec(J); end;
-          PArr^[J] := V;
+          var VD := PDblArray^[I]; J := I;
+          while (J > L) and (PDblArray^[J-1] > VD) do begin PDblArray^[J] := PDblArray^[J-1]; Dec(J); end;
+          PDblArray^[J] := VD;
         end;
       end;
       tkUString: begin
-        var PArr := PRawStrArray(FData);
+        var PStrArray := PRawStrArray(FData);
         for I := L + 1 to R do begin
-          var V := PArr^[I]; J := I;
-          while (J > L) and (PArr^[J-1] > V) do begin PArr^[J] := PArr^[J-1]; Dec(J); end;
-          PArr^[J] := V;
+          var VS := PStrArray^[I]; J := I;
+          while (J > L) and (PStrArray^[J-1] > VS) do begin PStrArray^[J] := PStrArray^[J-1]; Dec(J); end;
+          PStrArray^[J] := VS;
         end;
       end;
     end;
     Exit;
   end;
+  
   case AKind of
-    tkInteger: InternalSortInt(L, R);
-    tkInt64: InternalSortInt64(L, R);
+    tkInteger, tkChar, tkWChar, tkEnumeration, tkSet: begin
+      case FElementSize of
+        1: InternalSortByte(L, R);
+        2: InternalSortWord(L, R);
+        4: if IsUnsigned then InternalSortUInt(L, R) else InternalSortInt(L, R);
+      end;
+    end;
+    tkInt64: if IsUnsigned then InternalSortUInt64(L, R) else InternalSortInt64(L, R);
     tkFloat: InternalSortDbl(L, R);
     tkUString: InternalSortStr(L, R);
   end;
@@ -372,19 +511,19 @@ begin
   FCount := 0;
 end;
 
-function TRawList.IndexOfRaw(Value: Pointer; EqualityFunc: TRawEqualityFunc): Integer;
-var I: Integer; ItemPtr: PByte; Size: Integer;
+function TRawList.IndexOfRaw(Value: Pointer; const EqualityFunc: TRawEqualityFunc = nil): Integer;
+var I, LCount, Size: Integer; ItemPtr: PByte;
 begin
-  Size := FElementSize; ItemPtr := FData;
+  LCount := FCount; Size := FElementSize; ItemPtr := FData;
   if Assigned(EqualityFunc) then begin
-    for I := 0 to FCount - 1 do begin if EqualityFunc(ItemPtr, Value) then Exit(I); Inc(ItemPtr, Size); end;
+    for I := 0 to LCount - 1 do begin if EqualityFunc(ItemPtr, Value) then Exit(I); Inc(ItemPtr, Size); end;
   end else begin
-    for I := 0 to FCount - 1 do begin if FEqualFunc(ItemPtr, Value, Size) then Exit(I); Inc(ItemPtr, Size); end;
+    for I := 0 to LCount - 1 do begin if FEqualFunc(ItemPtr, Value, Size) then Exit(I); Inc(ItemPtr, Size); end;
   end;
   Result := -1;
 end;
 
-function TRawList.ContainsRaw(Value: Pointer; EqualityFunc: TRawEqualityFunc): Boolean;
+function TRawList.ContainsRaw(Value: Pointer; const EqualityFunc: TRawEqualityFunc = nil): Boolean;
 begin Result := IndexOfRaw(Value, EqualityFunc) >= 0; end;
 
 procedure TRawList.GetRawItem(Index: Integer; Dest: Pointer);
@@ -405,6 +544,64 @@ end;
 procedure TRawList.GetRawData(Dest: Pointer);
 begin if FCount > 0 then if FIsManaged then System.CopyArray(Dest, FData, FTypeInfo, FCount) else System.Move(FData^, Dest^, FCount * FElementSize); end;
 
+function TRawList.BinarySearchRaw(Value: Pointer; out Index: Integer; const CompareFunc: TRawCompareFunc): Boolean;
+var
+  L, H, I, C: Integer;
+  Size: Integer;
+begin
+  Result := False;
+  L := 0;
+  H := FCount - 1;
+  Size := FElementSize;
+  while L <= H do
+  begin
+    I := L + (H - L) div 2;
+    C := CompareFunc(FData + (I * Size), Value);
+    if C < 0 then L := I + 1
+    else begin
+      H := I - 1;
+      if C = 0 then begin
+        Result := True;
+        L := I;
+      end;
+    end;
+  end;
+  Index := L;
+end;
+
+procedure TRawList.InternalSortIndices(Indices: PInteger; L, R: Integer; const CompareFunc: TRawCompareFunc);
+var
+  I, J, PivotIdx, T: Integer;
+  Arr: PRawIntArray;
+  Size: Integer;
+begin
+  Arr := PRawIntArray(Indices);
+  Size := FElementSize;
+  repeat
+    I := L; J := R; PivotIdx := Arr^[(L + R) div 2];
+    repeat
+      while CompareFunc(FData + (NativeInt(Arr^[I]) * Size), FData + (NativeInt(PivotIdx) * Size)) < 0 do Inc(I);
+      while CompareFunc(FData + (NativeInt(Arr^[J]) * Size), FData + (NativeInt(PivotIdx) * Size)) > 0 do Dec(J);
+      if I <= J then begin
+        T := Arr^[I]; Arr^[I] := Arr^[J]; Arr^[J] := T;
+        Inc(I); Dec(J);
+      end;
+    until I > J;
+    if L < J then InternalSortIndices(Indices, L, J, CompareFunc);
+    L := I;
+  until I >= R;
+end;
+
+procedure TRawList.IndexedSortRaw(var Indices: TArray<Integer>; const CompareFunc: TRawCompareFunc);
+var
+  I: Integer;
+begin
+  if FCount <= 0 then begin SetLength(Indices, 0); Exit; end;
+  SetLength(Indices, FCount);
+  for I := 0 to FCount - 1 do Indices[I] := I;
+  if FCount > 1 then InternalSortIndices(@Indices[0], 0, FCount - 1, CompareFunc);
+end;
+
 procedure TRawList.ExchangeRaw(Index1, Index2: Integer);
 var P1, P2: Pointer; TBuf: array[0..127] of Byte; TPtr: Pointer;
 begin
@@ -414,35 +611,37 @@ begin
   if TPtr <> @TBuf[0] then FreeMem(TPtr);
 end;
 
-procedure TRawList.InternalSortGeneric(L, R: Integer; CompareFunc: TRawCompareFunc);
+procedure TRawList.InternalSortGeneric(L, R: Integer; const CompareFunc: TRawCompareFunc);
 var
   I, J: Integer;
   PivotPtr: Pointer;
   P1, P2: PByte;
   TempBuf: array[0..255] of Byte;
   NeedsFree: Boolean;
+  Size: Integer;
 begin
   if R - L < 1 then Exit;
+  Size := FElementSize;
 
   // Hybrid: Insertion Sort for small partitions
   if R - L < 16 then
   begin
-    NeedsFree := FElementSize > SizeOf(TempBuf);
-    if NeedsFree then GetMem(PivotPtr, FElementSize) else PivotPtr := @TempBuf[0];
+    NeedsFree := Size > SizeOf(TempBuf);
+    if NeedsFree then GetMem(PivotPtr, Size) else PivotPtr := @TempBuf[0];
     try
       for I := L + 1 to R do
       begin
-        P1 := FData + (I * FElementSize);
-        System.Move(P1^, PivotPtr^, FElementSize);
+        P1 := FData + (I * Size);
+        System.Move(P1^, PivotPtr^, Size);
         J := I - 1;
         while (J >= L) do
         begin
-          P2 := FData + (J * FElementSize);
+          P2 := FData + (J * Size);
           if CompareFunc(P2, PivotPtr) <= 0 then Break;
-          System.Move(P2^, (P2 + FElementSize)^, FElementSize);
+          System.Move(P2^, (P2 + Size)^, Size);
           Dec(J);
         end;
-        System.Move(PivotPtr^, (FData + (J + 1) * FElementSize)^, FElementSize);
+        System.Move(PivotPtr^, (FData + (J + 1) * Size)^, Size);
       end;
     finally
       if NeedsFree then FreeMem(PivotPtr);
@@ -453,17 +652,17 @@ begin
   // QuickSort with Median-of-Three
   I := L; J := R;
   var Mid := (L + R) div 2;
-  if CompareFunc(FData + (L * FElementSize), FData + (Mid * FElementSize)) > 0 then ExchangeRaw(L, Mid);
-  if CompareFunc(FData + (L * FElementSize), FData + (R * FElementSize)) > 0 then ExchangeRaw(L, R);
-  if CompareFunc(FData + (Mid * FElementSize), FData + (R * FElementSize)) > 0 then ExchangeRaw(Mid, R);
+  if CompareFunc(FData + (L * Size), FData + (Mid * Size)) > 0 then ExchangeRaw(L, Mid);
+  if CompareFunc(FData + (L * Size), FData + (R * Size)) > 0 then ExchangeRaw(L, R);
+  if CompareFunc(FData + (Mid * Size), FData + (R * Size)) > 0 then ExchangeRaw(Mid, R);
 
-  NeedsFree := FElementSize > SizeOf(TempBuf);
-  if NeedsFree then GetMem(PivotPtr, FElementSize) else PivotPtr := @TempBuf[0];
+  NeedsFree := Size > SizeOf(TempBuf);
+  if NeedsFree then GetMem(PivotPtr, Size) else PivotPtr := @TempBuf[0];
   try
-    System.Move((FData + (Mid * FElementSize))^, PivotPtr^, FElementSize);
+    System.Move((FData + (Mid * Size))^, PivotPtr^, Size);
     repeat
-      while CompareFunc(FData + (I * FElementSize), PivotPtr) < 0 do Inc(I);
-      while CompareFunc(FData + (J * FElementSize), PivotPtr) > 0 do Dec(J);
+      while CompareFunc(FData + (I * Size), PivotPtr) < 0 do Inc(I);
+      while CompareFunc(FData + (J * Size), PivotPtr) > 0 do Dec(J);
       if I <= J then
       begin
         ExchangeRaw(I, J);
@@ -478,7 +677,7 @@ begin
   if I < R then InternalSortGeneric(I, R, CompareFunc);
 end;
 
-procedure TRawList.SortRaw(CompareFunc: TRawCompareFunc);
+procedure TRawList.SortRaw(const CompareFunc: TRawCompareFunc);
 begin
   if FCount > 1 then InternalSortGeneric(0, FCount - 1, CompareFunc);
 end;

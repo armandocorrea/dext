@@ -30,18 +30,19 @@ interface
 uses
   System.Character,
   System.Rtti,
-  System.SysUtils,
   System.StrUtils,
+  System.SysUtils,
   System.TypInfo,
-  Dext.Types.UUID,
-  Dext.DI.Interfaces,
-  Dext.Core.Activator,
   Dext.Collections,
   Dext.Collections.Base,
   Dext.Collections.Dict,
-  Dext.Json.Types;
+  Dext.Core.Activator,
+  Dext.DI.Interfaces,
+  Dext.Json.Types,
+  Dext.Types.UUID;
 
 type
+  TJsonSettings = Dext.Json.Types.TJsonSettings;
   /// <summary>
   ///   Exception raised for errors during JSON serialization or deserialization.
   /// </summary>
@@ -205,6 +206,11 @@ type
     ///   Serializes a TValue into a JSON string using default settings.
     /// </summary>
     class function Serialize(const AValue: TValue): string; overload; static;
+
+    /// <summary>
+    ///   Serializes a TValue into a JSON string using custom settings.
+    /// </summary>
+    class function Serialize(const AValue: TValue; const ASettings: TJsonSettings): string; overload; static;
   end;
 
   /// <summary>
@@ -231,16 +237,21 @@ type
     
     function IsListType(AType: PTypeInfo): Boolean;
     function IsArrayType(AType: PTypeInfo): Boolean;
+    function IsDictionaryType(AType: PTypeInfo): Boolean;
     function GetListElementType(AType: PTypeInfo): PTypeInfo;
     function GetArrayElementType(AType: PTypeInfo): PTypeInfo;
+    function GetDictionaryKeyType(AType: PTypeInfo): PTypeInfo;
+    function GetDictionaryValueType(AType: PTypeInfo): PTypeInfo;
+    function DeserializeDictionary(AJson: IDextJsonObject; AType: PTypeInfo): TValue;
     function ApplyCaseStyle(const AName: string): string;
   public
     constructor Create(const ASettings: TJsonSettings);
     function Deserialize<T>(const AJson: string): T;
     function DeserializeRecord(AJson: IDextJsonObject; AType: PTypeInfo): TValue;
-    function DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo): TValue;
+    function DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo; AInstance: TObject = nil): TValue;
     function Serialize<T>(const AValue: T): string; overload;
     function Serialize(const AValue: TValue): string; overload;
+    procedure Populate(AInstance: TObject; const AJson: string);
   end;
 
   /// <summary>
@@ -580,10 +591,15 @@ begin
 end;
 
 class function TDextJson.Serialize(const AValue: TValue): string;
+begin
+  Result := Serialize(AValue, GetDefaultSettings);
+end;
+
+class function TDextJson.Serialize(const AValue: TValue; const ASettings: TJsonSettings): string;
 var
   Serializer: TDextSerializer;
 begin
-  Serializer := TDextSerializer.Create(TJsonSettings.Default);
+  Serializer := TDextSerializer.Create(ASettings);
   try
     Result := Serializer.Serialize(AValue);
   finally
@@ -627,7 +643,7 @@ begin
   end;
 end;
 
-function TDextSerializer.DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo): TValue;
+function TDextSerializer.DeserializeObject(AJson: IDextJsonObject; AType: PTypeInfo; AInstance: TObject): TValue;
 var
   RttiType: TRttiType;
   Prop: TRttiProperty;
@@ -636,12 +652,24 @@ var
   Found: Boolean;
   Instance: TObject;
 begin
-  RttiType := TReflection.GetMetadata(AType).RttiType;
-  
-  // Create Instance using TActivator for full DI support and robust constructor resolution
-  Result := TActivator.CreateInstance(FSettings.FServiceProvider, AType);
-  Instance := Result.AsObject;
+  if AJson = nil then
+    Exit(TValue.Empty);
 
+  if AInstance <> nil then
+  begin
+    Instance := AInstance;
+    Result := Instance;
+  end
+  else
+  begin
+    Result := TActivator.CreateInstance(FSettings.FServiceProvider, AType);
+    Instance := Result.AsObject;
+  end;
+
+  if Instance = nil then
+    Exit;
+
+  RttiType := TReflection.GetMetadata(AType).RttiType;
   try
     for Prop in RttiType.GetProperties do
     begin
@@ -688,22 +716,29 @@ begin
         var Val: TValue;
         case Node.GetNodeType of
           jntString: Val := TValue.From<string>(Node.AsString);
-          jntNumber: 
+          jntNumber:
             begin
-              if (Prop.PropertyType.Handle = TypeInfo(Integer)) then
-                Val := TValue.From<Integer>(Node.AsInteger)
-              else if (Prop.PropertyType.Handle = TypeInfo(Int64)) then
-                Val := TValue.From<Int64>(Node.AsInt64)
+              case Prop.PropertyType.TypeKind of
+                tkInteger: Val := TValue.FromOrdinal(Prop.PropertyType.Handle, Node.AsInt64);
+                tkInt64: Val := Node.AsInt64;
+                tkFloat: 
+                  if Prop.PropertyType.Handle = TypeInfo(TDateTime) then
+                    Val := ISO8601ToDate(Node.AsString)
+                  else
+                    Val := TValue.From<Double>(Node.AsDouble);
               else
-                Val := TValue.From<Double>(Node.AsDouble);
+                Val := TValue.Empty;
+              end;
             end;
           jntBoolean: Val := TValue.From<Boolean>(Node.AsBoolean);
           jntObject: 
             begin
-              if (Prop.PropertyType.TypeKind = tkClass) then
+              if (Prop.PropertyType.TypeKind = tkClass) or (Prop.PropertyType.TypeKind = tkInterface) then
                 Val := DeserializeObject(Node as IDextJsonObject, Prop.PropertyType.Handle)
               else if (Prop.PropertyType.TypeKind = tkRecord) then
                 Val := DeserializeRecord(Node as IDextJsonObject, Prop.PropertyType.Handle)
+              else if IsDictionaryType(Prop.PropertyType.Handle) then
+                Val := DeserializeDictionary(Node as IDextJsonObject, Prop.PropertyType.Handle)
               else
                 Val := TValue.Empty;
             end;
@@ -724,7 +759,8 @@ begin
       end;
     end;
   except
-    Instance.Free;
+    if AInstance = nil then
+      Instance.Free;
     raise;
   end;
 end;
@@ -917,6 +953,10 @@ begin
     end
     else
       Result := TValue.Empty;
+  end
+  else if IsDictionaryType(AType) then
+  begin
+    Result := DeserializeDictionary(AJson, AType);
   end
   else if AJson.Contains(ValueField) then
   begin
@@ -1188,7 +1228,7 @@ begin
     Exit;
 
   RttiType := TReflection.GetMetadata(Obj.ClassInfo).RttiType;
-  
+
   for Prop in RttiType.GetProperties do
   begin
     // Skip non-public/published properties
@@ -1438,12 +1478,22 @@ end;
 
 function TDextSerializer.IsListType(AType: PTypeInfo): Boolean;
 begin
-  if AType = nil then Exit(False);
-  var LName := string(AType.Name);
-  Result := ((AType.Kind = tkClass) or (AType.Kind = tkInterface)) and
-            (LName.Contains('IList<') or LName.Contains('IEnumerable<') or 
-             LName.Contains('TList<') or LName.Contains('TSmartList<') or
-             (Pos('Dext.Collections', string(AType.TypeData^.UnitName)) > 0));
+  Result := TActivator.IsListType(AType);
+end;
+
+function TDextSerializer.IsDictionaryType(AType: PTypeInfo): Boolean;
+begin
+  Result := TActivator.IsDictionaryType(AType);
+end;
+
+function TDextSerializer.GetDictionaryKeyType(AType: PTypeInfo): PTypeInfo;
+begin
+  Result := TActivator.GetDictionaryKeyType(AType);
+end;
+
+function TDextSerializer.GetDictionaryValueType(AType: PTypeInfo): PTypeInfo;
+begin
+  Result := TActivator.GetDictionaryValueType(AType);
 end;
 
 function TDextSerializer.GetArrayElementType(AType: PTypeInfo): PTypeInfo;
@@ -1485,6 +1535,14 @@ begin
   finally
     Context.Free;
   end;
+end;
+
+procedure TDextSerializer.Populate(AInstance: TObject; const AJson: string);
+begin
+  if (AInstance = nil) or (AJson = '') then Exit;
+  var Node := TDextJson.Provider.Parse(AJson);
+  if (Node <> nil) and (Node.GetNodeType = jntObject) then
+    DeserializeObject(Node as IDextJsonObject, AInstance.ClassInfo, AInstance);
 end;
 
 function TDextSerializer.DeserializeArray(AJson: IDextJsonArray; AType: PTypeInfo): TValue;
@@ -1585,6 +1643,7 @@ begin
     if ElementType = nil then
       raise EDextJsonException.CreateFmt('Could not determine element type for %s', [AType.NameFld.ToString]);
 
+    AddMethod := nil;
     // Instantiate via Activator (Handles DI, Fallbacks and Factory)
     Result := TActivator.CreateInstance(FSettings.FServiceProvider, AType);
 
@@ -1613,7 +1672,13 @@ begin
       end;
     end;
 
-    AddMethod := RttiType.GetMethod('Add');
+    for var Method in RttiType.GetMethods do
+      if (Method.Name = 'Add') and (Length(Method.GetParameters) = 1) then
+      begin
+        AddMethod := Method;
+        Break;
+      end;
+
     if not Assigned(AddMethod) then
       raise EDextJsonException.CreateFmt('Could not find Add method for list type %s', [AType.NameFld.ToString]);
 
@@ -1623,7 +1688,7 @@ begin
         var Node := AJson.GetNode(I);
         if (Node <> nil) and (Node.GetNodeType = jntObject) then
         begin
-          if ElementType.Kind = tkClass then
+          if (ElementType.Kind = tkClass) or (ElementType.Kind = tkInterface) then
             ElementValue := DeserializeObject(Node as IDextJsonObject, ElementType)
           else
             ElementValue := DeserializeRecord(Node as IDextJsonObject, ElementType);
@@ -1663,13 +1728,92 @@ begin
         if not ElementValue.IsEmpty then
           AddMethod.Invoke(Result, [ElementValue]);
       end;
-    except
-      if (AType.Kind = tkClass) and (not Result.IsEmpty) then
-         Result.AsObject.Free;
-      raise;
+    finally
+    end;
+
+    Exit(Result);
+  finally
+  end;
+end;
+
+function TDextSerializer.DeserializeDictionary(AJson: IDextJsonObject; AType: PTypeInfo): TValue;
+var
+  KeyType, ValueType: PTypeInfo;
+  I: Integer;
+  AddMethod: TRttiMethod;
+  KeyVal, ValVal: TValue;
+  KeyName: string;
+begin
+  try
+    KeyType := GetDictionaryKeyType(AType);
+    ValueType := GetDictionaryValueType(AType);
+    
+    if (KeyType = nil) or (ValueType = nil) then
+      raise EDextJsonException.CreateFmt('Could not determine dictionary types for %s', [string(AType^.Name)]);
+
+    AddMethod := nil;
+    // Instantiate via Activator
+    Result := TActivator.CreateInstance(FSettings.FServiceProvider, AType);
+    
+    var RttiType := TReflection.GetMetadata(AType).RttiType;
+    for var Method in RttiType.GetMethods do
+      if ((Method.Name = 'Add') or (Method.Name = 'AddOrSetValue')) and (Length(Method.GetParameters) = 2) then
+      begin
+        AddMethod := Method;
+        Break;
+      end;
+       
+    if not Assigned(AddMethod) then
+      raise EDextJsonException.CreateFmt('Could not find Add method for dictionary type %s', [string(AType^.Name)]);
+
+    for I := 0 to AJson.GetCount - 1 do
+    begin
+      KeyName := AJson.GetName(I);
+      
+      // Key conversion
+      case KeyType.Kind of
+        tkUString, tkString, tkWString, tkLString: KeyVal := TValue.From<string>(KeyName);
+        tkInteger: KeyVal := TValue.From<Integer>(StrToIntDef(KeyName, 0));
+        tkInt64: KeyVal := TValue.From<Int64>(StrToInt64Def(KeyName, 0));
+        else KeyVal := TValue.Empty;
+      end;
+
+      if KeyVal.IsEmpty then Continue;
+
+      // Value conversion
+      var Node := AJson.GetNode(KeyName);
+      if (Node <> nil) and (Node.GetNodeType = jntObject) then
+      begin
+        if (ValueType.Kind = tkClass) or (ValueType.Kind = tkInterface) then 
+          ValVal := DeserializeObject(Node as IDextJsonObject, ValueType)
+        else if ValueType.Kind = tkRecord then 
+          ValVal := DeserializeRecord(Node as IDextJsonObject, ValueType)
+        else ValVal := TValue.Empty;
+      end
+      else if (Node <> nil) and (Node.GetNodeType = jntArray) then
+      begin
+        if IsArrayType(ValueType) then ValVal := DeserializeArray(Node as IDextJsonArray, ValueType)
+        else if IsListType(ValueType) then ValVal := DeserializeList(Node as IDextJsonArray, ValueType)
+        else ValVal := TValue.Empty;
+      end
+      else if (Node <> nil) then
+      begin
+        case ValueType.Kind of
+          tkInteger: ValVal := TValue.From<Integer>(Node.AsInteger);
+          tkInt64: ValVal := TValue.From<Int64>(Node.AsInt64);
+          tkFloat: ValVal := TValue.From<Double>(Node.AsDouble);
+          tkString, tkLString, tkWString, tkUString: ValVal := TValue.From<string>(Node.AsString);
+          tkEnumeration:
+            if ValueType = TypeInfo(Boolean) then ValVal := TValue.From<Boolean>(Node.AsBoolean)
+            else ValVal := TValue.Empty;
+          else ValVal := TValue.Empty;
+        end;
+      end;
+
+      if not ValVal.IsEmpty then
+        AddMethod.Invoke(Result, [KeyVal, ValVal]);
     end;
   finally
-    // No context to free
   end;
 end;
 

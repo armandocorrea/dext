@@ -14,6 +14,7 @@ uses
   System.Rtti,
   System.SysUtils,
   System.Character,
+  System.TypInfo,
   Dext.DI.Interfaces,
   Dext.Entity,
   Dext.Entity.Core,
@@ -105,7 +106,10 @@ type
     // Option A: Explicit DbContext parameter
     class procedure Map(const ABuilder: IApplicationBuilder; const APath: string; ADbContext: TDbContext); overload;
     class procedure Map(const ABuilder: IApplicationBuilder; const APath: string; ADbContext: TDbContext; AOptions: TDataApiOptions<T>); overload;
-      
+    class procedure RegisterDefault(ABase: TClass; AImpl: TClass); overload;
+    class procedure RegisterDefault(AInterface: PTypeInfo; AImpl: TClass); overload;
+    class procedure RegisterDefault<TIntf, TImpl: class>; overload;
+
     // Option B: Resolve DbContext from DI (Context.Services)
     class procedure Map(const ABuilder: IApplicationBuilder; const APath: string); overload;
     class procedure Map(const ABuilder: IApplicationBuilder; const APath: string; AOptions: TDataApiOptions<T>); overload;
@@ -131,8 +135,9 @@ implementation
 
 uses
   System.DateUtils,
-  System.TypInfo,
-  Dext.Collections, Dext.Collections.Dict,
+  Dext.Core.Activator,
+  Dext.Collections,
+  Dext.Collections.Dict,
   Dext.Core.DateUtils,
   Dext.Specifications.Types,
   Dext.Specifications.Interfaces,
@@ -348,13 +353,6 @@ end;
 
 function TDataApiHandler<T>.EntityToJson(const Entity: T): string;
 var
-  Ctx: TRttiContext;
-  Typ: TRttiType;
-  Prop: TRttiProperty;
-  First: Boolean;
-  PropName: string;
-  Map: TEntityMap;
-  PropMap: TPropertyMap;
   FinalSettings: TJsonSettings;
 begin
   if Entity = nil then
@@ -365,37 +363,12 @@ begin
     FinalSettings.CaseStyle := FOptions.NamingStrategy;
   if FOptions.EnumStyle <> TEnumStyle.EnumInherit then
     FinalSettings.EnumStyle := FOptions.EnumStyle;
-    
-  Ctx := TRttiContext.Create;
+
+  var Serializer := TDextSerializer.Create(FinalSettings);
   try
-    Typ := Ctx.GetType(TypeInfo(T));
-    Map := TModelBuilder.Instance.GetMap(TypeInfo(T));
-    
-    Result := '{';
-    First := True;
-    
-    for Prop in Typ.GetProperties do
-    begin
-      if not Prop.IsReadable then
-        Continue;
-        
-      // Check for mapping ignore
-      if Map.Properties.TryGetValue(Prop.Name, PropMap) and PropMap.IsIgnored then
-        Continue;
-        
-      if not First then
-        Result := Result + ',';
-      First := False;
-      
-      // Apply naming strategy
-      PropName := TJsonUtils.ApplyCaseStyle(Prop.Name, FinalSettings.CaseStyle);
-        
-      Result := Result + '"' + PropName + '":' + GetJsonVal(Prop.GetValue(TObject(Entity)), FinalSettings);
-    end;
-    
-    Result := Result + '}';
+    Result := Serializer.Serialize(TValue.From<T>(Entity));
   finally
-    Ctx.Free;
+    Serializer.Free;
   end;
 end;
 
@@ -730,35 +703,35 @@ begin
        if Offset > 0 then Qry := Qry.Skip(Offset);
        if Limit > 0 then Qry := Qry.Take(Limit);
 
-       var FinalItems := Qry.ToList;
-       try
-         // Build JSON response with high-performance UTF8 writer
-         var Stream := TMemoryStream.Create;
-         try
-           var FinalSettings := TDextJson.GetDefaultSettings;
-           if FOptions.NamingStrategy <> TCaseStyle.CaseInherit then
-             FinalSettings.CaseStyle := FOptions.NamingStrategy;
-           if FOptions.EnumStyle <> TEnumStyle.EnumInherit then
-             FinalSettings.EnumStyle := FOptions.EnumStyle;
+        var FinalItems := Qry.ToList;
+        try
+          // Build JSON response with high-performance UTF8 writer
+          var Stream := TMemoryStream.Create;
+          try
+            var FinalSettings := TDextJson.GetDefaultSettings;
+            if FOptions.NamingStrategy <> TCaseStyle.CaseInherit then
+              FinalSettings.CaseStyle := FOptions.NamingStrategy;
+            if FOptions.EnumStyle <> TEnumStyle.EnumInherit then
+              FinalSettings.EnumStyle := FOptions.EnumStyle;
 
-           var Writer := TUtf8JsonWriter.Create(Stream, False);
-           Writer.Settings := FinalSettings;
-           Writer.WriteStartArray;
-           for var Item in FinalItems do
-           begin
-             Writer.WriteValue(TValue.From<T>(Item));
-           end;
-           Writer.WriteEndArray;
-           
-           Stream.Position := 0;
-           Result := Results.Stream(Stream, 'application/json');
-         except
-           Stream.Free;
-           raise;
-         end;
-       finally
-         // Items will be freed automatically if the list returned by ToList owns them (AsNoTracking)
-       end;
+            var Writer := TUtf8JsonWriter.Create(Stream, False);
+            Writer.Settings := FinalSettings;
+            Writer.WriteStartArray;
+            for var Item in FinalItems do
+            begin
+              Writer.WriteValue(TValue.From<T>(Item));
+            end;
+            Writer.WriteEndArray;
+
+            Stream.Position := 0;
+            Result := Results.Stream(Stream, 'application/json');
+          except
+            Stream.Free;
+            raise;
+          end;
+        finally
+          // Items will be freed automatically if the list returned by ToList owns them (AsNoTracking)
+        end;
      finally
        OrderList := nil;
        if FilterExpr <> nil then
@@ -766,10 +739,7 @@ begin
      end;
   except
     on E: Exception do
-    begin
-      SafeWriteLn(Format('[DataApi] Error in HandleGetList: [%s] %s', [E.ClassName, E.Message]));
       Result := Results.StatusCode(500, Format('{"error":"[%s] %s"}', [E.ClassName, EscapeJsonString(E.Message)]));
-    end;
   end;
 end;
 
@@ -811,20 +781,15 @@ function TDataApiHandler<T>.HandlePost(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   Entity: T;
-  Ctx: TRttiContext;
-  Typ: TRttiType;
-  Prop: TRttiProperty;
   IdProp: TRttiProperty;
   IdValue: Integer;
   Stream: TStream;
   JsonString: string;
   Bytes: TBytes;
   JsonNode: IDextJsonNode;
-  JsonObj: IDextJsonObject;
-  PropName: string;
   AuthResult: IResult;
-  Map: TEntityMap;
-  PropMap: TPropertyMap;
+  Ctx: TRttiContext;
+  Typ: TRttiType;
 begin
   // Authorization check
   AuthResult := CheckAuthorization(Context, True);  // Write operation
@@ -849,77 +814,36 @@ begin
     if (JsonNode = nil) or (JsonNode.GetNodeType <> jntObject) then
       Exit(Results.BadRequest('{"error":"Invalid JSON in request body"}'));
     
-    JsonObj := JsonNode as IDextJsonObject;
+    var FinalSettings := TDextJson.GetDefaultSettings;
+    if FOptions.NamingStrategy <> TCaseStyle.CaseInherit then
+      FinalSettings.CaseStyle := FOptions.NamingStrategy;
+    if FOptions.EnumStyle <> TEnumStyle.EnumInherit then
+      FinalSettings.EnumStyle := FOptions.EnumStyle;
+
+    var Serializer := TDextSerializer.Create(FinalSettings);
+    try
+       Entity := Serializer.Deserialize<T>(JsonString);
+    finally
+       Serializer.Free;
+    end;
+      
+    DbCtx.Entities<T>.Add(Entity);
+    DbCtx.SaveChanges;
     
-    // Create new entity instance
+    // Get ID for response via RTTI
     Ctx := TRttiContext.Create;
     try
       Typ := Ctx.GetType(TypeInfo(T));
-      Map := TModelBuilder.Instance.GetMap(TypeInfo(T));
-      Entity := Typ.GetMethod('Create').Invoke(Typ.AsInstance.MetaclassType, []).AsType<T>;
-      
-      // Populate entity properties from JSON
-      for Prop in Typ.GetProperties do
-      begin
-        if not Prop.IsWritable then
-          Continue;
-        if SameText(Prop.Name, 'Id') then
-          Continue; // Don't set ID from JSON, let DB generate it
-          
-        // Check for mapping ignore
-        if Map.Properties.TryGetValue(Prop.Name, PropMap) and PropMap.IsIgnored then
-          Continue;
-        
-        // Try exact match first, then strategy match
-        PropName := Prop.Name;
-        if not JsonObj.Contains(PropName) then
-        begin
-          var FinalNamingStrategy := FOptions.NamingStrategy;
-          if FinalNamingStrategy = TCaseStyle.CaseInherit then
-            FinalNamingStrategy := TDextJson.GetDefaultSettings.CaseStyle;
-            
-          PropName := TJsonUtils.ApplyCaseStyle(Prop.Name, FinalNamingStrategy);
-        end;
-        
-        if JsonObj.Contains(PropName) then
-        begin
-          try
-            case Prop.PropertyType.TypeKind of
-              tkInteger: Prop.SetValue(TObject(Entity), JsonObj.GetInteger(PropName));
-              tkInt64: Prop.SetValue(TObject(Entity), JsonObj.GetInt64(PropName));
-              tkFloat: 
-                if Prop.PropertyType.Handle = TypeInfo(TDateTime) then
-                  Prop.SetValue(TObject(Entity), StrToDateTimeDef(JsonObj.GetString(PropName), 0))
-                else
-                  Prop.SetValue(TObject(Entity), JsonObj.GetDouble(PropName));
-              tkString, tkUString, tkWString, tkLString:
-                Prop.SetValue(TObject(Entity), JsonObj.GetString(PropName));
-              tkEnumeration:
-                if Prop.PropertyType.Handle = TypeInfo(Boolean) then
-                  Prop.SetValue(TObject(Entity), JsonObj.GetBoolean(PropName))
-                else
-                  Prop.SetValue(TObject(Entity), TValue.FromOrdinal(Prop.PropertyType.Handle, JsonObj.GetInteger(PropName)));
-            end;
-          except
-            // Ignore conversion errors for individual properties
-          end;
-        end;
-      end;
-      
-      DbCtx.Entities<T>.Add(Entity);
-      DbCtx.SaveChanges;
-      
-      // Get ID for response
       IdProp := Typ.GetProperty('Id');
       if IdProp <> nil then
         IdValue := IdProp.GetValue(TObject(Entity)).AsInteger
       else
         IdValue := 0;
-      
-      Result := Results.Created(FPath + '/' + IntToStr(IdValue), EntityToJson(Entity));
     finally
       Ctx.Free;
     end;
+    
+    Result := Results.Created(FPath + '/' + IntToStr(IdValue), EntityToJson(Entity));
   except
     on E: Exception do
       Result := Results.StatusCode(500, Format('{"error":"%s"}', [EscapeJsonString(E.Message)]));
@@ -932,18 +856,11 @@ var
   IdStr: string;
   Id: Integer;
   Entity: T;
-  Ctx: TRttiContext;
-  Typ: TRttiType;
-  Prop: TRttiProperty;
   Stream: TStream;
   JsonString: string;
   Bytes: TBytes;
   JsonNode: IDextJsonNode;
-  JsonObj: IDextJsonObject;
-  PropName: string;
   AuthResult: IResult;
-  Map: TEntityMap;
-  PropMap: TPropertyMap;
 begin
   // Authorization check
   AuthResult := CheckAuthorization(Context, True);  // Write operation
@@ -978,67 +895,17 @@ begin
     if (JsonNode = nil) or (JsonNode.GetNodeType <> jntObject) then
       Exit(Results.BadRequest('{"error":"Invalid JSON in request body"}'));
     
-    JsonObj := JsonNode as IDextJsonObject;
-    
-    // Update entity properties from JSON
-    Ctx := TRttiContext.Create;
+    var FinalSettings := TDextJson.GetDefaultSettings;
+    if FOptions.NamingStrategy <> TCaseStyle.CaseInherit then
+      FinalSettings.CaseStyle := FOptions.NamingStrategy;
+    if FOptions.EnumStyle <> TEnumStyle.EnumInherit then
+      FinalSettings.EnumStyle := FOptions.EnumStyle;
+
+    var Serializer := TDextSerializer.Create(FinalSettings);
     try
-      Typ := Ctx.GetType(TypeInfo(T));
-      Map := TModelBuilder.Instance.GetMap(TypeInfo(T));
-      
-      for Prop in Typ.GetProperties do
-      begin
-        if not Prop.IsWritable then
-          Continue;
-        if SameText(Prop.Name, 'Id') then
-          Continue; // Don't update ID
-          
-        // Check for mapping ignore
-        if Map.Properties.TryGetValue(Prop.Name, PropMap) and PropMap.IsIgnored then
-          Continue;
-        
-        // Try exact match first, then strategy match
-        PropName := Prop.Name;
-        if not JsonObj.Contains(PropName) then
-        begin
-          // Try exact match first, then strategy match
-          PropName := Prop.Name;
-          if not JsonObj.Contains(PropName) then
-          begin
-            var FinalNamingStrategy := FOptions.NamingStrategy;
-            if FinalNamingStrategy = TCaseStyle.CaseInherit then
-              FinalNamingStrategy := TDextJson.GetDefaultSettings.CaseStyle;
-              
-            PropName := TJsonUtils.ApplyCaseStyle(Prop.Name, FinalNamingStrategy);
-          end;
-        
-          if JsonObj.Contains(PropName) then
-          begin
-            try
-              case Prop.PropertyType.TypeKind of
-                tkInteger: Prop.SetValue(TObject(Entity), JsonObj.GetInteger(PropName));
-                tkInt64: Prop.SetValue(TObject(Entity), JsonObj.GetInt64(PropName));
-                tkFloat:
-                  if Prop.PropertyType.Handle = TypeInfo(TDateTime) then
-                    Prop.SetValue(TObject(Entity), StrToDateTimeDef(JsonObj.GetString(PropName), 0))
-                  else
-                    Prop.SetValue(TObject(Entity), JsonObj.GetDouble(PropName));
-                tkString, tkUString, tkWString, tkLString:
-                  Prop.SetValue(TObject(Entity), JsonObj.GetString(PropName));
-                tkEnumeration:
-                  if Prop.PropertyType.Handle = TypeInfo(Boolean) then
-                    Prop.SetValue(TObject(Entity), JsonObj.GetBoolean(PropName))
-                  else
-                    Prop.SetValue(TObject(Entity), TValue.FromOrdinal(Prop.PropertyType.Handle, JsonObj.GetInteger(PropName)));
-              end;
-            except
-              // Ignore conversion errors
-            end;
-          end;
-        end;
-      end;
+       Serializer.Populate(TObject(Entity), JsonString);
     finally
-      Ctx.Free;
+       Serializer.Free;
     end;
     
     DbCtx.Entities<T>.Update(Entity);
@@ -1184,6 +1051,21 @@ begin
   finally
     Ctx.Free;
   end;
+end;
+
+class procedure TDataApiHandler<T>.RegisterDefault(ABase, AImpl: TClass);
+begin
+  TActivator.RegisterDefault(ABase, AImpl);
+end;
+
+class procedure TDataApiHandler<T>.RegisterDefault(AInterface: PTypeInfo; AImpl: TClass);
+begin
+  TActivator.RegisterDefault(AInterface, AImpl);
+end;
+
+class procedure TDataApiHandler<T>.RegisterDefault<TIntf, TImpl>;
+begin
+  TActivator.RegisterDefault<TIntf, TImpl>;
 end;
 
 end.

@@ -86,6 +86,8 @@ type
 
     procedure ForEach(const Action: TProc<T>);
     procedure Sort(const AComparer: IComparer<T> = nil);
+    function BinarySearch(const Value: T; out Index: Integer; const AComparer: IComparer<T> = nil): Boolean;
+    function IndexedSort(const AComparer: IComparer<T> = nil): TArray<Integer>;
     function ToArray: TArray<T>;
   end;
 
@@ -165,7 +167,10 @@ type
   end;
 
   {$M+}
+  {$RTTI EXPLICIT METHODS([vcPublic, vcPublished])}
   TList<T> = class(TListBase<T>, IList<T>, ICollection)
+  private
+    type P_T = ^T;
   private
     FCore: TRawList;
     FOwnsObjects: Boolean;
@@ -221,6 +226,8 @@ type
 
     procedure ForEach(const Action: TProc<T>);
     procedure Sort(const AComparer: IComparer<T> = nil);
+    function BinarySearch(const Value: T; out Index: Integer; const AComparer: IComparer<T> = nil): Boolean;
+    function IndexedSort(const AComparer: IComparer<T> = nil): TArray<Integer>;
     function ToArray: TArray<T>;
 
     property Count: Integer read GetCount;
@@ -443,7 +450,7 @@ begin
   LCount := FCore.Count;
   if LCount = 0 then Exit(-1);
   P := FCore.Data;
-  // Final Optimization: local LCount and specialized loops to beat RTL
+  
   case FTypeKind of
     tkUString:
       for I := 0 to LCount - 1 do
@@ -451,11 +458,18 @@ begin
         if PString(P)^ = PString(@Value)^ then Exit(I);
         Inc(P, SizeOf(String));
       end;
-    tkClass, tkInterface:
+    tkClass:
       for I := 0 to LCount - 1 do
       begin
         if PPointer(P)^ = PPointer(@Value)^ then Exit(I);
         Inc(P, SizeOf(Pointer));
+      end;
+    tkInterface:
+      for I := 0 to LCount - 1 do
+      begin
+        // MI-safe interface identity check
+        if PIInterface(P)^ = PIInterface(@Value)^ then Exit(I);
+        Inc(P, SizeOf(IInterface));
       end;
     tkLString:
       for I := 0 to LCount - 1 do
@@ -498,6 +512,11 @@ begin
              if PDouble(P)^ = PDouble(@Value)^ then Exit(I);
              Inc(P, 8);
            end;
+        10: for I := 0 to LCount - 1 do
+           begin
+             if PExtended(P)^ = PExtended(@Value)^ then Exit(I);
+             Inc(P, 10);
+           end;
       end;
     tkInt64:
       for I := 0 to LCount - 1 do
@@ -506,10 +525,14 @@ begin
         Inc(P, 8);
       end;
   else
-    for I := 0 to LCount - 1 do
     begin
-      if CompareMem(P, @Value, SizeOf(T)) then Exit(I);
-      Inc(P, SizeOf(T));
+      // For Records and other complex types, use the Dext-native equality comparer
+      var Comparer := TEqualityComparer<T>.Default;
+      for I := 0 to LCount - 1 do
+      begin
+        if Comparer.Equals(P_T(P)^, Value) then Exit(I);
+        Inc(P, FCore.ElementSize);
+      end;
     end;
   end;
   Result := -1;
@@ -757,8 +780,6 @@ begin
 end;
 
 procedure TList<T>.ForEach(const Action: TProc<T>);
-type
-  P_T = ^T;
 var
   I: Integer;
   P: PByte;
@@ -773,42 +794,16 @@ begin
 end;
 
 procedure TList<T>.Sort(const AComparer: IComparer<T>);
-type P_T = ^T;
 var
   LComparer: IComparer<T>;
-  I, J, LCount: Integer;
-  LData: PByte;
+  LCount: Integer;
 begin
   LCount := FCore.Count;
   if LCount < 2 then Exit;
 
-  // FAST PATH: small unmanaged list (like TList<Integer>)
-  if (AComparer = nil) and (not FCore.IsManaged) and (LCount < 48) then
-  begin
-    LData := FCore.Data;
-    case SizeOf(T) of
-      4: begin
-           var Arr := PRawIntArray(LData);
-           for I := 1 to LCount - 1 do begin
-             var V := Arr^[I]; J := I;
-             while (J > 0) and (Arr^[J-1] > V) do begin Arr^[J] := Arr^[J-1]; Dec(J); end;
-             Arr^[J] := V;
-           end;
-           Exit;
-         end;
-      8: begin
-           var Arr := PRawInt64Array(LData);
-           for I := 1 to LCount - 1 do begin
-             var V := Arr^[I]; J := I;
-             while (J > 0) and (Arr^[J-1] > V) do begin Arr^[J] := Arr^[J-1]; Dec(J); end;
-             Arr^[J] := V;
-           end;
-           Exit;
-         end;
-    end;
-  end;
-
-  // Standard path for primitives
+  // Standard path for primitives: delegates to TRawList which has its own
+  // optimized hybrid sort (InsertionSort for small arrays + QuickSort)
+  // and handles Unsigned Types correctly via RTTI.
   if (AComparer = nil) and ((not FCore.IsManaged) or (FTypeKind = tkUString)) then
   begin
     FCore.SortRaw(FTypeKind);
@@ -821,6 +816,30 @@ begin
     function(A, B: Pointer): Integer
     begin
       Result := LComparer.Compare(P_T(A)^, P_T(B)^);
+    end);
+end;
+
+function TList<T>.BinarySearch(const Value: T; out Index: Integer; const AComparer: IComparer<T>): Boolean;
+var
+  LC: IComparer<T>;
+begin
+  if AComparer <> nil then LC := AComparer else LC := TComparer<T>.Default;
+  Result := FCore.BinarySearchRaw(@Value, Index,
+    function(A, B: Pointer): Integer
+    begin
+      Result := LC.Compare(P_T(A)^, P_T(B)^);
+    end);
+end;
+
+function TList<T>.IndexedSort(const AComparer: IComparer<T>): TArray<Integer>;
+var
+  LC: IComparer<T>;
+begin
+  if AComparer <> nil then LC := AComparer else LC := TComparer<T>.Default;
+  FCore.IndexedSortRaw(Result,
+    function(A, B: Pointer): Integer
+    begin
+      Result := LC.Compare(P_T(A)^, P_T(B)^);
     end);
 end;
 

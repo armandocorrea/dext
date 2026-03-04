@@ -18,6 +18,7 @@ uses
   Dext.Collections.Base,
   Dext.Collections.Memory,
   Dext.Collections.RawDict,
+  Dext.Collections.Comparers,
   Dext.Collections;
 
 type
@@ -44,6 +45,8 @@ type
 
   /// <summary>HashSet implementation backed by TRawDictionary</summary>
   THashSet<T> = class(THashSetBase<T>, IHashSet<T>)
+  private
+    type P_T = ^T;
   private
     FCore: TRawDictionary;
     function GetCount: Integer; inline;
@@ -89,25 +92,25 @@ end;
 
 constructor THashSet<T>.Create(ACapacity: Integer);
 var
-  HashFunc: TRawHashFunc;
-  EqualFunc: TRawEqualFunc;
+  HF: TRawHashFunc;
+  EF: TRawEqualFunc;
   TInfo: PTypeInfo;
+  Comp: IEqualityComparer<T>;
 begin
   inherited Create;
   TInfo := TypeInfo(T);
-  
-  if TInfo^.Kind = tkUString then
-  begin
-    HashFunc := StringRawHash;
-    EqualFunc := StringRawEqual;
-  end
-  else
-  begin
-    HashFunc := DefaultRawHash;
-    EqualFunc := DefaultRawEqual;
-  end;
 
-  FCore := TRawDictionary.Create(SizeOf(T), 1, TInfo, nil, HashFunc, EqualFunc, ACapacity);
+  Comp := TEqualityComparer<T>.Default;
+  HF := function(Key: Pointer; KeySize: Integer): Cardinal
+        begin
+          Result := Cardinal(Comp.GetHashCode(P_T(Key)^));
+        end;
+  EF := function(A, B: Pointer; KeySize: Integer): Boolean
+        begin
+          Result := Comp.Equals(P_T(A)^, P_T(B)^);
+        end;
+
+  FCore := TRawDictionary.Create(SizeOf(T), 1, TInfo, nil, HF, EF, ACapacity);
 end;
 
 destructor THashSet<T>.Destroy;
@@ -119,12 +122,14 @@ end;
 function THashSet<T>.Add(const Value: T): Boolean;
 var
   Dummy: Byte;
+  VP: Pointer;
 begin
-  if FCore.ContainsKeyRaw(@Value) then
+  VP := @Value;
+  if FCore.ContainsKeyRaw(VP) then
     Exit(False);
     
   Dummy := 1;
-  FCore.AddRaw(@Value, @Dummy);
+  FCore.AddRaw(VP, @Dummy);
   Result := True;
 end;
 
@@ -134,8 +139,11 @@ begin
 end;
 
 function THashSet<T>.Contains(const Value: T): Boolean;
+var
+  VP: Pointer;
 begin
-  Result := FCore.ContainsKeyRaw(@Value);
+  VP := @Value;
+  Result := FCore.ContainsKeyRaw(VP);
 end;
 
 function THashSet<T>.GetCount: Integer;
@@ -154,8 +162,11 @@ begin
 end;
 
 function THashSet<T>.Remove(const Value: T): Boolean;
+var
+  VP: Pointer;
 begin
-  Result := FCore.RemoveRaw(@Value);
+  VP := @Value;
+  Result := FCore.RemoveRaw(VP);
 end;
 
 function THashSet<T>.ToArray: TArray<T>;
