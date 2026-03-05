@@ -210,6 +210,7 @@ Modernização da stack de autenticação para padrões de mercado (OAuth2/OIDC)
 - [x] **WebBroker Adapter** ✅ **IMPLEMENTADO**: Suporte a deployment nativo como ISAPI/CGI via WebBroker (IIS/Apache) lado a lado com o Indy.
 - [x] **DCS Adapter (epoll/IOCP/kqueue)** ✅ **IMPLEMENTADO**: Integração via `TServerFactory` suportando I/O Assíncrono de altíssima performance.
   - ⚠️ *Aviso de Licença: A biblioteca DCS usa LGPL-3.0. Requer linkagem dinâmica (BPL) ou a distribuição em código aberto se não for uso interno.*
+- [ ] Explorar/Migrar motores de HTTP de alta performance (como `http.sys` ou wrappers `epoll` nativos) com licenças permissivas (Apache 2.0 / MIT) nativamente no Dext.
 - [ ] Adotar `RawUTF8` no pipeline de processamento de requisições.
 
 ### Fase 2: Ecosystem
