@@ -57,6 +57,7 @@ Um framework HTTP leve e poderoso para construir REST APIs e microserviços.
 * **Zero-Allocation JSON**: Geração de resposta extremamente rápida via `TUtf8JsonWriter` para streaming direto.
 * **Dynamic Specification Mapping**: Integração automática de filtros via QueryString (`_gt`, `_lt`, `_sort`, etc).
 * **WebBroker Server Adapter** ⭐ NOVO: Faça deploy via WebBroker (ISAPI/CGI) no IIS/Apache sem alterar o código da aplicação, operando lado a lado com o Indy.
+* **DCS Server Adapter** ⭐ NOVO: Motor HTTP não bloqueante de altíssima performance (epoll/IOCP) usando Delphi-Cross-Socket.
 * **Comunicação em Tempo Real** ⭐ NOVO: Hubs compatíveis com SignalR para messaging em tempo real. Suporta grupos, targeting por usuário e broadcast com `Dext.Web.Hubs`. [Saiba mais](Docs/hubs.md)
 
 ### 🗄️ Dext.Entity (ORM)

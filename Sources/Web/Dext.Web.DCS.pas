@@ -18,9 +18,7 @@
 {           License.                                                        }
 {                                                                           }
 {***************************************************************************}
-{                                                                           }
-{  Author:  Cesar Romero                                                    }
-{  Created: 2026-03-05                                                      }
+{  Author:  Cesar Romero & Contributors                                     }
 {                                                                           }
 {***************************************************************************}
 {                                                                           }
@@ -42,6 +40,8 @@ unit Dext.Web.DCS;
 interface
 
 {$IFDEF DEXT_ENABLE_DCS}
+{$MESSAGE WARN 'You are compiling with DEXT_ENABLE_DCS. The Delphi-Cross-Socket library is licensed under LGPL-3.0. Statically linking this in closed-source commercial applications may violate terms unless distributed dynamically (DLL/BPL) or source/DCUs are provided.'}
+
 uses
   System.Classes,
   System.SysUtils,
