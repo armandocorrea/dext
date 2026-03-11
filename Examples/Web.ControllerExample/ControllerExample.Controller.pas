@@ -90,7 +90,6 @@ type
 
   // Controller Class (Instance-based with DI)
   [ApiController('/api/greet')]
-  // TODO : Rename Attribute
   [Authorize('Bearer')] // ? Protect entire controller
   TGreetingController = class
   private

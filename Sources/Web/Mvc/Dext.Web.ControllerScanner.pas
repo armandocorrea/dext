@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -139,36 +139,21 @@ begin
 
             var Attributes := Method.GetAttributes;
 
-            // ✅ FIX: ITERATE ALL ATTRIBUTES TO COMBINE INFO
-            // e.g. [HttpGet, Route('/path')] should combine Method='GET' and Path='/path'
-            var FoundRoute := False;
-            MethodInfo.Method := Method;
-            MethodInfo.Path := '';
-            MethodInfo.HttpMethod := '';
-            MethodInfo.RouteAttribute := nil; // Keep reference to at least one
-
+            // ✅ FIX: Process EACH route attribute to support multiple routes per method
             for Attr in Attributes do
             begin
               if Attr is RouteAttribute then
               begin
                 var R := RouteAttribute(Attr);
-                FoundRoute := True;
+                
+                MethodInfo.Method := Method;
+                MethodInfo.Path := R.Path;
+                MethodInfo.HttpMethod := R.Method;
                 MethodInfo.RouteAttribute := R;
-
-                // Prioritize non-empty values
-                if R.Path <> '' then
-                  MethodInfo.Path := R.Path;
-
-                if R.Method <> '' then
-                  MethodInfo.HttpMethod := R.Method;
-              end;
-            end;
-
-            // ✅ ADD METHOD IF ANY ROUTE ATTRIBUTE FOUND
-            if FoundRoute then
-            begin
+                
                 MethodsList.Add(MethodInfo);
                 HasRouteMethods := True;
+              end;
             end;
           end;
 
@@ -311,22 +296,28 @@ begin
       var ControllerRequiresAuth := False;
       var MethodRequiresAuth := False;
       var MethodAllowsAnonymous := False;
+      var SecuritySchemes: IList<string> := TCollections.CreateList<string>;
 
       // Check controller level [Authorize]
       for var Attr in Controller.RttiType.GetAttributes do
-        if Attr is AuthorizeAttribute then
+        if (Attr is Dext.Auth.Attributes.AuthorizeAttribute) or (Attr.ClassName = 'AuthorizeAttribute') then
         begin
           ControllerRequiresAuth := True;
-          Break;
+          SecuritySchemes.Add(Dext.Auth.Attributes.AuthorizeAttribute(Attr).Scheme);
         end;
 
       // Check method level attributes
       for var Attr in ControllerMethod.Method.GetAttributes do
       begin
-        if Attr is AuthorizeAttribute then
+        if (Attr is Dext.Auth.Attributes.AuthorizeAttribute) or (Attr.ClassName = 'AuthorizeAttribute') then
+        begin
           MethodRequiresAuth := True;
+          var LScheme := Dext.Auth.Attributes.AuthorizeAttribute(Attr).Scheme;
+          if (LScheme <> '') and (SecuritySchemes.IndexOf(LScheme) < 0) then
+            SecuritySchemes.Add(LScheme);
+        end;
 
-        if Attr is AllowAnonymousAttribute then
+        if (Attr is AllowAnonymousAttribute) or (Attr.ClassName = 'AllowAnonymousAttribute') then
           MethodAllowsAnonymous := True;
       end;
 
@@ -334,62 +325,39 @@ begin
       // - If method has [AllowAnonymous], it's always allowed (overrides controller [Authorize])
       // - Otherwise, auth is required if controller OR method has [Authorize]
       if MethodAllowsAnonymous then
-        CachedMethod.RequiresAuth := False
+      begin
+        CachedMethod.RequiresAuth := False;
+        SecuritySchemes.Clear; // Skip security definitions in Swagger too if anonymous
+      end
       else
         CachedMethod.RequiresAuth := ControllerRequiresAuth or MethodRequiresAuth;
-
-      // ✅ FILTERS REMOVED FROM CACHE
-      // We now fetch them dynamically in ExecuteCachedMethod to avoid AVs
 
       FCachedMethods.Add(CachedMethod);
 
       // ✅ REGISTRAR ROTA USANDO CACHE (EVITA PROBLEMAS DE REFERÊNCIA RTTI)
-      // Usar CreateHandler para garantir captura correta da variável no loop
       AppBuilder.MapEndpoint(ControllerMethod.HttpMethod, FullPath, CreateHandler(CachedMethod));
 
-      // ✅ PROCESSAR ATRIBUTOS DE SEGURANÇA (SwaggerAuthorize)
-      var SecuritySchemes: IList<string> := TCollections.CreateList<string>;
-      try
-        // 1. Atributos do Controller
-        var TypeAttrs := Controller.RttiType.GetAttributes;
-        for var Attr in TypeAttrs do
-          if Attr is AuthorizeAttribute then
-            SecuritySchemes.Add(AuthorizeAttribute(Attr).Scheme);
-
-        // 2. Atributos do Método
-        var MethodAttrs := ControllerMethod.Method.GetAttributes;
-        for var Attr in MethodAttrs do
-          if Attr is AuthorizeAttribute then
-            SecuritySchemes.Add(AuthorizeAttribute(Attr).Scheme);
-
-        // 3. Atualizar Metadados da Rota
-        if (SecuritySchemes.Count > 0) or MethodAllowsAnonymous then
-        begin
-          var Routes := AppBuilder.GetRoutes;
-          if Length(Routes) > 0 then
-          begin
-            var Metadata := Routes[High(Routes)];
-            if SecuritySchemes.Count > 0 then
-            begin
-              Metadata.Security := SecuritySchemes.ToArray;
-              SafeWriteLn('      🔒 Secured with: ' + string.Join(', ', Metadata.Security));
-            end;
-            Metadata.AllowAnonymous := MethodAllowsAnonymous;
-            if MethodAllowsAnonymous then
-              SafeWriteLn('      🔓 Allows Anonymous Access');
-            AppBuilder.UpdateLastRouteMetadata(Metadata);
-          end;
-        end;
-      finally
-        // SecuritySchemes is ARC
-      end;
-
-      // ✅ PROCESSAR [SwaggerOperation], [SwaggerResponse], [SwaggerTag] e RequestType
+      // ✅ ATUALIZAR METADADOS DA ROTA (Security, Anonymous, etc.)
       var Routes := AppBuilder.GetRoutes;
       if Length(Routes) > 0 then
       begin
         var Metadata := Routes[High(Routes)];
+        var MetadataUpdated := False;
         var Updated := False;
+
+        if (SecuritySchemes.Count > 0) then
+        begin
+           Metadata.Security := SecuritySchemes.ToArray;
+           SafeWriteLn('      🔒 Secured with: ' + string.Join(', ', Metadata.Security));
+           MetadataUpdated := True;
+        end;
+
+        if MethodAllowsAnonymous then
+        begin
+          Metadata.AllowAnonymous := True;
+          SafeWriteLn('      🔓 Allows Anonymous Access');
+          MetadataUpdated := True;
+        end;
 
         // 1. [SwaggerTag] do Controller
         for var TypeAttr in Controller.RttiType.GetAttributes do
@@ -466,7 +434,7 @@ begin
         if Length(ResponsesList) > 0 then
           Metadata.Responses := ResponsesList;
 
-        if Updated then
+        if MetadataUpdated or Updated then
           AppBuilder.UpdateLastRouteMetadata(Metadata);
       end;
 
