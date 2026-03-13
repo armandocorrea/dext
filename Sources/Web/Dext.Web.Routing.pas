@@ -34,28 +34,33 @@ uses
   Dext.Collections,
   Dext.Collections.Dict,
   Dext.Web.Interfaces;
-  // Note: We don't import Versioning here to avoid circular dep if possible, 
-  // or we define IApiVersionReader in Interfaces? 
+  // Note: We don't import Versioning here to avoid circular dep if possible,
+  // or we define IApiVersionReader in Interfaces?
   // For now, let's assume simple string matching or header reading inside logic if we pass Context.
   // Actually, we can just extract version in Middleware and pass it?
   // No, the interface change allows passing Context.
-  
+
 type
   // Forward delcaration if needed, but IApiVersionReader is in another unit.
   // Let's rely on manually checking context headers/query for now to minimize dependencies,
   // OR assume the Caller (Middleware) passes the Version string?
   // Ideally: FindMatchingRoute(Context).
 
+  TRouteSegment = record
+  public
+    IsLiteral: Boolean;
+    Text: string;
+  end;
+
   TRoutePattern = class
   private
     FPattern: string;
-    FRegex: TRegEx;
+    FSegments: TArray<TRouteSegment>;
     FParameterNames: TArray<string>;
-    function BuildRegexPattern(const APattern: string): string;
-    function ExtractParameterNames(const APattern: string): TArray<string>;
+    procedure ParseSegments(const APattern: string);
   public
     constructor Create(const APattern: string);
-    function Match(const APath: string; out AParams: IDictionary<string, string>): Boolean;
+    function Match(const APath: string; out AParams: TRouteValueDictionary): Boolean;
     property Pattern: string read FPattern;
     property ParameterNames: TArray<string> read FParameterNames;
   end;
@@ -81,7 +86,7 @@ type
     ['{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}']
     function FindMatchingRoute(const AContext: IHttpContext;
       out AHandler: TRequestDelegate;
-      out ARouteParams: IDictionary<string, string>;
+      out ARouteParams: TRouteValueDictionary;
       out AMetadata: TEndpointMetadata): Boolean;
   end;
 
@@ -95,7 +100,7 @@ type
     destructor Destroy; override;
     function FindMatchingRoute(const AContext: IHttpContext;
       out AHandler: TRequestDelegate;
-      out ARouteParams: IDictionary<string, string>;
+      out ARouteParams: TRouteValueDictionary;
       out AMetadata: TEndpointMetadata): Boolean;
   end;
 
@@ -113,66 +118,122 @@ begin
   if APattern = '' then
     raise ERouteException.Create('Route pattern cannot be empty');
 
-  FParameterNames := ExtractParameterNames(APattern);
-  FRegex := TRegEx.Create(BuildRegexPattern(APattern), [roIgnoreCase]);
+  ParseSegments(APattern);
 end;
 
-function TRoutePattern.ExtractParameterNames(const APattern: string): TArray<string>;
+procedure TRoutePattern.ParseSegments(const APattern: string);
 var
-  Matches: TMatchCollection;
-  I: Integer;
-  PatternRegex: TRegEx;
+  Idx, StartIdx: Integer;
+  InParam: Boolean;
 begin
-  PatternRegex := TRegEx.Create('\{(.+?)\}');
-  Matches := PatternRegex.Matches(APattern);
+  FSegments := nil;
+  FParameterNames := nil;
 
-  SetLength(Result, Matches.Count);
-  for I := 0 to Matches.Count - 1 do
+  StartIdx := 1;
+  InParam := False;
+  Idx := 1;
+  while Idx <= Length(APattern) do
   begin
-    Result[I] := Matches[I].Groups[1].Value;
+    if (not InParam) and (APattern[Idx] = '{') then
+    begin
+      // Flush literal
+      if Idx > StartIdx then
+      begin
+        SetLength(FSegments, Length(FSegments) + 1);
+        FSegments[High(FSegments)].IsLiteral := True;
+        FSegments[High(FSegments)].Text := Copy(APattern, StartIdx, Idx - StartIdx);
+      end;
+      StartIdx := Idx + 1;
+      InParam := True;
+    end
+    else if InParam and (APattern[Idx] = '}') then
+    begin
+      // Flush param
+      if Idx > StartIdx then
+      begin
+        SetLength(FSegments, Length(FSegments) + 1);
+        FSegments[High(FSegments)].IsLiteral := False;
+        FSegments[High(FSegments)].Text := Copy(APattern, StartIdx, Idx - StartIdx);
 
-    if Result[I].IsEmpty then
-      raise ERouteException.CreateFmt('Invalid parameter name in pattern: %s', [APattern]);
+        SetLength(FParameterNames, Length(FParameterNames) + 1);
+        FParameterNames[High(FParameterNames)] := FSegments[High(FSegments)].Text;
+      end;
+      StartIdx := Idx + 1;
+      InParam := False;
+    end;
+    Inc(Idx);
   end;
-end;
 
-function TRoutePattern.BuildRegexPattern(const APattern: string): string;
-begin
-  Result := APattern;
-  Result := TRegEx.Replace(Result, '([.+?^=!:${}()|\[\]\\])', '\\$1');
-  Result := TRegEx.Replace(Result, '\\\{([^}]+)\\\}', '([^/]+)');
-  Result := '^' + Result + '$';
+  if StartIdx <= Length(APattern) then
+  begin
+    if InParam then
+      raise ERouteException.Create('Unclosed parameter in pattern');
+    SetLength(FSegments, Length(FSegments) + 1);
+    FSegments[High(FSegments)].IsLiteral := True;
+    FSegments[High(FSegments)].Text := Copy(APattern, StartIdx, Length(APattern) - StartIdx + 1);
+  end;
 end;
 
 function TRoutePattern.Match(const APath: string;
-  out AParams: IDictionary<string, string>): Boolean;
+  out AParams: TRouteValueDictionary): Boolean;
 var
-  Match: TMatch;
   I: Integer;
+  PathIdx: Integer;
+  Seg: TRouteSegment;
+  ValueStart, ValueLen: Integer;
 begin
-  AParams := nil;
-  Result := False;
+  AParams.Clear;
+  PathIdx := 1;
 
-  Match := FRegex.Match(APath);
-
-  if Match.Success then
+  for I := 0 to High(FSegments) do
   begin
-    AParams := TCollections.CreateDictionary<string, string>;
+    Seg := FSegments[I];
 
-    try
-      for I := 0 to High(FParameterNames) do
+    if Seg.IsLiteral then
+    begin
+      if Length(APath) - PathIdx + 1 < Length(Seg.Text) then
+        Exit(False);
+
+      if StrLIComp(PChar(APath) + PathIdx - 1, PChar(Seg.Text), Length(Seg.Text)) <> 0 then
+        Exit(False);
+
+      Inc(PathIdx, Length(Seg.Text));
+    end
+    else
+    begin
+      ValueStart := PathIdx;
+
+      if I < High(FSegments) then
       begin
-        if I + 1 < Match.Groups.Count then
-          AParams.Add(FParameterNames[I], Match.Groups[I + 1].Value);
+        while (PathIdx <= Length(APath)) and (APath[PathIdx] <> '/') do
+        begin
+          if FSegments[I+1].IsLiteral and (Length(FSegments[I+1].Text) > 0) then
+          begin
+            if (Length(APath) - PathIdx + 1 >= Length(FSegments[I+1].Text)) and
+               (StrLIComp(PChar(APath) + PathIdx - 1, PChar(FSegments[I+1].Text), Length(FSegments[I+1].Text)) = 0) then
+              Break;
+          end;
+          Inc(PathIdx);
+        end;
+      end
+      else
+      begin
+        while (PathIdx <= Length(APath)) and (APath[PathIdx] <> '/') do
+          Inc(PathIdx);
       end;
 
-      Result := True;
+      ValueLen := PathIdx - ValueStart;
+      if ValueLen = 0 then
+        Exit(False);
 
-    except
-      AParams := nil;
-      raise;
+      AParams.Add(Seg.Text, Copy(APath, ValueStart, ValueLen));
     end;
   end;
+
+  if PathIdx <= Length(APath) then
+    Exit(False);
+
+  Result := True;
 end;
 
 { TRouteDefinition }
@@ -183,7 +244,7 @@ begin
   FMethod := AMethod;
   FPath := APath;
   FHandler := AHandler;
-  
+
   if APath.Contains('{') then
     FPattern := TRoutePattern.Create(APath)
   else
@@ -212,7 +273,7 @@ var
 begin
   inherited Create;
   FRoutes := TCollections.CreateList<TRouteDefinition>(True); // Owns objects
-  
+
   // Clone routes to ensure thread safety and independence
   for Route in ARoutes do
   begin
@@ -232,8 +293,8 @@ function TRouteMatcher.GetRequestedApiVersion(const AContext: IHttpContext): str
 begin
   // Simple default logic: check Query string then Header
   // NOTE: In production this should be pluggable via DI
-  Result := AContext.Request.Query.Values['api-version'];
-  if Result = '' then
+  if not AContext.Request.Query.TryGetValue('api-version', Result) then
+    Result := '';
   begin
     if not AContext.Request.Headers.TryGetValue('X-Version', Result) then
       Result := '';
@@ -248,31 +309,31 @@ begin
   // Or match typically V1?
   // Policy: If route has NO versions defined, it matches any request (implicit neutral).
   // If route HAS versions, request MUST match one of them.
-  
+
   if Length(SupportedVersions) = 0 then
     Exit(True); // Route is version neutral
-    
+
   if RequestedVersion = '' then
   begin
     // If no version requested, do we match versioned routes?
     // Maybe default to '1.0' or reject?
-    // For now: assume neutral match only if requested matches. 
+    // For now: assume neutral match only if requested matches.
     // If requested is empty, we only match neutral routes (Length=0 check matches).
     // What if we want default version?
     // Let's assume empty request only matches neutral routes.
-    Exit(False); 
+    Exit(False);
   end;
-    
+
   for V in SupportedVersions do
     if SameText(V, RequestedVersion) then
       Exit(True);
-      
+
   Result := False;
 end;
 
 function TRouteMatcher.FindMatchingRoute(const AContext: IHttpContext;
   out AHandler: TRequestDelegate;
-  out ARouteParams: IDictionary<string, string>;
+  out ARouteParams: TRouteValueDictionary;
   out AMetadata: TEndpointMetadata): Boolean;
 var
   Route: TRouteDefinition;
@@ -280,16 +341,16 @@ var
   LiteralCandidates, PatternCandidates: IList<TRouteDefinition>;
   BestMatch: TRouteDefinition;
 begin
-  ARouteParams := nil;
+  ARouteParams.Clear;
   Result := False;
   Method := AContext.Request.Method;
   Path := AContext.Request.Path;
   RequestVersion := GetRequestedApiVersion(AContext);
-  
+
   // Normalize path: remove trailing slash (except for root "/")
   if (Length(Path) > 1) and (Path[Length(Path)] = '/') then
     Path := Copy(Path, 1, Length(Path) - 1);
-  
+
   // Separate into literal and pattern candidates
   // RULE: Literal routes (exact match) take priority over pattern routes (with {params})
   LiteralCandidates := TCollections.CreateList<TRouteDefinition>;
@@ -301,22 +362,20 @@ begin
         begin
              if (Route.Pattern = nil) and (Route.Path = Path) then
                LiteralCandidates.Add(Route)
-             else if (Route.Pattern <> nil) and Route.Pattern.Match(Path, ARouteParams) then
+              else if (Route.Pattern <> nil) and Route.Pattern.Match(Path, ARouteParams) then
              begin
-               // Route matches with pattern. Clean up the params created by Match().
-               if Assigned(ARouteParams) then 
-               begin
-                 ARouteParams := nil;
-               end;
+               // Route matches with pattern. Clean up the params if we decide to keep searching.
+               // Actually we keep looking. But PatternCandidates keeps the route.
+               ARouteParams.Clear;
                PatternCandidates.Add(Route);
              end;
         end;
     end;
-    
+
     // Select Best Candidate based on Version
     // Priority: Literal routes first, then pattern routes
     BestMatch := nil;
-    
+
     // 1. Try literal candidates first
     for Route in LiteralCandidates do
     begin
@@ -326,7 +385,7 @@ begin
         Break;
       end;
     end;
-    
+
     // 2. If no literal match, try pattern candidates
     if BestMatch = nil then
     begin
@@ -339,7 +398,7 @@ begin
         end;
       end;
     end;
-    
+
     // 3. If still no match and RequestVersion is empty, try neutral routes (literal first)
     if (BestMatch = nil) and (RequestVersion = '') then
     begin
@@ -349,7 +408,7 @@ begin
           BestMatch := Route;
           Break;
         end;
-      
+
       if BestMatch = nil then
         for Route in PatternCandidates do
           if Length(Route.Metadata.ApiVersions) = 0 then
@@ -358,19 +417,19 @@ begin
             Break;
           end;
     end;
-    
+
     if BestMatch <> nil then
     begin
         AHandler := BestMatch.Handler;
         AMetadata := BestMatch.Metadata;
-        
+
         // Re-generate params for the winner
         if BestMatch.Pattern <> nil then
            BestMatch.Pattern.Match(Path, ARouteParams);
-           
+
         Result := True;
     end;
-    
+
   finally
     LiteralCandidates := nil;
     PatternCandidates := nil;

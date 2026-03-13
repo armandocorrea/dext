@@ -65,7 +65,7 @@ end;
 procedure TRoutingMiddleware.Invoke(AContext: IHttpContext; ANext: TRequestDelegate);
 var
   Handler: TRequestDelegate;
-  RouteParams: IDictionary<string, string>;
+  RouteParams: TRouteValueDictionary;
   Metadata: TEndpointMetadata;
   IndyContext: TIndyHttpContext;
 begin
@@ -77,7 +77,7 @@ begin
   begin
     try
       // ? INJETAR parâmetros de rota se encontrados
-      if Assigned(RouteParams) and (AContext is TIndyHttpContext) then
+      if (RouteParams.Count > 0) and (AContext is TIndyHttpContext) then
       begin
         IndyContext := TIndyHttpContext(AContext);
         IndyContext.SetRouteParams(RouteParams);
@@ -88,9 +88,9 @@ begin
 
       // Authorization Check
       if Length(Metadata.Security) > 0 then
-      begin        
+      begin
         if (AContext.User = nil) or not AContext.User.Identity.IsAuthenticated then
-        begin          
+        begin
           AContext.Response.StatusCode := 401;
           for var Scheme in Metadata.Security do
           begin
@@ -103,12 +103,12 @@ begin
           AContext.Response.SetContentType('application/json; charset=utf-8');
           AContext.Response.Write('{"error": "Unauthorized", "message": "Authentication required. Please provide valid credentials."}');
           Exit;
-        end;        
+        end;
       end;
 
       Handler(AContext);
     finally
-      RouteParams := nil;
+      RouteParams.Clear;
     end;
   end
   else
@@ -119,5 +119,4 @@ begin
 end;
 
 end.
-
 

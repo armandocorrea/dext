@@ -58,7 +58,7 @@ type
     Path: string;
     HubClass: THubClass;
   end;
-  
+
   /// <summary>
   /// Hub dispatcher that routes requests to Hub methods.
   /// </summary>
@@ -75,23 +75,23 @@ type
                        const AGroupManager: IGroupManager;
                        ASSETransport: TSSETransport);
     destructor Destroy; override;
-    
+
     /// <summary>Invokes a method on the Hub</summary>
     function InvokeMethod(const ConnectionId, MethodName: string;
                           const Args: TArray<TValue>): TValue;
-    
+
     /// <summary>Triggers OnConnectedAsync</summary>
     procedure OnConnected(const ConnectionId: string);
-    
+
     /// <summary>Triggers OnDisconnectedAsync</summary>
     procedure OnDisconnected(const ConnectionId: string; const Error: Exception);
-    
+
     property HubClass: THubClass read FHubClass;
     property ConnectionManager: IConnectionManager read FConnectionManager;
     property GroupManager: IGroupManager read FGroupManager;
     property SSETransport: TSSETransport read FSSETransport;
   end;
-  
+
   /// <summary>
   /// Middleware that handles Hub HTTP endpoints.
   /// Endpoints:
@@ -105,29 +105,29 @@ type
     FConnectionManager: TConnectionManager;
     FGroupManager: TGroupManager;
     FSSETransport: TSSETransport;
-    
+
     procedure HandleNegotiate(const HubPath: string; Ctx: IHttpContext);
     procedure HandleSSEStream(const HubPath: string; Ctx: IHttpContext; Dispatcher: THubDispatcher);
     procedure HandleInvoke(const HubPath: string; Ctx: IHttpContext; Dispatcher: THubDispatcher);
     procedure HandlePoll(const HubPath: string; Ctx: IHttpContext; Dispatcher: THubDispatcher);
-    
+
     function FindDispatcher(const Path: string; out HubPath: string): THubDispatcher;
   public
     constructor Create;
     destructor Destroy; override;
-    
+
     /// <summary>Registers a Hub at the specified path</summary>
     procedure MapHub(const Path: string; HubClass: THubClass);
-    
+
     /// <summary>Gets the Hub context for external use</summary>
     function GetHubContext: IHubContext;
-    
+
     /// <summary>Middleware handler</summary>
     procedure Handle(Ctx: IHttpContext; Next: TRequestDelegate);
-    
+
     /// <summary>Gracefully shuts down all SSE connections</summary>
     procedure Shutdown;
-    
+
     property ConnectionManager: TConnectionManager read FConnectionManager;
     property GroupManager: TGroupManager read FGroupManager;
   end;
@@ -187,7 +187,7 @@ var
   Params: TArray<TValue>;
 begin
   Result := TValue.Empty;
-  
+
   // Create Hub instance
   Hub := FHubClass.Create;
   try
@@ -195,16 +195,16 @@ begin
     CallerContext := THubCallerContext.Create(ConnectionId, ttServerSentEvents);
     HubClients := THubClients.Create(FConnectionManager, ConnectionId);
     Hub.SetContext(CallerContext, HubClients, FGroupManager);
-    
+
     // Find and invoke method
     RttiCtx := TRttiContext.Create;
     try
       RttiType := RttiCtx.GetType(FHubClass);
       Method := RttiType.GetMethod(MethodName);
-      
+
       if Method = nil then
         raise EHubMethodNotFoundException.CreateFmt('Method not found: %s', [MethodName]);
-      
+
       // Convert args if needed
       Params := Args;
       Result := Method.Invoke(Hub, Params);
@@ -289,7 +289,7 @@ begin
   NormalizedPath := Path.ToLower;
   if not NormalizedPath.StartsWith('/') then
     NormalizedPath := '/' + NormalizedPath;
-    
+
   Dispatcher := THubDispatcher.Create(HubClass, FConnectionManager, FGroupManager, FSSETransport);
   FHubs.AddOrSetValue(NormalizedPath, Dispatcher);
 end;
@@ -307,7 +307,7 @@ begin
   Result := nil;
   HubPath := '';
   LowerPath := Path.ToLower;
-  
+
   for Key in FHubs.Keys do
   begin
     if LowerPath.StartsWith(Key) then
@@ -325,16 +325,16 @@ var
   Dispatcher: THubDispatcher;
 begin
   Path := Ctx.Request.Path.ToLower;
-  
+
   // Check if this is a hub request
   Dispatcher := FindDispatcher(Path, HubPath);
-  
+
   if Dispatcher = nil then
   begin
     Next(Ctx);
     Exit;
   end;
-  
+
   // Route to appropriate handler
   if Path.EndsWith('/negotiate') then
     HandleNegotiate(HubPath, Ctx)
@@ -355,10 +355,10 @@ var
 begin
   // Generate unique connection ID
   ConnectionId := TGUID.NewGuid.ToString.Replace('{', '').Replace('}', '').Replace('-', '');
-  
+
   // Build negotiate response
   Response := TNegotiateResponse.Create(ConnectionId);
-  
+
   Ctx.Response.StatusCode := 200;
   Ctx.Response.SetContentType('application/json');
   Ctx.Response.Write(Response.ToJson);
@@ -373,37 +373,38 @@ var
   KeepAliveCounter: Integer;
 begin
   // Get connection ID from query
-  ConnectionId := Ctx.Request.Query.Values['id'];
+  if not Ctx.Request.Query.TryGetValue('id', ConnectionId) then
+    ConnectionId := '';
   if ConnectionId = '' then
   begin
     Ctx.Response.StatusCode := 400;
     Ctx.Response.Write('{"error": "Missing connection id"}');
     Exit;
   end;
-  
+
   // Create SSE connection
   Connection := FSSETransport.CreateConnection(ConnectionId);
   Connection.SetConnected;
-  
+
   // Add to connection manager (as interface)
   FConnectionManager.Add(Connection);
-  
+
   // Configure SSE response
   TSSEWriter.ConfigureResponse(Ctx.Response);
   TSSEWriter.WriteRetry(Ctx.Response, 3000); // Retry after 3s on disconnect
-  
+
   // Trigger OnConnected
   try
     Dispatcher.OnConnected(ConnectionId);
   except
     // Log but don't fail
   end;
-  
+
   // Send connected event
   TSSEWriter.WriteEvent(Ctx.Response, 'connected', '{"connectionId":"' + ConnectionId + '"}');
-  
+
   KeepAliveCounter := 0;
-  
+
   // SSE loop - keep connection open
   // Check BOTH connection closed AND transport shutdown
   while (not Connection.Closed) and (not FSSETransport.IsShuttingDown) do
@@ -415,7 +416,7 @@ begin
       if Msg <> '' then
         TSSEWriter.WriteData(Ctx.Response, Msg);
     end;
-    
+
     // Send keep-alive comment every 15 seconds (150 * 100ms)
     Inc(KeepAliveCounter);
     if KeepAliveCounter >= 150 then
@@ -423,14 +424,14 @@ begin
       TSSEWriter.WriteComment(Ctx.Response, 'ping');
       KeepAliveCounter := 0;
     end;
-    
+
     Sleep(100);
   end;
-  
+
   // Cleanup
   FConnectionManager.Remove(ConnectionId);
   FSSETransport.RemoveConnection(ConnectionId);
-  
+
   // Trigger OnDisconnected
   try
     Dispatcher.OnDisconnected(ConnectionId, nil);
@@ -447,14 +448,15 @@ var
   Messages: TJSONArray;
   Msg: string;
 begin
-  ConnectionId := Ctx.Request.Query.Values['id'];
+  if not Ctx.Request.Query.TryGetValue('id', ConnectionId) then
+    ConnectionId := '';
   if ConnectionId = '' then
   begin
     Ctx.Response.StatusCode := 400;
     Ctx.Response.Write('{"error": "Missing connection id"}');
     Exit;
   end;
-  
+
   // Get connection
   Connection := FSSETransport.GetConnection(ConnectionId);
   if Connection = nil then
@@ -463,7 +465,7 @@ begin
     Connection := FSSETransport.CreateConnection(ConnectionId);
     Connection.SetConnected;
     FConnectionManager.Add(Connection);
-    
+
     // Trigger OnConnected
     try
       Dispatcher.OnConnected(ConnectionId);
@@ -471,7 +473,7 @@ begin
       // Log but don't fail
     end;
   end;
-  
+
   // Collect pending messages
   Messages := TJSONArray.Create;
   try
@@ -481,7 +483,7 @@ begin
       if Msg <> '' then
         Messages.Add(Msg);
     end;
-    
+
     Ctx.Response.StatusCode := 200;
     Ctx.Response.SetContentType('application/json');
     Ctx.Response.Write(Messages.ToJSON);
@@ -501,41 +503,42 @@ var
   ResultValue: TValue;
   ConnectionId: string;
 begin
-  ConnectionId := Ctx.Request.Query.Values['id'];
+  if not Ctx.Request.Query.TryGetValue('id', ConnectionId) then
+    ConnectionId := '';
   if ConnectionId = '' then
   begin
     Ctx.Response.StatusCode := 400;
     Ctx.Response.Write('{"error": "Missing connection id"}');
     Exit;
   end;
-  
+
   // Read body
   Body := ReadStreamToString(Ctx.Request.Body);
-  
+
   try
     // Parse invocation request
     Request := TInvocationRequest.FromJson(Body);
-    
+
     // Convert JSON strings to TValues
     SetLength(Args, Length(Request.Arguments));
     for I := 0 to High(Request.Arguments) do
       Args[I] := TJsonHubProtocol.JsonToValue(
         TJSONObject.ParseJSONValue(Request.Arguments[I]), nil);
-    
+
     // Invoke method
     ResultValue := Dispatcher.InvokeMethod(ConnectionId, Request.Target, Args);
-    
+
     // Build response
     if ResultValue.IsEmpty then
       InvResult := TInvocationResult.Success(Request.InvocationId, 'null')
     else
       InvResult := TInvocationResult.Success(Request.InvocationId,
         TJsonHubProtocol.ValueToJson(ResultValue).ToJSON);
-    
+
     Ctx.Response.StatusCode := 200;
     Ctx.Response.SetContentType('application/json');
     Ctx.Response.Write(InvResult.ToJson);
-    
+
   except
     on E: EHubMethodNotFoundException do
     begin
@@ -555,3 +558,4 @@ begin
 end;
 
 end.
+

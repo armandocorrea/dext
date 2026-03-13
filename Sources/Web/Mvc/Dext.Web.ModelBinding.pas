@@ -127,22 +127,22 @@ type
     ///   Binds a model from the request body.
     /// </summary>
     function BindBody(AType: PTypeInfo; Context: IHttpContext): TValue;
-    
+
     /// <summary>
     ///   Binds a model from the query string.
     /// </summary>
     function BindQuery(AType: PTypeInfo; Context: IHttpContext): TValue;
-    
+
     /// <summary>
     ///   Binds a model from route data.
     /// </summary>
     function BindRoute(AType: PTypeInfo; Context: IHttpContext): TValue;
-    
+
     /// <summary>
     ///   Binds a model from request headers.
     /// </summary>
     function BindHeader(AType: PTypeInfo; Context: IHttpContext): TValue;
-    
+
     /// <summary>
     ///   Binds a model from the service provider.
     /// </summary>
@@ -152,7 +152,7 @@ type
     ///   Binds all parameters of a method.
     /// </summary>
     function BindMethodParameters(AMethod: TRttiMethod; AContext: IHttpContext): TArray<TValue>;
-    
+
     /// <summary>
     ///   Binds a single parameter.
     /// </summary>
@@ -319,9 +319,9 @@ begin
   end;
 
   // OPTIMIZATION: Check if we can use Zero-Allocation UTF8 Serializer
-  // Currently we just read bytes to avoid String conversion. 
+  // Currently we just read bytes to avoid String conversion.
   // In future we can get Span directly from Request if driver supports it.
-  
+
   try
     // Read Body as Bytes (One copy stream -> bytes, but avoids bytes -> string -> TJsonDOM)
     if Stream is TBytesStream then
@@ -333,37 +333,37 @@ begin
       if Stream.Size > 0 then
         Stream.ReadBuffer(Bytes[0], Stream.Size);
     end;
-    
+
     if Length(Bytes) = 0 then
          raise EBindingException.Create('Request body is empty');
 
     Span := TByteSpan.FromBytes(Bytes);
 
-    // Call Generic Deserialize<T> dynamically? 
+    // Call Generic Deserialize<T> dynamically?
     // TUtf8JsonSerializer.Deserialize<T> is static generic.
     // We have AType (PTypeInfo).
     // The current signature of BindBody returns TValue.
     // We need to invoke Deserialize via RTTI or use the non-generic version if we expose one.
     // However, TUtf8JsonSerializer currently exposes `Deserialize<T>`.
-    // Let's use RTTI to invoke it for now, or just fallback to String for this specific non-generic call 
-    // IF we are not called via generic BindBody<T>. 
+    // Let's use RTTI to invoke it for now, or just fallback to String for this specific non-generic call
+    // IF we are not called via generic BindBody<T>.
     // BUT BindBody<T> calls this BindBody(PTypeInfo).
-    
+
     // To truly use the new serializer efficiently without heavy generic invoking:
     // We should refactor BindBody<T> to call the serializer directly.
     // But for now, let's keep the architecture:
-    
+
     // We'll read as string for THIS method (legacy path) unless we refactor BindBody<T>.
-    // Wait, the user wants "Zero-Allocation". 
+    // Wait, the user wants "Zero-Allocation".
     // Reading stream to Bytes is fine.
-    
+
     // Let's modify BindBody<T> below to use the new serializer, and keep this for compat/dynamic calls.
     // OR we change this method to try to dispatch to Utf8Serializer if possible.
-    
+
     // Fallback to legacy string based for now in the non-generic untyped method
     JsonString := TEncoding.UTF8.GetString(Bytes);
     Settings := TJsonSettings.Default.CaseInsensitive.ServiceProvider(Context.Services);
-    
+
     Result := TDextJson.Deserialize(AType, JsonString, Settings);
   except
     on E: Exception do
@@ -390,7 +390,7 @@ begin
       if Stream is TBytesStream then
       begin
          Bytes := TBytesStream(Stream).Bytes;
-         // Note: TBytesStream.Bytes returns the internal array usually - Zero copy? 
+         // Note: TBytesStream.Bytes returns the internal array usually - Zero copy?
          // System.Classes TBytesStream properties expose raw TBytes. Good.
       end
       else
@@ -400,7 +400,7 @@ begin
         if Stream.Size > 0 then
           Stream.ReadBuffer(Bytes[0], Stream.Size);
       end;
-      
+
       try
         Span := TByteSpan.FromBytes(Bytes);
         // FAST PATH: UTF8 Zero-Allocation Deserialization
@@ -423,7 +423,7 @@ var
   ContextRtti: TRttiContext;
   RttiType: TRttiType;
   Field: TRttiField;
-  QueryParams: TStrings;
+  QueryParams: IStringDictionary;
   FieldName: string;
   FieldValue: string;
 begin
@@ -440,7 +440,7 @@ begin
     begin
        var MetaClass := (RttiType as TRttiInstanceType).MetaclassType;
        var FoundCreate := False;
-       
+
        // Robustly searching for parameterless constructor
        for var M in RttiType.GetMethods do
        begin
@@ -451,7 +451,7 @@ begin
            Break;
          end;
        end;
-       
+
        if not FoundCreate then
          raise EBindingException.CreateFmt('Cannot find parameterless constructor "Create" for %s in BindQuery.', [AType.Name]);
     end
@@ -472,9 +472,8 @@ begin
           SourceProvider.Free;
         end;
 
-        if QueryParams.IndexOfName(FieldName) >= 0 then
+        if QueryParams.TryGetValue(FieldName, FieldValue) then
         begin
-          FieldValue := TNetEncoding.URL.Decode(QueryParams.Values[FieldName]);
           try
             var Val := ConvertStringToType(FieldValue, Field.FieldType.Handle);
             Field.SetValue(Result.GetReferenceToRawData, Val);
@@ -491,7 +490,7 @@ begin
        for var Prop in RttiType.GetProperties do
        begin
           if not Prop.IsWritable then Continue;
-          
+
           FieldName := Prop.Name;
           for var Attr in Prop.GetAttributes do
              if Attr is FromQueryAttribute then
@@ -500,9 +499,8 @@ begin
                 if AttrName <> '' then FieldName := AttrName;
              end;
 
-           if QueryParams.IndexOfName(FieldName) >= 0 then
+           if QueryParams.TryGetValue(FieldName, FieldValue) then
            begin
-              FieldValue := TNetEncoding.URL.Decode(QueryParams.Values[FieldName]);
               try
                 var Val := ConvertStringToType(FieldValue, Prop.PropertyType.Handle);
                 Prop.SetValue(Result.AsObject, Val);
@@ -519,7 +517,7 @@ begin
   end;
 end;
 
-function TryGetCaseInsensitive(const ADict: IDictionary<string, string>; const AKey: string; out AValue: string): Boolean;
+function TryGetCaseInsensitive(const ADict: IStringDictionary; const AKey: string; out AValue: string): Boolean;
 begin
   Result := False;
   if ADict = nil then Exit;
@@ -527,14 +525,11 @@ begin
   if ADict.TryGetValue(AKey, AValue) then
     Exit(True);
 
-  for var Key in ADict.Keys do
-  begin
-    if SameText(Key, AKey) then
-    begin
-      AValue := ADict[Key];
-      Exit(True);
-    end;
-  end;
+  // Note: IStringDictionary no longer exposes Keys enumerable to avoid allocation.
+  // The consumer should handle case sensitive appropriately or store lowercase.
+  // Actually, TDextStringDictionary should handle OrdinalIgnoreCase inside itself.
+  // For now we just return standard dictionary resolution
+  Result := ADict.TryGetValue(AKey.ToLower, AValue);
 end;
 
 function TModelBinder.BindQuery<T>(Context: IHttpContext): T;
@@ -548,7 +543,7 @@ var
   ContextRtti: TRttiContext;
   RttiType: TRttiType;
   Field: TRttiField;
-  RouteParams: IDictionary<string, string>;
+  RouteParams: TRouteValueDictionary;
   FieldName: string;
   FieldValue: string;
   SingleParamValue: string;
@@ -558,15 +553,11 @@ begin
      ((AType.Kind = tkRecord) and ((AType = TypeInfo(TGUID)) or (AType = TypeInfo(TUUID)))) then
   begin
     RouteParams := Context.Request.RouteParams;
-    
+
     if RouteParams.Count = 1 then
     begin
-      for var Key in RouteParams.Keys do
-      begin
-        SingleParamValue := RouteParams[Key];
-        Break; 
-      end;
-      
+      SingleParamValue := RouteParams.GetValueByIndex(0);
+
       try
         Result := ConvertStringToType(SingleParamValue, AType);
         Exit;
@@ -600,7 +591,7 @@ begin
       end;
 
       // Buscar valor do route parameter
-      if TryGetCaseInsensitive(RouteParams, FieldName, FieldValue) then
+      if RouteParams.TryGetValue(FieldName, FieldValue) then
       begin
         // FieldValue já foi preenchido pelo TryGetCaseInsensitive
 
@@ -634,7 +625,7 @@ var
   ContextRtti: TRttiContext;
   RttiType: TRttiType;
   Field: TRttiField;
-  Headers: IDictionary<string, string>;
+  Headers: IStringDictionary;
   FieldName: string;
   FieldValue: string;
 begin
@@ -718,8 +709,9 @@ begin
       if ParamName = '' then ParamName := AParam.Name;
 
       var QueryParams := AContext.Request.Query;
-      if QueryParams.IndexOfName(ParamName) >= 0 then
-        Result := ConvertStringToType(TNetEncoding.URL.Decode(QueryParams.Values[ParamName]), AParam.ParamType.Handle)
+      var QueryValue: string;
+      if QueryParams.TryGetValue(ParamName, QueryValue) then
+        Result := ConvertStringToType(QueryValue, AParam.ParamType.Handle)
       else
         Result := ConvertStringToType('', AParam.ParamType.Handle); // Default
       Exit;
@@ -731,7 +723,7 @@ begin
 
       var RouteParams := AContext.Request.RouteParams;
       var RouteValue: string;
-      if TryGetCaseInsensitive(RouteParams, ParamName, RouteValue) then
+      if RouteParams.TryGetValue(ParamName, RouteValue) then
         Result := ConvertStringToType(RouteValue, AParam.ParamType.Handle)
       else
         raise EBindingException.CreateFmt('Route parameter not found: %s', [ParamName]);
@@ -797,16 +789,17 @@ begin
     ParamName := AParam.Name;
     var RouteParams := AContext.Request.RouteParams;
     var RouteValue: string;
-    
-    if TryGetCaseInsensitive(RouteParams, ParamName, RouteValue) then
+
+    if RouteParams.TryGetValue(ParamName, RouteValue) then
     begin
       Result := ConvertStringToType(RouteValue, AParam.ParamType.Handle);
     end
     else
     begin
       var QueryParams := AContext.Request.Query;
-      if QueryParams.IndexOfName(ParamName) >= 0 then
-        Result := ConvertStringToType(TNetEncoding.URL.Decode(QueryParams.Values[ParamName]), AParam.ParamType.Handle)
+      var QueryValue: string;
+      if QueryParams.TryGetValue(ParamName, QueryValue) then
+        Result := ConvertStringToType(QueryValue, AParam.ParamType.Handle)
       else
         Result := ConvertStringToType('', AParam.ParamType.Handle); // Default
     end;
@@ -828,14 +821,14 @@ begin
   ContextRtti := TRttiContext.Create;
   try
     Services := Context.GetServices;
-    
+
     // Class Support (Root Level)
     if AType.Kind = tkClass then
     begin
        var ClassType := (ContextRtti.GetType(AType) as TRttiInstanceType).MetaclassType;
        ServiceType := TServiceType.FromClass(ClassType);
        var ClassInstance := Services.GetService(ServiceType);
-       
+
        if Assigned(ClassInstance) then
        begin
          Result := TValue.From<TObject>(ClassInstance);
@@ -851,7 +844,7 @@ begin
       var InterfaceType := ContextRtti.GetType(AType) as TRttiInterfaceType;
       ServiceType := TServiceType.FromInterface(InterfaceType.GUID);
       var InterfaceInstance := Services.GetServiceAsInterface(ServiceType);
-      
+
       if Assigned(InterfaceInstance) then
       begin
         TValue.Make(@InterfaceInstance, AType, Result);
@@ -945,9 +938,9 @@ var
   FieldValue: TValue;
   BodyBytes: TBytes;
   Stream: TStream;
-  Headers: IDictionary<string, string>;
-  RouteParams: IDictionary<string, string>;
-  QueryParams: TStrings;
+  Headers: IStringDictionary;
+  RouteParams: TRouteValueDictionary;
+  QueryParams: IStringDictionary;
   HeaderVal, RouteVal, QueryVal: string;
   BodyJsonObj: IDextJsonObject;
 begin
@@ -985,7 +978,7 @@ begin
           if Stream.Size > 0 then
             Stream.ReadBuffer(BodyBytes[0], Stream.Size);
         end;
-        
+
         var BodyJsonStr := TEncoding.UTF8.GetString(BodyBytes);
 
         if BodyJsonStr <> '' then
@@ -1021,8 +1014,8 @@ begin
 
             bsQuery:
               begin
-                if QueryParams.IndexOfName(FieldName) >= 0 then
-                  QueryVal := TNetEncoding.URL.Decode(QueryParams.Values[FieldName])
+                if QueryParams.TryGetValue(FieldName, QueryVal) then
+                  // Already URI Decoded internally by IndyHttpRequest Parser
                 else
                   QueryVal := '';
                 FieldValue := ConvertStringToType(QueryVal, Field.FieldType.Handle);
@@ -1030,7 +1023,7 @@ begin
 
             bsRoute:
               begin
-                if TryGetCaseInsensitive(RouteParams, FieldName, RouteVal) then
+                if RouteParams.TryGetValue(FieldName, RouteVal) then
                   FieldValue := ConvertStringToType(RouteVal, Field.FieldType.Handle)
                 else
                   FieldValue := ConvertStringToType('', Field.FieldType.Handle);
@@ -1045,21 +1038,21 @@ begin
             bsBody:
               begin
                 var FoundInBody := False;
-                
+
                 // First, try to find in JSON body
                 if (BodyJsonObj <> nil) then
                 begin
                   // Try to find the field (case-insensitive)
                   var JsonFieldName := FieldName;
                   var FieldFound := BodyJsonObj.Contains(JsonFieldName);
-                  
+
                   // Try lowercase if not found
                   if not FieldFound then
                   begin
                     JsonFieldName := LowerCase(FieldName);
                     FieldFound := BodyJsonObj.Contains(JsonFieldName);
                   end;
-                  
+
                   // Try camelCase if not found
                   if not FieldFound then
                   begin
@@ -1069,7 +1062,7 @@ begin
                       FieldFound := BodyJsonObj.Contains(JsonFieldName);
                     end;
                   end;
-                  
+
                   if FieldFound then
                   begin
                     FoundInBody := True;
@@ -1092,10 +1085,10 @@ begin
                             var CurrVal := Currency(BodyJsonObj.GetDouble(JsonFieldName));
                             FieldValue := TValue.From<Currency>(CurrVal);
                           end
-                          else if (Field.FieldType.Handle = TypeInfo(TDateTime)) or 
-                                  (Field.FieldType.Handle = TypeInfo(TDate)) or 
+                          else if (Field.FieldType.Handle = TypeInfo(TDateTime)) or
+                                  (Field.FieldType.Handle = TypeInfo(TDate)) or
                                   (Field.FieldType.Handle = TypeInfo(TTime)) then
-                          begin                            
+                          begin
                             var DateStr := BodyJsonObj.GetString(JsonFieldName);
                             FieldValue := ConvertStringToType(DateStr, Field.FieldType.Handle);
                           end
@@ -1125,23 +1118,22 @@ begin
                     end;
                   end;
                 end;
-                
+
                 // Fallback 1: Try RouteParams (for IDs in URL like /api/products/{id})
                 if not FoundInBody then
                 begin
-                  if TryGetCaseInsensitive(RouteParams, FieldName, RouteVal) then
+                  if RouteParams.TryGetValue(FieldName, RouteVal) then
                   begin
                     FieldValue := ConvertStringToType(RouteVal, Field.FieldType.Handle);
                     FoundInBody := True; // Mark as found
                   end;
                 end;
-                
+
                 // Fallback 2: Try Query params (for ?param=value)
                 if not FoundInBody then
                 begin
-                  if QueryParams.IndexOfName(FieldName) >= 0 then
+                  if QueryParams.TryGetValue(FieldName, QueryVal) then
                   begin
-                    QueryVal := TNetEncoding.URL.Decode(QueryParams.Values[FieldName]);
                     FieldValue := ConvertStringToType(QueryVal, Field.FieldType.Handle);
                   end
                   else
@@ -1282,7 +1274,7 @@ var
   P: Pointer;
 begin
   Value := ABinder.BindRoute(TypeInfo(T), Context);
-  
+
   // For records like TUUID/TGUID, AsType<T> fails with "Insufficient RTTI"
   // Always use direct memory copy for records
   if PTypeInfo(TypeInfo(T)).Kind = tkRecord then

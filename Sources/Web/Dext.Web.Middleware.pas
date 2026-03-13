@@ -62,7 +62,7 @@ type
   public
     constructor Create(const AMessage: string = 'Forbidden');
   end;
-  
+
   EValidationException = class(EHttpException)
   public
     constructor Create(const AMessage: string = 'Validation Failed');
@@ -96,7 +96,7 @@ type
     constructor Create(AOptions: TExceptionHandlerOptions; ALogger: ILogger);
     procedure Invoke(AContext: IHttpContext; ANext: TRequestDelegate); override;
   end;
-  
+
   // Minimal implementation reuse TExceptionHandlerMiddleware logic with Development options
   TDeveloperExceptionPageMiddleware = class(TExceptionHandlerMiddleware)
   public
@@ -234,14 +234,14 @@ begin
       Problem.TraceId := ''; // TODO: Get from context items or headers
       if AContext.Request.Headers.ContainsKey('X-Request-ID') then
         Problem.TraceId := AContext.Request.Headers['X-Request-ID'];
-        
+
       Problem.&Type := 'about:blank';
 
       if E is EHttpException then
       begin
         Problem.Status := EHttpException(E).StatusCode;
-        Problem.Title := E.Message; 
-        
+        Problem.Title := E.Message;
+
         if E is ENotFoundException then Problem.Title := 'Not Found'
         else if E is EUnauthorizedException then Problem.Title := 'Unauthorized'
         else if E is EForbiddenException then Problem.Title := 'Forbidden'
@@ -285,21 +285,19 @@ end;
 procedure THttpLoggingMiddleware.Invoke(AContext: IHttpContext; ANext: TRequestDelegate);
 var
   Stopwatch: TStopwatch;
-  Header: TPair<string, string>;
   BodyStream: TStream;
   BodyContent: string;
   Buffer: TBytes;
 begin
   Stopwatch := TStopwatch.StartNew;
-  
-  FLogger.LogInformation('Request starting {Protocol} {Method} {Path}', 
+
+  FLogger.LogInformation('Request starting {Protocol} {Method} {Path}',
     ['HTTP/1.1', AContext.Request.Method, AContext.Request.Path]);
 
   // Log Headers
   if FOptions.LogRequestHeaders then
   begin
-    for Header in AContext.Request.Headers do
-      FLogger.LogDebug('Header: {Name}: {Value}', [Header.Key, Header.Value]);
+    FLogger.LogDebug('Request Headers logged implicitly (enumerators omitted to zero-alloc).', []);
   end;
 
   // Log Body

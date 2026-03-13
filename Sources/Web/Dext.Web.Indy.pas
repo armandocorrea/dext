@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -34,8 +34,8 @@ uses
   IdCustomHTTPServer,
   IdContext,
   IdGlobal,
-  IdURI,
   IdHeaderList,
+  IdURI,
   Dext.Collections,
   Dext.Collections.Dict,
   Dext.Web.Interfaces,
@@ -72,14 +72,14 @@ type
   TIndyHttpRequest = class(TInterfacedObject, IHttpRequest)
   private
     FRequestInfo: TIdHTTPRequestInfo;
-    FQuery: TStrings;
+    FQuery: IStringDictionary;
     FBodyStream: TStream;
-    FRouteParams: IDictionary<string, string>;
-    FHeaders: IDictionary<string, string>;
-    FCookies: IDictionary<string, string>;
+    FRouteParams: TRouteValueDictionary;
+    FHeaders: IStringDictionary;
+    FCookies: IStringDictionary;
     FFiles: IFormFileCollection;
-    function ParseQueryString(const AQuery: string): TStrings;
-    function ParseHeaders(AHeaderList: TIdHeaderList): IDictionary<string, string>;
+    function ParseQueryString(const AQuery: string): IStringDictionary;
+    function ParseHeaders(AHeaderList: TIdHeaderList): IStringDictionary;
     procedure ParseMultipart;
   public
     constructor Create(ARequestInfo: TIdHTTPRequestInfo);
@@ -87,22 +87,22 @@ type
 
     function GetMethod: string;
     function GetPath: string;
-    function GetQuery: TStrings;
+    function GetQuery: IStringDictionary;
     function GetBody: TStream;
-    function GetRouteParams: IDictionary<string, string>;
-    function GetHeaders: IDictionary<string, string>;
+    function GetRouteParams: TRouteValueDictionary;
+    function GetHeaders: IStringDictionary;
     function GetRemoteIpAddress: string;
     function GetHeader(const AName: string): string;
     function GetQueryParam(const AName: string): string;
-    function GetCookies: IDictionary<string, string>;
+    function GetCookies: IStringDictionary;
     function GetFiles: IFormFileCollection;
     property Method: string read GetMethod;
     property Path: string read GetPath;
-    property Query: TStrings read GetQuery;
+    property Query: IStringDictionary read GetQuery;
     property Body: TStream read GetBody;
-    property RouteParams: IDictionary<string, string> read GetRouteParams;
-    property Headers: IDictionary<string, string> read GetHeaders;
-    property Cookies: IDictionary<string, string> read GetCookies;
+    property RouteParams: TRouteValueDictionary read GetRouteParams;
+    property Headers: IStringDictionary read GetHeaders;
+    property Cookies: IStringDictionary read GetCookies;
     property Files: IFormFileCollection read GetFiles;
     property RemoteIpAddress: string read GetRemoteIpAddress;
   end;
@@ -120,7 +120,7 @@ type
     constructor Create(AContext: TIdContext; ARequestInfo: TIdHTTPRequestInfo;
       AResponseInfo: TIdHTTPResponseInfo; const AServices: IServiceProvider);
     destructor Destroy; override;
-    procedure SetRouteParams(const AParams: IDictionary<string, string>);
+    procedure SetRouteParams(const AParams: TRouteValueDictionary);
     function GetRequest: IHttpRequest;
     function GetResponse: IHttpResponse;
     procedure SetResponse(const AValue: IHttpResponse);
@@ -148,16 +148,15 @@ constructor TIndyHttpRequest.Create(ARequestInfo: TIdHTTPRequestInfo);
 begin
   inherited Create;
   FRequestInfo := ARequestInfo;
-  FRouteParams := TCollections.CreateDictionary<string, string>;
+  FRouteParams.Clear;
   FFiles := TFormFileCollection.Create(TCollections.CreateList<IFormFile>);
   // Note: FQuery, FHeaders, FBodyStream, FCookies are NIL and will be lazy loaded
 end;
 
 destructor TIndyHttpRequest.Destroy;
 begin
-  FQuery.Free;
+  FQuery := nil;
   FBodyStream.Free;
-  FRouteParams := nil;
   FHeaders := nil;
   FCookies := nil;
   FFiles := nil;
@@ -165,12 +164,12 @@ begin
 end;
 
 // ? NOVO: Parsear headers do Indy para dicionário
-function TIndyHttpRequest.ParseHeaders(AHeaderList: TIdHeaderList): IDictionary<string, string>;
+function TIndyHttpRequest.ParseHeaders(AHeaderList: TIdHeaderList): IStringDictionary;
 var
   I: Integer;
   Name, Value: string;
 begin
-  Result := TCollections.CreateDictionary<string, string>;
+  Result := TDextStringDictionary.Create as IStringDictionary;
 
   for I := 0 to AHeaderList.Count - 1 do
   begin
@@ -179,7 +178,7 @@ begin
 
     if not Name.IsEmpty then
     begin
-      Result.AddOrSetValue(Name, Value);
+      Result.SetItem(Name, Value);
     end;
   end;
 end;
@@ -189,7 +188,7 @@ begin
   Result := FRequestInfo.RawHeaders.Values[AName];
 end;
 
-function TIndyHttpRequest.GetHeaders: IDictionary<string, string>;
+function TIndyHttpRequest.GetHeaders: IStringDictionary;
 begin
   if FHeaders = nil then
     FHeaders := ParseHeaders(FRequestInfo.RawHeaders);
@@ -201,27 +200,41 @@ begin
   Result := FRequestInfo.RemoteIP;
 end;
 
-function TIndyHttpRequest.ParseQueryString(const AQuery: string): TStrings;
+function TIndyHttpRequest.ParseQueryString(const AQuery: string): IStringDictionary;
 var
-  I: Integer;
-  Params: TStringList;
+  P, EndP: PChar;
+  Key, Value: string;
+  Len: Integer;
 begin
-  Params := TStringList.Create;
-  try
-    Params.Delimiter := '&';
-    Params.StrictDelimiter := True;
-    Params.DelimitedText := AQuery;
+  Result := TDextStringDictionary.Create as IStringDictionary;
+  if AQuery = '' then Exit;
 
-    // Decodificar URL encoding
-    for I := 0 to Params.Count - 1 do
+  P := PChar(AQuery);
+  Len := Length(AQuery);
+  EndP := P + Len;
+
+  while P < EndP do
+  begin
+    var EqP := StrScan(P, '=');
+    var AmpP := StrScan(P, '&');
+
+    if (AmpP = nil) or (AmpP > EndP) then
+      AmpP := EndP;
+
+    if (EqP <> nil) and (EqP < AmpP) then
     begin
-      Params[I] := TIdURI.URLDecode(Params[I]);
+      SetString(Key, P, EqP - P);
+      SetString(Value, EqP + 1, AmpP - (EqP + 1));
+      Result.SetItem(TIdURI.URLDecode(Key), TIdURI.URLDecode(Value));
+    end
+    else
+    begin
+      SetString(Key, P, AmpP - P);
+      if Key <> '' then
+        Result.SetItem(TIdURI.URLDecode(Key), '');
     end;
 
-    Result := Params;
-  except
-    Params.Free;
-    raise;
+    P := AmpP + 1;
   end;
 end;
 
@@ -238,7 +251,7 @@ begin
     Result := '/';
 end;
 
-function TIndyHttpRequest.GetQuery: TStrings;
+function TIndyHttpRequest.GetQuery: IStringDictionary;
 begin
   if FQuery = nil then
     FQuery := ParseQueryString(FRequestInfo.QueryParams);
@@ -247,15 +260,16 @@ end;
 
 function TIndyHttpRequest.GetQueryParam(const AName: string): string;
 begin
-  Result := GetQuery.Values[AName];
+  if not GetQuery.TryGetValue(AName, Result) then
+    Result := '';
 end;
 
-function TIndyHttpRequest.GetRouteParams: IDictionary<string, string>;
+function TIndyHttpRequest.GetRouteParams: TRouteValueDictionary;
 begin
   Result := FRouteParams;
 end;
 
-function TIndyHttpRequest.GetCookies: IDictionary<string, string>;
+function TIndyHttpRequest.GetCookies: IStringDictionary;
 var
   CookieHeader: string;
   Pairs: TArray<string>;
@@ -264,7 +278,7 @@ var
 begin
   if FCookies = nil then
   begin
-    FCookies := TCollections.CreateDictionary<string, string>;
+    FCookies := TDextStringDictionary.Create as IStringDictionary;
     CookieHeader := FRequestInfo.RawHeaders.Values['Cookie'];
     if CookieHeader <> '' then
     begin
@@ -273,9 +287,9 @@ begin
       begin
         Parts := Pair.Trim.Split(['='], 2);
         if Length(Parts) = 2 then
-          FCookies.AddOrSetValue(Parts[0].Trim, TIdURI.URLDecode(Parts[1].Trim))
+          FCookies.SetItem(Parts[0].Trim, TIdURI.URLDecode(Parts[1].Trim))
         else if (Length(Parts) = 1) and (Parts[0] <> '') then
-          FCookies.AddOrSetValue(Parts[0].Trim, '');
+          FCookies.SetItem(Parts[0].Trim, '');
       end;
     end;
   end;
@@ -313,7 +327,7 @@ var
         if (Stream.Read(Bt, 1) <> 1) or (Bt <> B[J]) then
         begin
           Match := False;
-          Stream.Position := Stream.Position - J; 
+          Stream.Position := Stream.Position - J;
           Break;
         end;
       end;
@@ -334,6 +348,42 @@ var
     PartName, PartFileName, PartContentType: string;
     ContentDisp: string;
     B: Byte;
+
+    function ExtractValue(const Key: string): string;
+    var
+      KeyQuoted, KeyUnquoted: string;
+      Idx, EndIdx: Integer;
+      Val: string;
+    begin
+      Result := '';
+      KeyQuoted := Key + '="';
+      KeyUnquoted := Key + '=';
+
+      // Try quoted first
+      Idx := Pos(KeyQuoted, ContentDisp.ToLower);
+      if Idx > 0 then
+      begin
+        Val := Copy(ContentDisp, Idx + Length(KeyQuoted), MaxInt);
+        EndIdx := Pos('"', Val);
+        if EndIdx > 0 then
+          Result := Copy(Val, 1, EndIdx - 1);
+      end
+      else
+      begin
+        // Try unquoted
+        Idx := Pos(KeyUnquoted, ContentDisp.ToLower);
+        if Idx > 0 then
+        begin
+          Val := Copy(ContentDisp, Idx + Length(KeyUnquoted), MaxInt);
+          // Find end: space, semicolon, or end of string
+          EndIdx := 1;
+          while (EndIdx <= Length(Val)) and (Val[EndIdx] <> ';') and (Val[EndIdx] <> ' ') do
+            Inc(EndIdx);
+          Result := Copy(Val, 1, EndIdx - 1);
+        end;
+      end;
+    end;
+
   begin
     Stream.Position := Start;
     HeaderList := TStringList.Create;
@@ -350,53 +400,16 @@ var
         if S = '' then Break;
         HeaderList.Add(S);
       end;
-      
+
       HeaderEndPos := Stream.Position;
-      
+
       for Line in HeaderList do
       begin
         var LowerLine := Line.ToLower;
         if LowerLine.StartsWith('content-disposition:') then
         begin
           ContentDisp := Line;
-          
-          // Helper function to extract value (handles both quoted and unquoted)
-          // Try quoted first: name="value", then unquoted: name=value
-          var ExtractValue := function(const Key: string): string
-          var
-            KeyQuoted, KeyUnquoted: string;
-            Idx, EndIdx: Integer;
-            Val: string;
-          begin
-            Result := '';
-            KeyQuoted := Key + '="';
-            KeyUnquoted := Key + '=';
-            
-            // Try quoted first
-            Idx := Pos(KeyQuoted, LowerLine);
-            if Idx > 0 then
-            begin
-              Val := Copy(ContentDisp, Idx + Length(KeyQuoted), MaxInt);
-              EndIdx := Pos('"', Val);
-              if EndIdx > 0 then
-                Result := Copy(Val, 1, EndIdx - 1);
-            end
-            else
-            begin
-              // Try unquoted
-              Idx := Pos(KeyUnquoted, LowerLine);
-              if Idx > 0 then
-              begin
-                Val := Copy(ContentDisp, Idx + Length(KeyUnquoted), MaxInt);
-                // Find end: space, semicolon, or end of string
-                EndIdx := 1;
-                while (EndIdx <= Length(Val)) and (Val[EndIdx] <> ';') and (Val[EndIdx] <> ' ') do
-                  Inc(EndIdx);
-                Result := Copy(Val, 1, EndIdx - 1);
-              end;
-            end;
-          end;
-          
+
           PartName := ExtractValue('name');
           // For filename, try 'filename' (not filename*)
           PartFileName := ExtractValue('filename');
@@ -404,7 +417,7 @@ var
         else if LowerLine.StartsWith('content-type:') then
           PartContentType := Trim(Copy(Line, 14, MaxInt));
       end;
-      
+
       if PartName <> '' then
       begin
         PartStream := TMemoryStream.Create;
@@ -426,10 +439,10 @@ var
 begin
   ContentTypeStr := FRequestInfo.ContentType;
   if not ContentTypeStr.ToLower.StartsWith('multipart/form-data') then Exit;
-  
+
   var Idx := Pos('boundary=', ContentTypeStr.ToLower);
   if Idx = 0 then Exit;
-  
+
   // Extract boundary value and clean it up
   var BoundaryValue := Copy(ContentTypeStr, Idx + 9, MaxInt);
   // Remove any trailing parameters (e.g., "; charset=...")
@@ -440,21 +453,21 @@ begin
   BoundaryValue := BoundaryValue.Trim;
   if (Length(BoundaryValue) > 1) and (BoundaryValue[1] = '"') and (BoundaryValue[Length(BoundaryValue)] = '"') then
     BoundaryValue := Copy(BoundaryValue, 2, Length(BoundaryValue) - 2);
-  
+
   Boundary := '--' + BoundaryValue;
   BoundaryBytes := TEncoding.UTF8.GetBytes(Boundary);
-  
+
   Stream := GetBody;
   if (Stream = nil) or (Stream.Size = 0) then
     Exit;
-  
+
   P := FindBytes(BoundaryBytes, 0);
   while P >= 0 do
   begin
     NextP := FindBytes(BoundaryBytes, P + Length(BoundaryBytes));
     if NextP < 0 then Break;
-    
-    ParsePart(P + Length(BoundaryBytes) + 2, NextP); 
+
+    ParsePart(P + Length(BoundaryBytes) + 2, NextP);
     P := NextP;
   end;
 end;
@@ -483,7 +496,7 @@ begin
         FormData := FRequestInfo.UnparsedParams
       else
         FormData := FRequestInfo.FormParams;
-        
+
       FBodyStream := TMemoryStream.Create;
       var Bytes := TEncoding.UTF8.GetBytes(FormData);
       if Length(Bytes) > 0 then
@@ -591,7 +604,7 @@ begin
   if Length(ABuffer) > 0 then
     Stream.WriteBuffer(ABuffer[0], Length(ABuffer));
   Stream.Position := 0;
-  
+
   FResponseInfo.ContentStream := Stream;
   FResponseInfo.FreeContentStream := True; // Indy will free the stream
 end;
@@ -600,19 +613,19 @@ procedure TIndyHttpResponse.Write(const AStream: TStream);
 begin
   FResponseInfo.ContentStream := AStream;
   FResponseInfo.FreeContentStream := False; // We do not own external stream unless specified, usually caller owns it or it's a TFileStream.
-  // Wait, IHttpResponse usually implies transferring ownership or copying? 
+  // Wait, IHttpResponse usually implies transferring ownership or copying?
   // In pure abstraction, Write(Stream) usually copies. But for performance we might want to just assign.
   // Let's assume we copy for safety unless it's a memory stream we created.
   // BUT the roadmap says "support envio eficiente", implies no copy.
-  // Dext.Web.Indy usually runs on same thread. 
-  
+  // Dext.Web.Indy usually runs on same thread.
+
   // Safe implementation for now:
   // If we assign AStream to ContentStream, Indy will read from it. We must ensure AStream stays alive.
   // Since we don't control AStream lifecycle here easily without taking ownership, copying is safer for general use.
   // However, for "Stream Writing" feature, we usually want to stream LARGE files.
-  // Let's implement copy for now to be safe and consistent with buffering. 
+  // Let's implement copy for now to be safe and consistent with buffering.
   // Optimization to TFileStream can be done if we detect type or add WriteFile().
-  
+
   var MemStream := TMemoryStream.Create;
   MemStream.CopyFrom(AStream, 0);
   MemStream.Position := 0;
@@ -640,14 +653,13 @@ begin
   FContext := AContext;
   FRequest := TIndyHttpRequest.Create(ARequestInfo);
   FResponse := TIndyHttpResponse.Create(AResponseInfo);
-  
-  // Create a new scope for THIS request. 
-  // All Scoped services (like DbContext) resolved from this provider 
+
+  // Create a new scope for THIS request.
+  // All Scoped services (like DbContext) resolved from this provider
   // will be isolated to this request and destroyed when this context is released.
   FScope := AServices.CreateScope;
   FServices := FScope.ServiceProvider;
-  
-  FItems := TCollections.CreateDictionary<string, TValue>;
+
 end;
 
 destructor TIndyHttpContext.Destroy;
@@ -697,24 +709,21 @@ end;
 
 function TIndyHttpContext.GetItems: IDictionary<string, TValue>;
 begin
+  if FItems = nil then
+    FItems := TCollections.CreateDictionary<string, TValue>;
   Result := FItems;
 end;
 
-procedure TIndyHttpContext.SetRouteParams(const AParams: IDictionary<string, string>);
+procedure TIndyHttpContext.SetRouteParams(const AParams: TRouteValueDictionary);
 var
   IndyRequest: TIndyHttpRequest;
-  Pair: TPair<string, string>;
 begin
   if FRequest is TIndyHttpRequest then
   begin
     IndyRequest := TIndyHttpRequest(FRequest);
-
-    IndyRequest.FRouteParams.Clear;
-    for Pair in AParams do
-    begin
-      IndyRequest.FRouteParams.Add(Pair.Key, Pair.Value);
-    end;
+    IndyRequest.FRouteParams := AParams;
   end;
 end;
 
 end.
+

@@ -44,22 +44,22 @@ type
   /// </summary>
   ICacheStore = interface
     ['{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}']
-    
+
     /// <summary>
     ///   Tries to get a cached value by key.
     /// </summary>
     function TryGet(const AKey: string; out AValue: string): Boolean;
-    
+
     /// <summary>
     ///   Sets a value in the cache with expiration.
     /// </summary>
     procedure SetValue(const AKey: string; const AValue: string; ADurationSeconds: Integer);
-    
+
     /// <summary>
     ///   Removes a specific key from the cache.
     /// </summary>
     procedure Remove(const AKey: string);
-    
+
     /// <summary>
     ///   Clears all cached entries.
     /// </summary>
@@ -82,18 +82,18 @@ type
     FEntries: IDictionary<string, TCacheEntry>;
     FLock: TCriticalSection;
     FMaxSize: Integer;
-    
+
     procedure CleanupExpired;
     procedure EnforceMaxSize;
   public
     constructor Create(AMaxSize: Integer = 1000);
     destructor Destroy; override;
-    
+
     function TryGet(const AKey: string; out AValue: string): Boolean;
     procedure SetValue(const AKey: string; const AValue: string; ADurationSeconds: Integer);
     procedure Remove(const AKey: string);
     procedure Clear;
-    
+
     property MaxSize: Integer read FMaxSize write FMaxSize;
   end;
 
@@ -106,27 +106,27 @@ type
     ///   Default cache duration in seconds.
     /// </summary>
     DefaultDuration: Integer;
-    
+
     /// <summary>
     ///   Maximum number of cached entries (for memory store).
     /// </summary>
     MaxSize: Integer;
-    
+
     /// <summary>
     ///   Whether to vary cache by query string.
     /// </summary>
     VaryByQuery: Boolean;
-    
+
     /// <summary>
     ///   Headers to vary cache by.
     /// </summary>
     VaryByHeaders: TArray<string>;
-    
+
     /// <summary>
     ///   HTTP methods to cache (default: GET, HEAD).
     /// </summary>
     CacheableMethods: TArray<string>;
-    
+
     /// <summary>
     ///   Custom cache store (default: TMemoryCacheStore).
     /// </summary>
@@ -148,7 +148,7 @@ type
   public
     constructor Create(AOriginal: IHttpResponse);
     destructor Destroy; override;
-    
+
     // IHttpResponse methods
     function GetStatusCode: Integer;
     function GetContentType: string;
@@ -179,7 +179,7 @@ type
   private
     FOptions: TResponseCacheOptions;
     FStore: ICacheStore;
-    
+
     function GenerateCacheKey(AContext: IHttpContext): string;
     function IsCacheable(AContext: IHttpContext): Boolean;
     function TryServeFromCache(AContext: IHttpContext; const AKey: string): Boolean;
@@ -187,7 +187,7 @@ type
   public
     constructor Create(const AOptions: TResponseCacheOptions);
     destructor Destroy; override;
-    
+
     procedure Invoke(AContext: IHttpContext; ANext: TRequestDelegate); override;
   end;
 
@@ -207,42 +207,42 @@ type
     ///   Creates a new builder.
     /// </summary>
     class function Create: TResponseCacheBuilder; static;
-    
+
     /// <summary>
     ///   Sets the default cache duration in seconds.
     /// </summary>
     function DefaultDuration(ASeconds: Integer): TResponseCacheBuilder;
-    
+
     /// <summary>
     ///   Sets the maximum cache size (for memory store).
     /// </summary>
     function MaxSize(ASize: Integer): TResponseCacheBuilder;
-    
+
     /// <summary>
     ///   Enables varying cache by query string.
     /// </summary>
     function VaryByQueryString: TResponseCacheBuilder;
-    
+
     /// <summary>
     ///   Adds headers to vary cache by.
     /// </summary>
     function VaryByHeader(const AHeaders: array of string): TResponseCacheBuilder;
-    
+
     /// <summary>
     ///   Sets which HTTP methods should be cached.
     /// </summary>
     function ForMethods(const AMethods: array of string): TResponseCacheBuilder;
-    
+
     /// <summary>
     ///   Sets a custom cache store implementation.
     /// </summary>
     function Store(const AStore: ICacheStore): TResponseCacheBuilder;
-    
+
     /// <summary>
     ///   Builds and returns the cache options.
     /// </summary>
     function Build: TResponseCacheOptions;
-    
+
     /// <summary>
     ///   Implicit conversion to TResponseCacheOptions.
     /// </summary>
@@ -263,17 +263,17 @@ type
     ///   Adds response caching with default settings (60 seconds).
     /// </summary>
     class function UseResponseCache(const ABuilder: IApplicationBuilder): IApplicationBuilder; overload; static;
-    
+
     /// <summary>
     ///   Adds response caching with specified duration.
     /// </summary>
     class function UseResponseCache(const ABuilder: IApplicationBuilder; ADurationSeconds: Integer): IApplicationBuilder; overload; static;
-    
+
     /// <summary>
     ///   Adds response caching with custom options.
     /// </summary>
     class function UseResponseCache(const ABuilder: IApplicationBuilder; const AOptions: TResponseCacheOptions): IApplicationBuilder; overload; static;
-    
+
     /// <summary>
     ///   Adds response caching configured with a builder.
     /// </summary>
@@ -352,13 +352,13 @@ begin
   try
     Entry.Value := AValue;
     Entry.ExpiresAt := IncSecond(Now, ADurationSeconds);
-    
+
     FEntries.AddOrSetValue(AKey, Entry);
-    
+
     // Enforce max size
     if FEntries.Count > FMaxSize then
       EnforceMaxSize;
-      
+
     // Periodic cleanup
     if FEntries.Count mod 100 = 0 then
       CleanupExpired;
@@ -397,14 +397,14 @@ begin
   KeysToRemove := TCollections.CreateList<string>;
   try
     Now := System.SysUtils.Now;
-    
+
     for Key in FEntries.Keys do
     begin
       Entry := FEntries[Key];
       if Now >= Entry.ExpiresAt then
         KeysToRemove.Add(Key);
     end;
-    
+
     for Key in KeysToRemove do
       FEntries.Remove(Key);
   finally
@@ -422,7 +422,7 @@ begin
   RemoveCount := FMaxSize div 10;
   if RemoveCount < 1 then
     RemoveCount := 1;
-    
+
   KeysToRemove := TCollections.CreateList<string>;
   try
     for Key in FEntries.Keys do
@@ -431,7 +431,7 @@ begin
       if KeysToRemove.Count >= RemoveCount then
         Break;
     end;
-    
+
     for Key in KeysToRemove do
       FEntries.Remove(Key);
   finally
@@ -457,7 +457,7 @@ constructor TResponseCacheMiddleware.Create(const AOptions: TResponseCacheOption
 begin
   inherited Create;
   FOptions := AOptions;
-  
+
   // Use provided store or create default
   if Assigned(AOptions.CacheStore) then
     FStore := AOptions.CacheStore
@@ -483,14 +483,21 @@ begin
     KeyBuilder.Append(AContext.Request.Method);
     KeyBuilder.Append(':');
     KeyBuilder.Append(AContext.Request.Path);
-    
+
     // Vary by query string
     if FOptions.VaryByQuery and (AContext.Request.Query.Count > 0) then
     begin
       KeyBuilder.Append('?');
-      KeyBuilder.Append(AContext.Request.Query.DelimitedText);
+      var QueryArray := AContext.Request.Query.ToArray;
+      for var i := 0 to High(QueryArray) do
+      begin
+        if i > 0 then KeyBuilder.Append('&');
+        KeyBuilder.Append(QueryArray[i].Key);
+        KeyBuilder.Append('=');
+        KeyBuilder.Append(QueryArray[i].Value);
+      end;
     end;
-    
+
     // Vary by headers
     for Header in FOptions.VaryByHeaders do
     begin
@@ -502,7 +509,7 @@ begin
         KeyBuilder.Append(HeaderValue);
       end;
     end;
-    
+
     Result := KeyBuilder.ToString;
   finally
     KeyBuilder.Free;
@@ -550,11 +557,11 @@ begin
   var OriginalResponse := AContext.Response;
   var Wrapper := TResponseCaptureWrapper.Create(OriginalResponse);
   AContext.Response := Wrapper;
-  
+
   try
     // Continue pipeline
     ANext(AContext);
-    
+
     // Cache the captured response
     CacheResponse(AContext, CacheKey, Wrapper);
   finally
