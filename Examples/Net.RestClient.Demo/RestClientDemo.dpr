@@ -8,6 +8,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.SyncObjs,
+  System.Generics.Collections,
   Dext.Net.RestClient,
   Dext.Net.RestRequest,
   Dext.Threading.Async,
@@ -140,6 +141,64 @@ begin
     on E: Exception do
       Writeln('Synchronous Error: ', E.Message);
   end;
+end;
+
+procedure DemoSynchronousList;
+begin
+  Writeln('--- Demo: Synchronous List Request (TList) ---');
+  Writeln;
+
+  try
+    var posts := RestClient('https://jsonplaceholder.typicode.com')
+      .Get<TList<TPost>>('/posts')
+      .Await; // Blocks and runs on current thread
+
+    try
+      Writeln('--- Demo: Synchronous TList<TPost> ---');
+      Writeln('--- Demo: Synchronous TList Count ' + posts.Count.ToString + ' ---');
+      for var p in posts do
+      begin
+        Writeln('Synchronous success (TList)!ID: ', p.id);
+      end;
+    finally
+      if posts <> nil then
+      begin
+        for var p in posts do
+          p.Free;
+        posts.Free;
+      end;
+    end;
+  except
+    on E: Exception do
+      Writeln('Synchronous Error: ', E.Message);
+  end;
+  Writeln;
+end;
+
+procedure DemoSynchronousObjectList;
+begin
+  Writeln('--- Demo: Synchronous List Request (TObjectList) ---');
+  Writeln;
+
+  try
+    var posts := RestClient('https://jsonplaceholder.typicode.com')
+      .Get<TObjectList<TPost>>('/posts')
+      .Await; // Blocks and runs on current thread
+
+    try
+      Writeln('--- Demo: Synchronous TObjectList<TPost> ---');
+      Writeln('--- Demo: Synchronous TObjectList Count ' + posts.Count.ToString + ' ---');
+      for var p in posts do
+      begin
+        Writeln('Synchronous success (TObjectList)!ID: ', p.id);
+      end;
+    finally
+      posts.Free; // OwnsObjects := True por padrão
+    end;
+  except
+    on E: Exception do
+      Writeln('Synchronous Error: ', E.Message);
+  end;
   Writeln;
 end;
 
@@ -151,6 +210,8 @@ begin
       DemoRequestRequest;
       DemoWithCancellation;
       DemoSynchronous;
+      DemoSynchronousList;
+      DemoSynchronousObjectList;
       
       Writeln('Waiting for tasks...');
       Countdown.Signal; // Finish setup

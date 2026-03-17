@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -549,8 +549,17 @@ begin
       else
         raise EDextJsonException.CreateFmt('Unsupported type for deserialization with settings: %s', [AType.NameFld.ToString]);
     end
+    else if JsonNode.GetNodeType = jntArray then
+    begin
+      if Serializer.IsArrayType(AType) then
+        Result := Serializer.DeserializeArray(JsonNode as IDextJsonArray, AType)
+      else if Serializer.IsListType(AType) then
+        Result := Serializer.DeserializeList(JsonNode as IDextJsonArray, AType)
+      else
+        raise EDextJsonException.Create('JSON is an array but target type is not array/list');
+    end
     else
-      raise EDextJsonException.Create('JSON root must be Object for record deserialization');
+      raise EDextJsonException.Create('JSON root must be Object or Array');
   finally
     Serializer.Free;
   end;
@@ -1666,16 +1675,11 @@ begin
        end
        else if Result.Kind = tkClass then
        begin
-        if Supports(Result.AsObject, ICollection, Collection) then
-          Collection.OwnsObjects := True
-        else
-        begin
-          // Try fetching via RTTI if Supports failed (common in some generic scenarios)
-          var OwnsProp := RttiType.GetProperty('OwnsObjects');
-          if (OwnsProp <> nil) and (OwnsProp.PropertyType.Handle = TypeInfo(Boolean)) then
-            OwnsProp.SetValue(Result.AsObject, True);
-        end;
-      end;
+         // Try fetching via RTTI directly to avoid reference counting premature destruction
+         var OwnsProp := RttiType.GetProperty('OwnsObjects');
+         if (OwnsProp <> nil) and (OwnsProp.PropertyType.Handle = TypeInfo(Boolean)) then
+           OwnsProp.SetValue(Result.AsObject, True);
+       end;
     end;
 
     var InstObj: TObject := nil;
@@ -1777,7 +1781,14 @@ begin
           else
             TargetInst := Result;
             
-          AddMethod.Invoke(TargetInst, [ElementValue]);
+          var StrictValue := ElementValue;
+          if (ElementType.Kind = tkClass) and (StrictValue.AsObject <> nil) then
+          begin
+            var LObj: TObject := StrictValue.AsObject;
+            TValue.Make(@LObj, ElementType, StrictValue);
+          end;
+            
+          AddMethod.Invoke(TargetInst, [StrictValue]);
         end;
       end;
     finally

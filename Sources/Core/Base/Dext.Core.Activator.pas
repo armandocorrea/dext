@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -756,6 +756,13 @@ begin
           if ImplIntf.Name.Contains('IList<') or ImplIntf.Name.Contains('IEnumerable<') then
             Exit(True);
         end;
+      end;
+
+      if RttiType <> nil then
+      begin
+        for var Method in RttiType.GetMethods do
+          if (Method.Name = 'Add') and (Length(Method.GetParameters) = 1) then
+            Exit(True);
       end;
     finally
       Ctx.Free;
