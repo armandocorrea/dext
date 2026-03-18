@@ -1,4 +1,4 @@
-﻿unit Dext.Entity.DataSet;
+unit Dext.Entity.DataSet;
 
 interface
 
@@ -91,13 +91,14 @@ type
     function GetBookmarkFlag(Buffer: TRecordBuffer): TBookmarkFlag; override;
     procedure SetBookmarkFlag(Buffer: TRecordBuffer; Value: TBookmarkFlag); override;
     procedure InternalSetToRecord(Buffer: TRecordBuffer); override;
+    procedure InternalGotoBookmark(Bookmark: TBookmark); override;
     
     function GetRecordSize: Word; override;
     function GetRecordCount: Integer; override;
 
     // DML e Edição
     procedure SetFieldData(Field: TField; Buffer: TValueBuffer); override;
-    procedure InternalAddRecord(Buffer: Pointer; Append: Boolean); override;
+    procedure InternalAddRecord(Buffer: TRecordBuffer; Append: Boolean); override;
     procedure InternalDelete; override;
     procedure InternalPost; override;
     procedure InternalCancel; override;
@@ -158,11 +159,16 @@ end;
 
 destructor TEntityDataSet.Destroy;
 begin
+  if Assigned(FInsertObj) then
+    FInsertObj.Free;
+    
   if FOwnsItems then
-    FItems := nil;
+    FItems := nil; // IList cuidará da liberação se for o caso
   FItems := nil;
+  
   if Assigned(FEntityMap) then
     FEntityMap.Free;
+    
   inherited Destroy;
 end;
 
@@ -352,7 +358,13 @@ var
   i, j: Integer;
   Passing: Boolean;
   SorterList: IList<Integer>;
+  CurrentRealIdx: Integer;
 begin
+  // Salvar o índice real do item atual para restaurar FCurrentRec depois
+  CurrentRealIdx := -1;
+  if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
+    CurrentRealIdx := FVirtualIndex[FCurrentRec];
+
   FVirtualIndex.Clear;
 
   Expr := nil;
@@ -371,8 +383,7 @@ begin
         Passing := TExpressionEvaluator.Evaluate(Expr, FItems[I])
       else if Assigned(OnFilterRecord) then
       begin
-        // Setup temporário se houver OnFilterRecord
-        Passing := True; // Fallback ou OnFilterRecord(Self, Passing);
+        OnFilterRecord(Self, Passing);
       end;
     end;
 
@@ -396,6 +407,12 @@ begin
     for j := 0 to SorterList.Count - 1 do
       FVirtualIndex.Add(SorterList[j]);
   end;
+
+  // Restaurar a posição do cursor na visão virtual
+  if CurrentRealIdx >= 0 then
+    FCurrentRec := FVirtualIndex.IndexOf(CurrentRealIdx)
+  else
+    FCurrentRec := -1;
 end;
 
 function TEntityDataSet.Locate(const KeyFields: string; const KeyValues: Variant; Options: TLocateOptions): Boolean;
@@ -560,12 +577,13 @@ end;
 
 procedure TEntityDataSet.InternalClose;
 begin
+  if Assigned(FInsertObj) then
+  begin
+    FInsertObj.Free;
+    FInsertObj := nil;
+  end;
   FIsCursorOpen := False;
   FVirtualIndex.Clear;
-end;
-
-procedure TEntityDataSet.InternalAddRecord(Buffer: Pointer; Append: Boolean);
-begin
 end;
 
 procedure TEntityDataSet.InternalDelete;
@@ -598,31 +616,33 @@ end;
 
 procedure TEntityDataSet.InternalPost;
 var
-  NewRow: Integer;
+  NewIdx: Integer;
 begin
   if State = dsInsert then
   begin
-    if FInsertObj <> nil then
+    if Assigned(FInsertObj) then
     begin
-      // 1. Persistir o objeto novo na lista real (sempre no fim da lista física)
+      // 1. Adicionar o objeto persistente na lista real
       FItems.Add(FInsertObj);
-      NewRow := FItems.Count - 1;
-      FInsertObj := nil; 
-      
-      // 2. Re-aplicar filtros e ordenação para que o novo registro apareça na posição correta da visão
-      ApplyFilterAndSort;
-      
-      // 3. Sincronizar FCurrentRec com a posição em que o novo registro foi parar na visão virtual
-      FCurrentRec := FVirtualIndex.IndexOf(NewRow);
-      
-      // 4. Se o registro é visível (passou no filtro), atualizar o buffer ativo para que o Grid entenda a mudança
-      if (FCurrentRec >= 0) and (Pointer(ActiveBuffer) <> nil) then
-        PEntityRecordHeader(ActiveBuffer).BookmarkIndex := FCurrentRec
-      else if FCurrentRec < 0 then
-        FCurrentRec := -1; // Registro oculto pelo filtro, reseta cursor interno
+      NewIdx := FItems.Count - 1;
+      FInsertObj := nil; // Agora a lista é dona do objeto (se configurado)
+
+      // 2. Refresh da visualização (Filtros/Sorte/Indices)
+      ApplyFilterAndSort; 
+
+      // 3. Posicionar o cursor no novo item na visão virtual
+      FCurrentRec := FVirtualIndex.IndexOf(NewIdx);
+
+      // 4. Sincronizar UI e Controles (Crucial para RecordCount refletir na hora)
+      Resync([]);
     end;
+  end
+  else if State = dsEdit then
+  begin
+    // Na edição, o objeto já foi alterado diretamente. 
+    // Apenas reaplicamos filtros/sort caso o valor alterado afete a ordem/visibilidade.
+    ApplyFilterAndSort;
   end;
-  // Nota: Para dsEdit as mudanças já foram escritas diretamente no objeto via SetFieldData/Pointer
 end;
 
 procedure TEntityDataSet.InternalCancel;
@@ -651,11 +671,20 @@ begin
   if FInsertObj = nil then
     raise Exception.Create('Auto-append needs a parameterless constructor for ' + FEntityClass.ClassName);
     
-  if Pointer(ActiveBuffer) <> nil then
+  if (Pointer(ActiveBuffer) <> nil) then
   begin
     PEntityRecordHeader(ActiveBuffer).BookmarkIndex := -2; // Insert phantom index
     PEntityRecordHeader(ActiveBuffer).BookmarkFlag := bfInserted;
   end;
+end;
+
+procedure TEntityDataSet.InternalAddRecord(Buffer: TRecordBuffer; Append: Boolean);
+begin
+  // O InternalAddRecord costuma ser chamado por AppendRecord/InsertRecord.
+  // Já temos a lógica centralizada no InternalPost que é chamado pelo AppendRecord do TDataSet.
+  // Se houver um FInsertObj pendente, forçamos o post.
+  if Assigned(FInsertObj) then
+    InternalPost;
 end;
 
 procedure TEntityDataSet.InternalFirst;
@@ -710,11 +739,10 @@ procedure TEntityDataSet.InternalInitFieldDefs;
 var
   Context: TRttiContext;
   FieldDef: TFieldDef;
-  FieldType: TFieldType;
+  ResolvedType: TFieldType;
   NewField: TField;
   PropMap: TPropertyMap;
-  PropMapPair: TPair<string, TPropertyMap>;
-  RttiProp: TRttiProperty;
+  Prop: TRttiProperty;
   RttiType: TRttiType;
 begin
   if (FEntityMap = nil) or (FEntityClass = nil) then Exit;
@@ -725,50 +753,48 @@ begin
   try
     RttiType := Context.GetType(FEntityClass);
 
-    for PropMapPair in FEntityMap.Properties do
+    for PropMap in FEntityMap.Properties.Values do
     begin
-      PropMap := PropMapPair.Value;
       if PropMap.IsIgnored or PropMap.IsNavigation then Continue;
 
-      // Calcular DataType dinamicamente
-      FieldType := PropMap.DataType;
+      // Calcular resolved type dinamicamente
+      ResolvedType := PropMap.DataType;
 
       // Se tivermos Shadow mapping, ler do RTTI da Classe estática
-      if (FieldType = ftUnknown) and (RttiType <> nil) then
+      if (ResolvedType = ftUnknown) and (RttiType <> nil) then
       begin
-        RttiProp := RttiType.GetProperty(PropMap.PropertyName);
-        if RttiProp <> nil then
+        Prop := RttiType.GetProperty(PropMap.PropertyName);
+        if Prop <> nil then
         begin
-          if IsTBytesType(RttiProp.PropertyType.Handle) then
-            FieldType := ftBlob
+          if IsTBytesType(Prop.PropertyType.Handle) then
+            ResolvedType := ftBlob
           else
-            FieldType := MapTypeToFieldType(RttiProp.PropertyType.Handle);
+            ResolvedType := MapTypeToFieldType(Prop.PropertyType.Handle);
         end;
       end;
 
       // Se ainda for desconhecido e houver PTypeInfo no map
-      if (FieldType = ftUnknown) and Assigned(PropMap.PropertyType) then
-        FieldType := MapTypeToFieldType(PropMap.PropertyType);
+      if (ResolvedType = ftUnknown) and Assigned(PropMap.PropertyType) then
+        ResolvedType := MapTypeToFieldType(PropMap.PropertyType);
 
-      // CRITICAL: Persist resolved DataType back into PropMap
-      // so that Sort (CompareObjects) and Locate can use it
-      if (PropMap.DataType = ftUnknown) and (FieldType <> ftUnknown) then
-        PropMap.DataType := FieldType;
+      // CRITICAL: Persist resolved type back into PropMap
+      if (PropMap.DataType = ftUnknown) and (ResolvedType <> ftUnknown) then
+        PropMap.DataType := ResolvedType;
 
-      // 1. Popular FieldDefs para metadados (Tamanho de string, grid, layouts)
+      // 1. Popular FieldDefs para metadados
       FieldDef := FieldDefs.AddFieldDef;
       FieldDef.Name := PropMap.PropertyName;
-      FieldDef.DataType := FieldType;
+      FieldDef.DataType := ResolvedType;
       if PropMap.MaxLength > 0 then
         FieldDef.Size := PropMap.MaxLength
-      else if FieldType in [ftString, ftWideString] then
+      else if ResolvedType in [ftString, ftWideString] then
         FieldDef.Size := 255;
 
-      // 2. Instanciar os TFields dinamicamente para o FieldByName não dar "not found"
+      // 2. Instanciar os TFields dinamicamente
       if Fields.FindField(PropMap.PropertyName) = nil then
       begin
         NewField := nil;
-        case FieldType of
+        case ResolvedType of
           ftWideString: NewField := TWideStringField.Create(Self);
           ftString: NewField := TStringField.Create(Self);
           ftInteger, ftSmallint: NewField := TIntegerField.Create(Self);
@@ -801,11 +827,9 @@ begin
               TWideStringField(NewField).Size := 255;
           end;
 
-          // Propagar metadados dos atributos para o TField
           NewField.Required := PropMap.IsRequired and (not PropMap.IsAutoInc);
           NewField.ReadOnly := PropMap.IsAutoInc;
-
-          NewField.DataSet := Self;  // <-- Conecta o TField ao DataSet
+          NewField.DataSet := Self;
         end;
       end;
     end;
@@ -871,6 +895,11 @@ end;
 procedure TEntityDataSet.SetBookmarkData(Buffer: TRecordBuffer; Data: Pointer);
 begin
   PEntityRecordHeader(Buffer).BookmarkIndex := PInteger(Data)^;
+end;
+
+procedure TEntityDataSet.InternalGotoBookmark(Bookmark: TBookmark);
+begin
+  FCurrentRec := PInteger(Bookmark)^;
 end;
 
 function TEntityDataSet.GetBookmarkFlag(Buffer: TRecordBuffer): TBookmarkFlag;
@@ -955,7 +984,6 @@ end;
 // ---------------------------------------------------------------------------
 function TEntityDataSet.ReadFieldValue(Field: TField; out Value: Variant): Boolean;
 var
-  ActualRow: Integer;
   BlobData: TArray<Byte>;
   Context: TRttiContext;
   CurrentObj: TObject;
@@ -970,50 +998,29 @@ begin
   Value := Unassigned;
 
   if not Active then Exit;
-
   Header := PEntityRecordHeader(ActiveBuffer);
 
-  if (Header = nil) then
+  // 1. Identificar o objeto de destino
+  CurrentObj := nil;
+  
+  if (Header <> nil) and (Header.BookmarkIndex = -2) then
   begin
-    // Fallback para o registro atual se estivermos em navegação segura mas sem ActiveBuffer (ex: CheckActive)
+    // Suporte a novo registro sendo inserido (phantom index -2)
+    if (State = dsInsert) and (FInsertObj <> nil) then
+      CurrentObj := FInsertObj;
+  end
+  else if (Header <> nil) and (Header.BookmarkIndex >= 0) and (Header.BookmarkIndex < FVirtualIndex.Count) then
+  begin
+    // Registro existente via header
+    CurrentObj := FItems[FVirtualIndex[Header.BookmarkIndex]];
+  end
+  else
+  begin
+    // Fallback para o registro atual do cursor
     if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
     begin
-       ActualRow := FVirtualIndex[FCurrentRec];
-       CurrentObj := FItems[ActualRow];
-    end
-    else
-       Exit;
-  end
-  else
-
-  // Suporte a novo registro sendo inserido (phantom index -2)
-  if Header.BookmarkIndex = -2 then
-  begin
-    // Se ainda estamos em insert, usamos o objeto de inserção
-    if (State = dsInsert) and (FInsertObj <> nil) then
-    begin
-      CurrentObj := FInsertObj;
-    end
-    else
-    begin
-      // Se saímos do estado de insert mas o buffer ainda tem -2 (ex: repaints durante transição),
-      // tentamos usar o registro atual se o cursor estiver apontando para algo válido.
-      if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
-      begin
-        ActualRow := FVirtualIndex[FCurrentRec];
-        CurrentObj := FItems[ActualRow];
-      end
-      else
-        Exit;
+      CurrentObj := FItems[FVirtualIndex[FCurrentRec]];
     end;
-  end
-  else
-  begin
-    if (Header.BookmarkIndex < 0) or (Header.BookmarkIndex >= FVirtualIndex.Count) then
-      Exit;
-
-    ActualRow := FVirtualIndex[Header.BookmarkIndex];
-    CurrentObj := FItems[ActualRow];
   end;
 
   if (CurrentObj = nil) or (FEntityMap = nil) then Exit;
@@ -1208,17 +1215,17 @@ end;
 
 procedure TEntityDataSet.SetFieldData(Field: TField; Buffer: TValueBuffer);
 var
-  ActualRow: Integer;
   Context: TRttiContext;
   CurrentObj: TObject;
   Header: PEntityRecordHeader;
   P: Pointer;
   PropMap: TPropertyMap;
   PValue: Pointer;
-  RttiField: TRttiField;
-  RttiProp: TRttiProperty;
+  Prop: TRttiProperty;
+  Fld: TRttiField;
   RttiType: TRttiType;
 begin
+  CurrentObj := nil;
   Header := nil;
   if Pointer(ActiveBuffer) <> nil then
     Header := PEntityRecordHeader(ActiveBuffer);
@@ -1231,33 +1238,13 @@ begin
 
   // Identifica o objeto de destino (Insert ou registro existente)
   if (Header <> nil) and (Header.BookmarkIndex = -2) then
-  begin
-    if (State <> dsInsert) or (FInsertObj = nil) then Exit;
-    CurrentObj := FInsertObj;
-  end
-  else if (State = dsInsert) and (FInsertObj <> nil) then
-  begin
-    CurrentObj := FInsertObj;
-  end
-  else
-  begin
-    // Fallback para edição direta via cursor se o header estiver ausente ou inválido
-    ActualRow := -1;
-    if (Header <> nil) and (Header.BookmarkIndex >= 0) and (Header.BookmarkIndex < FVirtualIndex.Count) then
-      ActualRow := FVirtualIndex[Header.BookmarkIndex]
-    else if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
-      ActualRow := FVirtualIndex[FCurrentRec];
-
-    if ActualRow < 0 then
-    begin
-        if (State = dsInsert) then
-          CurrentObj := FInsertObj
-        else
-          Exit;
-    end
-    else
-      CurrentObj := FItems[ActualRow];
-  end;
+    CurrentObj := FInsertObj
+  else if (Header <> nil) and (Header.BookmarkIndex >= 0) and (Header.BookmarkIndex < FVirtualIndex.Count) then
+    CurrentObj := FItems[FVirtualIndex[Header.BookmarkIndex]]
+  else if (State = dsInsert) then
+    CurrentObj := FInsertObj
+  else if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
+    CurrentObj := FItems[FVirtualIndex[FCurrentRec]];
 
   if (CurrentObj = nil) or (FEntityMap = nil) then Exit;
 
@@ -1274,43 +1261,43 @@ begin
      RttiType := Context.GetType(FEntityClass);
       if RttiType <> nil then
       begin
-        RttiProp := RttiType.GetProperty(Field.FieldName);
-        if (RttiProp <> nil) and (P <> nil) then
+        Prop := RttiType.GetProperty(Field.FieldName);
+        if (Prop <> nil) and (P <> nil) then
         begin
           case Field.DataType of
             ftString, ftWideString:
-              RttiProp.SetValue(CurrentObj, string(PWideChar(P)));
+              Prop.SetValue(CurrentObj, string(PWideChar(P)));
             ftInteger, ftSmallint:
-              RttiProp.SetValue(CurrentObj, PInteger(P)^);
+              Prop.SetValue(CurrentObj, PInteger(P)^);
             ftLargeint:
-              RttiProp.SetValue(CurrentObj, PInt64(P)^);
+              Prop.SetValue(CurrentObj, PInt64(P)^);
             ftFloat, ftCurrency:
-              RttiProp.SetValue(CurrentObj, PDouble(P)^);
+              Prop.SetValue(CurrentObj, PDouble(P)^);
             ftBoolean:
-              RttiProp.SetValue(CurrentObj, PWordBool(P)^ <> False);
+              Prop.SetValue(CurrentObj, PWordBool(P)^ <> False);
             ftDateTime, ftDate, ftTime:
-              RttiProp.SetValue(CurrentObj, TValue.From<Double>(PDouble(P)^));
+              Prop.SetValue(CurrentObj, TValue.From<Double>(PDouble(P)^));
           end;
           SetModified(True);
           Exit;
         end;
 
-        RttiField := RttiType.GetField(Field.FieldName);
-        if (RttiField <> nil) and (P <> nil) then
+        Fld := RttiType.GetField(Field.FieldName);
+        if (Fld <> nil) and (P <> nil) then
         begin
           case Field.DataType of
             ftString, ftWideString:
-              RttiField.SetValue(CurrentObj, string(PWideChar(P)));
+              Fld.SetValue(CurrentObj, string(PWideChar(P)));
             ftInteger, ftSmallint:
-              RttiField.SetValue(CurrentObj, PInteger(P)^);
+              Fld.SetValue(CurrentObj, PInteger(P)^);
             ftLargeint:
-              RttiField.SetValue(CurrentObj, PInt64(P)^);
+              Fld.SetValue(CurrentObj, PInt64(P)^);
             ftFloat, ftCurrency:
-              RttiField.SetValue(CurrentObj, PDouble(P)^);
+              Fld.SetValue(CurrentObj, PDouble(P)^);
             ftBoolean:
-              RttiField.SetValue(CurrentObj, PWordBool(P)^ <> False);
+              Fld.SetValue(CurrentObj, PWordBool(P)^ <> False);
             ftDateTime, ftDate, ftTime:
-              RttiField.SetValue(CurrentObj, TValue.From<Double>(PDouble(P)^));
+              Fld.SetValue(CurrentObj, TValue.From<Double>(PDouble(P)^));
           end;
           SetModified(True);
           Exit;
