@@ -16,6 +16,7 @@ uses
   Dext.Collections.Dict,
   Dext.Core.Span,
   Dext.Entity.Mapping,
+  Dext.Entity.Context,
   Dext.Json.Utf8;
 
 type
@@ -38,11 +39,13 @@ type
   private
     FEntityMap: TEntityMap;
     FEntityClass: TClass;
+    FDbContext: TDbContext;
     
     // Virtual Buffers (Offsets Index)
     // Physical Objects Reference
     FItems: IList<TObject>;            // Real reference to the object list
     FOwnsItems: Boolean;               // Whether the dataset owns the list and should clear it
+    FOwnsEntityMap: Boolean;           // Whether the dataset owns the map
     FVirtualIndex: TVector<Integer>;   // Ordered/filtered view over FItems (contains indices to FItems)
     
     FRecordSize: Integer;
@@ -141,8 +144,12 @@ type
     ///  UTF-8 JSON data loading (Zero-Alloc Pipeline)
     /// </summary>
     procedure LoadFromUtf8Json(const ASpan: TByteSpan; AClass: TClass);
+    procedure Refresh;
 
+    function CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream; override;
+    function GetCurrentObject: TObject;
     property Items: IList<TObject> read FItems write SetItems;
+    property DbContext: TDbContext read FDbContext write FDbContext;
   published
     property Active;
     property Filter;
@@ -191,21 +198,45 @@ uses
   Dext.Core.ValueConverters,
   Dext.Entity;
 
+type
+  TEntityBlobStream = class(TMemoryStream)
+  private
+    FField: TField;
+    FDataSet: TEntityDataSet;
+    FMode: TBlobStreamMode;
+    FModified: Boolean;
+    FObj: TObject;
+  public
+    constructor Create(Field: TField; DataSet: TEntityDataSet; Mode: TBlobStreamMode);
+    destructor Destroy; override;
+    function Write(const Buffer; Count: Integer): Longint; override;
+  end;
+
 function TValueBufferToValue(ABuffer: TValueBuffer; ADataType: TFieldType): TValue;
+var
+  S: string;
 begin
   case ADataType of
-    ftString, ftWideString:
-      Result := TValue.From<string>(TEncoding.Unicode.GetString(ABuffer));
-    ftInteger:
-      Result := TValue.From<Integer>(PInteger(ABuffer)^);
+    ftString:
+    begin
+      S := TEncoding.Default.GetString(ABuffer);
+      Result := TValue.From<string>(S.TrimRight([#0]));
+    end;
+    ftWideString, ftMemo, ftWideMemo:
+    begin
+      S := TEncoding.Unicode.GetString(ABuffer);
+      Result := TValue.From<string>(S.TrimRight([#0]));
+    end;
+    ftInteger, ftSmallint, ftAutoInc:
+      Result := TValue.From<Integer>(PInteger(@ABuffer[0])^);
     ftLargeint:
-      Result := TValue.From<Int64>(PInt64(ABuffer)^);
+      Result := TValue.From<Int64>(PInt64(@ABuffer[0])^);
     ftFloat, ftCurrency:
-      Result := TValue.From<Double>(PDouble(ABuffer)^);
+      Result := TValue.From<Double>(PDouble(@ABuffer[0])^);
     ftBoolean:
-      Result := TValue.From<Boolean>(PBoolean(ABuffer)^);
+      Result := TValue.From<Boolean>(PBoolean(@ABuffer[0])^);
     ftDateTime, ftDate, ftTime:
-      Result := TValue.From<TDateTime>(PDouble(ABuffer)^);
+      Result := TValue.From<TDateTime>(PDouble(@ABuffer[0])^);
   else
     Result := TValue.Empty;
   end;
@@ -213,7 +244,14 @@ end;
 
 { TEntityDataSet }
 
-{ TEntityDataSet }
+procedure TEntityDataSet.Refresh;
+begin
+  if Active then
+  begin
+    ApplyFilterAndSort(Filtered);
+    Resync([]);
+  end;
+end;
 
 constructor TEntityDataSet.Create(AOwner: TComponent);
 begin
@@ -234,10 +272,109 @@ begin
     FItems := nil; // IList cuidará da liberação se for o caso
   FItems := nil;
   
-  if Assigned(FEntityMap) then
+  if Assigned(FEntityMap) and FOwnsEntityMap then
     FEntityMap.Free;
     
   inherited Destroy;
+end;
+
+function TEntityDataSet.GetCurrentObject: TObject;
+var
+  Header: PEntityRecordHeader;
+begin
+  Result := nil;
+  if not Active then Exit;
+  
+  Header := PEntityRecordHeader(ActiveBuffer);
+  if (Header <> nil) then
+  begin
+    if (Header.BookmarkIndex = -2) then
+      Exit(FInsertObj)
+    else if (Header.BookmarkIndex >= 0) and (Header.BookmarkIndex < FVirtualIndex.Count) then
+      Exit(FItems[FVirtualIndex[Header.BookmarkIndex]]);
+  end;
+
+  if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
+    Result := FItems[FVirtualIndex[FCurrentRec]];
+end;
+
+function TEntityDataSet.CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream;
+begin
+  Result := TEntityBlobStream.Create(Field, Self, Mode);
+end;
+
+{ TEntityBlobStream }
+
+constructor TEntityBlobStream.Create(Field: TField; DataSet: TEntityDataSet; Mode: TBlobStreamMode);
+var
+  Val: TValue;
+  B: TBytes;
+  S: string;
+begin
+  inherited Create;
+  FField := Field;
+  FDataSet := DataSet;
+  FMode := Mode;
+  FModified := False;
+  FObj := FDataSet.GetCurrentObject;
+  
+  if (FMode <> bmWrite) and Assigned(FObj) then
+  begin
+    Val := TReflection.GetValue(FObj, FField.FieldName);
+    if not Val.IsEmpty then
+    begin
+      if FField.DataType in [ftMemo, ftWideMemo] then
+      begin
+        S := Val.AsString;
+        if S <> '' then
+        begin
+          B := TEncoding.Unicode.GetBytes(S);
+          Write(B[0], Length(B));
+        end;
+      end
+      else if FField.DataType = ftBlob then
+      begin
+        B := Val.AsType<TBytes>;
+        if Length(B) > 0 then
+          Write(B[0], Length(B));
+      end;
+      Position := 0;
+    end;
+  end;
+end;
+
+destructor TEntityBlobStream.Destroy;
+var
+  B: TBytes;
+  S: string;
+begin
+  if FModified and (FMode <> bmRead) and Assigned(FObj) then
+  begin
+    Position := 0;
+    SetLength(B, Size);
+    if Size > 0 then
+      Read(B[0], Size);
+
+    if FField.DataType in [ftMemo, ftWideMemo] then
+    begin
+      // Detect and strip Unicode BOM ($FF $FE) if present
+      if (Size >= 2) and (B[0] = $FF) and (B[1] = $FE) then
+        S := TEncoding.Unicode.GetString(B, 2, Size - 2)
+      else
+        S := TEncoding.Unicode.GetString(B);
+        
+      TReflection.SetValueByPath(FObj, FField.FieldName, S);
+    end
+    else
+      TReflection.SetValueByPath(FObj, FField.FieldName, TValue.From<TBytes>(B));
+  end;
+  inherited Destroy;
+end;
+
+function TEntityBlobStream.Write(const Buffer; Count: Integer): Longint;
+begin
+  Result := inherited Write(Buffer, Count);
+  FModified := True;
 end;
 
 procedure TEntityDataSet.Load(const AItems: IList<TObject>; AClass: TClass; AOwns: Boolean = False);
@@ -251,8 +388,18 @@ begin
 
   if FEntityMap = nil then
   begin
-    FEntityMap := TEntityMap.Create(AClass.ClassInfo);
-    FEntityMap.DiscoverAttributes;
+    if Assigned(FDbContext) then
+    begin
+      FEntityMap := FDbContext.ModelBuilder.GetMap(AClass.ClassInfo);
+      FOwnsEntityMap := False;
+    end;
+
+    if FEntityMap = nil then
+    begin
+      FEntityMap := TEntityMap.Create(AClass.ClassInfo);
+      FEntityMap.DiscoverAttributes;
+      FOwnsEntityMap := True;
+    end;
   end;
   
   Active := True; // Chama Open -> InternalOpen e prepara buffers
@@ -423,17 +570,17 @@ end;
 procedure TEntityDataSet.ApplyFilterAndSort(AFiltered: Boolean);
 var
   Context: TRttiContext;
-  CurrentRealIdx: Integer;
+  CurrentObj: TObject;
   EntityType: TRttiType;
   Expr: IExpression;
   i: Integer;
   Names: TArray<string>;
   Passing: Boolean;
 begin
-  // Salvar o índice real do item atual para restaurar FCurrentRec depois
-  CurrentRealIdx := -1;
+  // Salvar o objeto atual para restaurar FCurrentRec depois (mais seguro que índice físico)
+  CurrentObj := nil;
   if (FCurrentRec >= 0) and (FCurrentRec < FVirtualIndex.Count) then
-    CurrentRealIdx := FVirtualIndex[FCurrentRec];
+    CurrentObj := FItems[FVirtualIndex[FCurrentRec]];
 
   FVirtualIndex.Clear;
 
@@ -479,8 +626,14 @@ begin
   end;
 
   // Restaurar a posição do cursor na visão virtual
-  if CurrentRealIdx >= 0 then
-    FCurrentRec := FVirtualIndex.IndexOf(CurrentRealIdx)
+  if CurrentObj <> nil then
+  begin
+    var NewPhysicalIdx := FItems.IndexOf(CurrentObj);
+    if NewPhysicalIdx >= 0 then
+      FCurrentRec := FVirtualIndex.IndexOf(NewPhysicalIdx)
+    else
+      FCurrentRec := -1;
+  end
   else
     FCurrentRec := -1;
 end;
@@ -996,6 +1149,9 @@ begin
     for PropMap in FEntityMap.Properties.Values do
     begin
       if PropMap.IsIgnored or PropMap.IsNavigation then Continue;
+      
+      // Shadow property check
+      if PropMap.IsShadow and (not FIncludeShadowProperties) then Continue;
 
       // Calcular resolved type dinamicamente
       ResolvedType := PropMap.DataType;
@@ -1035,8 +1191,17 @@ begin
         ResolvedType := MapTypeToFieldType(PropMap.PropertyType);
 
       // CRITICAL: Persist resolved type back into PropMap
+      if (ResolvedType in [ftString, ftWideString]) and (PropMap.MaxLength > 255) then
+        ResolvedType := ftMemo;
+
       if (PropMap.DataType = ftUnknown) and (ResolvedType <> ftUnknown) then
         PropMap.DataType := ResolvedType;
+
+      // Ensure shadow property has a type if unknown (default to string)
+      if (PropMap.IsShadow) and (ResolvedType = ftUnknown) then
+        ResolvedType := ftWideString;
+
+      if ResolvedType = ftUnknown then Continue;
 
       // 1. Popular FieldDefs para metadados
       FieldDef := FieldDefs.AddFieldDef;
@@ -1316,7 +1481,16 @@ begin
   if not FEntityMap.Properties.TryGetValue(Field.FieldName, PropMap) then
     Exit;
 
-  // 3. RTTI Fallback if field offset is not defined or represents a Smart Type / Nullable Wrapper
+  // 3. Shadow Property support
+  if PropMap.IsShadow and (FDbContext <> nil) then
+  begin
+    var Entry := FDbContext.Entry(CurrentObj);
+    Value := Entry.Member(Field.FieldName).GetCurrentValue.AsVariant;
+    Result := True;
+    Exit;
+  end;
+
+  // 4. RTTI Fallback if field offset is not defined or represents a Smart Type / Nullable Wrapper
   if (PropMap.FieldValueOffset <= 0) or 
      ((PropMap.PropertyType <> nil) and TReflection.IsSmartProp(PropMap.PropertyType)) then
   begin
@@ -1371,7 +1545,7 @@ begin
     PValue := Pointer(PByte(CurrentObj) + PropMap.FieldOffset);
 
   case Field.DataType of
-    ftString, ftWideString:
+    ftString, ftWideString, ftMemo, ftWideMemo:
       Value := PString(PValue)^;
     ftInteger, ftSmallint:
       Value := PInteger(PValue)^;
@@ -1522,6 +1696,16 @@ begin
   if not FEntityMap.Properties.TryGetValue(Field.FieldName, PropMap) then
     Exit;
 
+  // 3. Shadow Property support
+  if PropMap.IsShadow and (FDbContext <> nil) then
+  begin
+    if P = nil then
+      FDbContext.Entry(CurrentObj).Member(Field.FieldName).SetCurrentValue(TValue.Empty)
+    else
+      FDbContext.Entry(CurrentObj).Member(Field.FieldName).SetCurrentValue(TValueBufferToValue(Buffer, Field.DataType));
+    Exit;
+  end;
+
   if PropMap.FieldValueOffset > 0 then
     PValue := Pointer(PByte(CurrentObj) + PropMap.FieldValueOffset)
   else
@@ -1568,7 +1752,7 @@ begin
   if P <> nil then
   begin
     case Field.DataType of
-      ftString, ftWideString:
+      ftString, ftWideString, ftMemo, ftWideMemo:
         PString(PValue)^ := string(PWideChar(P));
       ftInteger, ftSmallint:
         PInteger(PValue)^ := PInteger(P)^;
@@ -1588,7 +1772,7 @@ begin
   begin
     // Buffer vazio = limpar campo
     case Field.DataType of
-      ftString, ftWideString:
+      ftString, ftWideString, ftMemo, ftWideMemo:
         PString(PValue)^ := '';
       ftInteger, ftSmallint:
         PInteger(PValue)^ := 0;

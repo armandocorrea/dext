@@ -29,13 +29,13 @@ begin
       .Configure
       .Verbose
       .RegisterFixtures([
-        TSmartTypesTests,
+        TEntityDataSetCRUDTests,
+        TEntityDataSetTests,
+        TProductDataSetTests,
+        TMasterDetailDataSetTests,
+        TEntityDataSetStressTests,
         TDataSetSmartTypesTests,
-        TFluentQueryTests,
-        TSqlGeneratorTests,
-        TFluentMappingTests,
-        TAsyncTests,
-        TDataSetSmartTypesTests
+        TShadowDataSetTests
       ]).Run;
 
     TTest.SetExitCode(TestResult);
