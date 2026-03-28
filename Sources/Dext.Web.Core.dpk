@@ -29,8 +29,6 @@ package Dext.Web.Core;
 {$RUNONLY}
 {$IMPLICITBUILD OFF}
 
-{$I Dext.inc}
-
 requires
   rtl,
   IndySystem,
@@ -39,10 +37,8 @@ requires
   Dext.Core,
   Dext.EF.Core,
   RESTComponents,
-  inet
-  {$IFDEF DEXT_ENABLE_WEB_STENCILS},
-  inetstn
-  {$ENDIF};
+  inet,
+  inetstn;
 
 contains
   Dext.Web in 'Web\Dext.Web.pas',
@@ -105,6 +101,7 @@ contains
   Dext.Web.ResponseHelper in 'Web\Dext.Web.ResponseHelper.pas',
   Dext.Web.Middleware.Logging in 'Web\Dext.Web.Middleware.Logging.pas',
   Dext.Web.View in 'Web\Dext.Web.View.pas',
-  Dext.Web.View.WebStencils in 'Web\Dext.Web.View.WebStencils.pas';
+  Dext.Web.View.WebStencils in 'Web\Dext.Web.View.WebStencils.pas',
+  Dext.Web.DataApi.Resolver in 'Web\Dext.Web.DataApi.Resolver.pas';
 
 end.

@@ -28,7 +28,9 @@ uses
   Dext.Entity.TypeConverters,
   Dext.Entity.Dialects,
   Dext.Core.ValueConverters,
-  Dext.OpenAPI.Extensions;
+  Dext.OpenAPI.Extensions,
+  Dext.Web.DataApi.Resolver,
+  Dext.Web.ModelBinding;
 
 type
   TApiMethod = (amGet, amGetList, amPost, amPut, amDelete);
@@ -147,6 +149,7 @@ uses
   Dext.Web.Results,
   Dext.Utils,
   Dext.Core.Reflection,
+  Dext.DI.Extensions,
   Dext.Types.UUID;
 
 
@@ -759,7 +762,8 @@ function TDataApiHandler<T>.HandleGet(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   IdStr: string;
-  IdInt: Integer;
+  PKValue: Variant;
+  Binder: IModelBinder;
   Entity: T;
   AuthResult: IResult;
 begin
@@ -774,30 +778,16 @@ begin
       Exit(Results.BadRequest('{"error":"Missing id parameter"}'));
 
     DbCtx := GetDbContext(Context);
+    
+    // Resolve Strong-Typed ID using metadata and Model Binder (optional service)
+    Binder := TServiceProviderExtensions.GetService<IModelBinder>(Context.Services);
+    PKValue := TEntityIdResolver.Resolve(TEntityMap(DbCtx.GetMapping(TypeInfo(T))), IdStr, Binder);
 
-    // Try integer first, then GUID
-    if TryStrToInt(IdStr, IdInt) then
-    begin
-      Entity := DbCtx.Entities<T>.Find(IdInt);
-      if Entity = nil then
-        Result := Results.NotFound(Format('{"error":"Entity with id %d not found"}', [IdInt]))
-      else
-        Result := Results.Json(EntityToJson(Entity));
-    end
+    Entity := DbCtx.Entities<T>.Find(PKValue);
+    if Entity = nil then
+      Result := Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr]))
     else
-    begin
-      try
-        TUUID.FromString(IdStr);
-      except
-        Exit(Results.BadRequest('{"error":"Invalid id format"}'));
-      end;
-
-      Entity := DbCtx.Entities<T>.Find(IdStr);
-      if Entity = nil then
-        Result := Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr]))
-      else
-        Result := Results.Json(EntityToJson(Entity));
-    end;
+      Result := Results.Json(EntityToJson(Entity));
   except
     on E: Exception do
       Result := Results.StatusCode(500, Format('{"error":"%s"}', [EscapeJsonString(E.Message)]));
@@ -851,10 +841,24 @@ begin
     end;
       
     var TargetSet := DbCtx.Entities<T>;
+    var Map := TEntityMap(DbCtx.GetMapping(TypeInfo(T)));
+
+    // Validation for Manual IDs
+    for var KeyName in Map.Keys do
+    begin
+      var PropMap := Map.Properties[KeyName];
+      if not PropMap.IsAutoInc then
+      begin
+        var Val := PropMap.Prop.GetValue(TObject(Entity));
+        if Val.IsEmpty or ((Val.Kind = tkInteger) and (Val.AsInteger = 0)) or ((Val.Kind in [tkString, tkUString, tkWString, tkLString]) and (Val.AsString = '')) then
+           Exit(Results.BadRequest(Format('{"error":"Primary key %s is required for this entity"}', [KeyName])));
+      end;
+    end;
+      
     TargetSet.Add(Entity);
     DbCtx.SaveChanges;
     
-    // Get ID for response (now correctly handled by the framework fix)
+    // Get ID for response. If manual PK, it should be obtainable from the entity.
     var IdStr := TargetSet.GetEntityId(Entity);
     
     // Canonical format for URL (lowercase, no braces)
@@ -873,7 +877,7 @@ function TDataApiHandler<T>.HandlePut(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   IdStr: string;
-  IdInt: Integer;
+  PKValue: Variant;
   Entity: T;
   Stream: TStream;
   JsonString: string;
@@ -892,18 +896,10 @@ begin
 
     DbCtx := GetDbContext(Context);
 
-    // Try integer first, then GUID
-    if TryStrToInt(IdStr, IdInt) then
-      Entity := DbCtx.Entities<T>.Find(IdInt)
-    else
-    begin
-      try
-        TUUID.FromString(IdStr);
-      except
-        Exit(Results.BadRequest('{"error":"Invalid id format"}'));
-      end;
-      Entity := DbCtx.Entities<T>.Find(IdStr);
-    end;
+    // Resolve Strong-Typed ID using metadata and Model Binder (optional service)
+    var Binder := TServiceProviderExtensions.GetService<IModelBinder>(Context.Services);
+    PKValue := TEntityIdResolver.Resolve(TEntityMap(DbCtx.GetMapping(TypeInfo(T))), IdStr, Binder);
+    Entity := DbCtx.Entities<T>.Find(PKValue);
     
     if Entity = nil then
       Exit(Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr])));
@@ -950,7 +946,7 @@ function TDataApiHandler<T>.HandleDelete(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   IdStr: string;
-  IdInt: Integer;
+  PKValue: Variant;
   Entity: T;
   AuthResult: IResult;
 begin
@@ -965,18 +961,10 @@ begin
 
     DbCtx := GetDbContext(Context);
 
-    // Try integer first, then GUID
-    if TryStrToInt(IdStr, IdInt) then
-      Entity := DbCtx.Entities<T>.Find(IdInt)
-    else
-    begin
-      try
-        TUUID.FromString(IdStr);
-      except
-        Exit(Results.BadRequest('{"error":"Invalid id format"}'));
-      end;
-      Entity := DbCtx.Entities<T>.Find(IdStr);
-    end;
+    // Resolve Strong-Typed ID using metadata and Model Binder (optional service)
+    var Binder := TServiceProviderExtensions.GetService<IModelBinder>(Context.Services);
+    PKValue := TEntityIdResolver.Resolve(TEntityMap(DbCtx.GetMapping(TypeInfo(T))), IdStr, Binder);
+    Entity := DbCtx.Entities<T>.Find(PKValue);
     
     if Entity = nil then
       Exit(Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr])));

@@ -136,6 +136,72 @@ try {
     Write-Host ""
 
     # ═══════════════════════════════════════════════════════════════════════════
+    # TEST 10: List all logs (TUUID PK)
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "10. GET /api/logs (TUUID PK)" -ForegroundColor Yellow
+    Write-Host "    Listing seeded system logs..."
+    $logs = Invoke-DextRequest "$baseUrl/api/logs"
+    if ($logs.Count -lt 1) { throw "Expected at least 1 seeded log" }
+    Write-Host "    [OK] Found $($logs.Count) logs" -ForegroundColor Green
+    $firstLogId = $logs[0].id
+    if (-not $firstLogId) { $firstLogId = $logs[0].Id } # Fallback just in case
+    Write-Host "    First UUID: $firstLogId"
+    Write-Host ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TEST 11: Get log by UUID (Validates ID Resolver)
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "11. GET /api/logs/$firstLogId" -ForegroundColor Yellow
+    Write-Host "    Testing TEntityIdResolver for TUUID..."
+    $log = Invoke-DextRequest "$baseUrl/api/logs/$firstLogId"
+    if ($log.id -ne $firstLogId -and $log.Id -ne $firstLogId) { throw "Log not found or UUID mismatch" }
+    $msg = if ($log.message) { $log.message } else { $log.Message }
+    Write-Host "    [OK] Resolved and Found: $msg" -ForegroundColor Green
+    Write-Host ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TEST 12: POST new log (TUUID PK)
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "12. POST /api/logs" -ForegroundColor Yellow
+    Write-Host "    Creating new log with explicit UUID..."
+    $logId = [guid]::NewGuid().ToString()
+    $newLog = @{
+        id      = $logId
+        message = "Manual log entry"
+    } | ConvertTo-Json
+    $createdLog = Invoke-DextRequest "$baseUrl/api/logs" "POST" $newLog
+    if ($createdLog.id -ne $logId) { throw "Expected log ID: $logId" }
+    Write-Host "    [OK] Log created with UUID: $($createdLog.id)" -ForegroundColor Green
+    Write-Host ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TEST 13: PUT log (TUUID PK)
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "13. PUT /api/logs/$logId" -ForegroundColor Yellow
+    Write-Host "    Updating log message via UUID route..."
+    $updateLog = @{
+        id      = $logId
+        message = "Updated log entry"
+    } | ConvertTo-Json
+    $updatedLog = Invoke-DextRequest "$baseUrl/api/logs/$logId" "PUT" $updateLog
+    if ($updatedLog.message -ne "Updated log entry") { throw "Update log failed" }
+    Write-Host "    [OK] Log updated successfully" -ForegroundColor Green
+    Write-Host ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TEST 14: DELETE log (TUUID PK)
+    # ═══════════════════════════════════════════════════════════════════════════
+    Write-Host "14. DELETE /api/logs/$logId" -ForegroundColor Yellow
+    Write-Host "    Deleting log entry via UUID route..."
+    Invoke-DextRequest "$baseUrl/api/logs/$logId" "DELETE" | Out-Null
+    
+    # Verify deletion
+    $res = Invoke-DextRequest "$baseUrl/api/logs/$logId"
+    if ($res.statusCode -ne 404) { throw "Expected 404 after log deletion" }
+    Write-Host "    [OK] Log deleted and verified 404" -ForegroundColor Green
+    Write-Host ""
+
+    # ═══════════════════════════════════════════════════════════════════════════
     Write-Host "==========================================" -ForegroundColor Green
     Write-Host "SUCCESS: ALL DATABASE AS API TESTS PASSED!" -ForegroundColor Green
     Write-Host "==========================================" -ForegroundColor Green

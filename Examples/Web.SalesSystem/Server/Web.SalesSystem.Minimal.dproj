@@ -1,7 +1,7 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{AABBCCDD-1234-5678-90AB-CDEF12345678}</ProjectGuid>
-        <ProjectVersion>20.3</ProjectVersion>
+        <ProjectVersion>20.4</ProjectVersion>
         <FrameworkType>None</FrameworkType>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
@@ -98,6 +98,8 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="Sales.Startup.pas"/>
+        <DCCReference Include="Sales.Auth.pas"/>
+        <DCCReference Include="Sales.Endpoints.pas"/>
         <DCCReference Include="..\Domain\Sales.Domain.Entities.pas"/>
         <DCCReference Include="..\Domain\Sales.Domain.Models.pas"/>
         <DCCReference Include="..\Domain\Sales.Domain.Enums.pas"/>
