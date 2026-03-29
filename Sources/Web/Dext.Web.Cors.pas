@@ -332,7 +332,7 @@ var
   RequestOrigin: string;
 begin
   // Obter Origin do request
-  if AContext.Request.Headers.TryGetValue('origin', RequestOrigin) then
+  if AContext.Request.Headers.TryGetValue('Origin', RequestOrigin) then
     Origin := RequestOrigin
   else
     Origin := '';

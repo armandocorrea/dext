@@ -64,6 +64,25 @@ TDataApiHandler<TProduct>.Map(App, '/api/products',
   end);
 ```
 
+### UUID and Custom IDs Support
+
+**Dext Database as API** integrates the `TEntityIdResolver` to automatically detect and process the type of your primary key (`[PK]`). It converts the `{id}` placeholder in the URL back to the actual entity type transparently.
+
+This allows the use of modern types like `TUUID` or custom identifiers without any extra configuration:
+
+```pascal
+type
+  [Table('system_logs')]
+  TSystemLog = class
+  public
+    [PK] property Id: TUUID;
+    property Message: string;
+  end;
+
+// The route /api/logs/{id} will accept UUID strings (e.g., /api/logs/550e8400-e29b...)
+TDataApiHandler<TSystemLog>.Map(App, '/api/logs');
+```
+
 ---
 
 [← Database as API](README.md) | [Next: Real-Time →](../07-real-time/README.md)

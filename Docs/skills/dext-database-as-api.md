@@ -30,10 +30,10 @@ type
     property Stock: Integer;
   end;
 
-// In Startup Configure — maps all 5 CRUD endpoints
+// In Startup Configure — maps all 5 CRUD endpoints using the fluent method
 App.Builder
   .UseExceptionHandler
-  .Map(TDataApiHandler<TProduct>, '/api/products')
+  .MapDataApi<TProduct>('/api/products') // Recommended fluent syntax
   .UseSwagger(...);
 ```
 
@@ -85,14 +85,12 @@ Available operations: `ToRead`, `ToCreate`, `ToUpdate`, `ToDelete`.
 App.Builder
   .UseExceptionHandler
   .UseAuthentication
-  .Map(TDataApiHandler<TProduct>, '/api/products')
-  .Map(TDataApiHandler<TCategory>, '/api/categories')
-  .Map(TDataApiHandler<TOrder>, '/api/orders',
-    procedure(O: TDataApiOptions)
-    begin
-      O.AllowedOperations := [ToRead];  // Read-only
-      O.RequireAuthorization := True;
-    end)
+  .MapDataApi<TProduct>('/api/products')
+  .MapDataApi<TCategory>('/api/categories')
+  .MapDataApi<TOrder>('/api/orders',
+    DataApiOptions<TOrder>.Default
+      .Only([ToRead])
+      .RequiresAuth)
   .UseSwagger(...);
 ```
 
@@ -109,4 +107,25 @@ App.Builder
 
 | Example | What it shows |
 |---------|---------------|
-| `Web.DatabaseAsApi` | Zero-code CRUD: `TDataApiHandler<T>`, snake_case JSON, Swagger auto-docs |
+| `Web.DatabaseAsApi` | Zero-code CRUD: `MapDataApi<T>`, `TUUID` PK support, snake_case JSON, Swagger auto-docs |
+
+---
+
+## ID Resolvers & UUID Support
+
+**Dext Database as API** automatically detects your Primary Key (`[PK]`) type. It uses the `TEntityIdResolver` to transparently convert the `{id}` string from the URL into the entity's actual data type.
+
+This enables native support for modern identifiers like `TUUID` (`Dext.Types.UUID`) without any extra configuration:
+
+```pascal
+type
+  [Table('logs')]
+  TLog = class
+  public
+    [PK] property Id: TUUID; // Automatically resolved from URL /api/logs/{id}
+    property Message: string;
+  end;
+
+// Registration
+App.Builder.MapDataApi<TLog>('/api/logs');
+```

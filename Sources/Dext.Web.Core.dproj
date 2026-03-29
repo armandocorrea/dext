@@ -111,6 +111,7 @@
         <DCCReference Include="Dext.EF.Core.dcp"/>
         <DCCReference Include="RESTComponents.dcp"/>
         <DCCReference Include="inet.dcp"/>
+        <DCCReference Include="inetstn.dcp"/>
         <DCCReference Include="Web\Dext.Web.pas"/>
         <DCCReference Include="Web\Dext.Web.Core.pas"/>
         <DCCReference Include="Web\Dext.Web.Interfaces.pas"/>
@@ -172,6 +173,7 @@
         <DCCReference Include="Web\Dext.Web.Middleware.Logging.pas"/>
         <DCCReference Include="Web\Dext.Web.View.pas"/>
         <DCCReference Include="Web\Dext.Web.View.WebStencils.pas"/>
+        <DCCReference Include="Web\Dext.Web.DataApi.Resolver.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -32,7 +32,9 @@ uses
   System.TypInfo,
   Dext.Web.Interfaces,
   Dext.Web.HandlerInvoker,
-  Dext.Web.ModelBinding;
+  Dext.Web.ModelBinding,
+  Dext.OpenAPI.Types,
+  Dext.OpenAPI.Generator;
 
 type
   TApplicationBuilderExtensions = class
@@ -166,6 +168,14 @@ type
     function RequireAuthorization: IApplicationBuilder; overload;
     function RequireAuthorization(const AScheme: string): IApplicationBuilder; overload;
     function RequireAuthorization(const ASchemes: array of string): IApplicationBuilder; overload;
+
+    // Middleware Extensions
+    function UseSwagger: IApplicationBuilder; overload;
+    function UseSwagger(const AOptions: TOpenAPIOptions): IApplicationBuilder; overload;
+    function UseSwagger(const ABuilder: TOpenAPIBuilder): IApplicationBuilder; overload;
+
+    function UseExceptionHandler: IApplicationBuilder; overload;
+    function UseHttpLogging: IApplicationBuilder; overload;
   end;
 
 
@@ -174,7 +184,9 @@ procedure UpdateRouteMetadata(App: IApplicationBuilder; RequestType: PTypeInfo; 
 implementation
 
 uses
-  Dext.OpenAPI.Extensions;
+  Dext.OpenAPI.Extensions,
+  Dext.Swagger.Middleware,
+  Dext.Web.Middleware.Extensions;
 
 { TDextAppBuilderHelper }
 
@@ -256,6 +268,31 @@ end;
 function TDextAppBuilderHelper.RequireAuthorization(const ASchemes: array of string): IApplicationBuilder;
 begin
   Result := TEndpointMetadataExtensions.RequireAuthorization(Self.Unwrap, ASchemes);
+end;
+
+function TDextAppBuilderHelper.UseSwagger: IApplicationBuilder;
+begin
+  Result := TSwaggerExtensions.UseSwagger(Self.Unwrap);
+end;
+
+function TDextAppBuilderHelper.UseSwagger(const AOptions: TOpenAPIOptions): IApplicationBuilder;
+begin
+  Result := TSwaggerExtensions.UseSwagger(Self.Unwrap, AOptions);
+end;
+
+function TDextAppBuilderHelper.UseSwagger(const ABuilder: TOpenAPIBuilder): IApplicationBuilder;
+begin
+  Result := TSwaggerExtensions.UseSwagger(Self.Unwrap, ABuilder.Build);
+end;
+
+function TDextAppBuilderHelper.UseExceptionHandler: IApplicationBuilder;
+begin
+  Result := TApplicationBuilderMiddlewareExtensions.UseExceptionHandler(Self.Unwrap);
+end;
+
+function TDextAppBuilderHelper.UseHttpLogging: IApplicationBuilder;
+begin
+  Result := TApplicationBuilderMiddlewareExtensions.UseHttpLogging(Self.Unwrap);
 end;
 
 

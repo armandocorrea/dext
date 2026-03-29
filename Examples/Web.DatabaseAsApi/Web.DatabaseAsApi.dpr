@@ -11,24 +11,32 @@ uses
   // Dext Framework
   Dext,
   Dext.Entity,
+  Dext.Entity.Context,
   Dext.Entity.Attributes,
+  Dext.Entity.Dialects,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.Drivers.FireDAC,
-  Dext.Entity.Dialects,
+  Dext.Entity.Drivers.FireDAC.Links,
+  Dext.Entity.Setup,
+  Dext.Entity.Mapping,
   Dext.Web,
   Dext.Web.DataApi,
-  Dext.WebHost,
   Dext.Web.Results,
   Dext.Web.Interfaces,
+  Dext.DI.Interfaces,
+
+  // Smart Types (TUUID)
+  Dext.Types.UUID,
+
   // Swagger/OpenAPI
   Dext.OpenAPI.Generator,
   Dext.Swagger.Middleware,
-  
+
   // Storage
-  FireDAC.Comp.Client,
-  Dext.Entity.Drivers.FireDAC.Links;
+  FireDAC.Comp.Client;
 
 type
+  { --- ENTITY 1: Simple Integer PK (AutoInc) --- }
   [Table('Customers')]
   TCustomer = class
   private
@@ -36,7 +44,6 @@ type
     FName: string;
     FEmail: string;
     FActive: Boolean;
-    FInternalCode: string;
     FCreatedAt: TDateTime;
   public
     [PK, AutoInc]
@@ -44,169 +51,167 @@ type
     property Name: string read FName write FName;
     property Email: string read FEmail write FEmail;
     property Active: Boolean read FActive write FActive;
-    
-    // This field will be ignored by the API (and DB)
-    [NotMapped]
-    property InternalCode: string read FInternalCode write FInternalCode;
-    
-    // Demonstration of SnakeCase conversion
-    // CreatedAt -> created_at in JSON
     property CreatedAt: TDateTime read FCreatedAt write FCreatedAt;
   end;
 
-  /// <summary>
-  ///   Application startup class - handles initialization, configuration and shutdown.
-  ///   Avoids global variables and initialization/finalization sections.
-  /// </summary>
-  TStartup = class
+  { --- ENTITY 2: UUID PK (Manual/Auto generated) --- }
+  [Table('SystemLogs')]
+  TSystemLog = class
   private
-    FConnection: IDbConnection;
-    FDbContext: TDbContext;
-    FHost: IWebHost;
-    
-    function CreateSQLiteConnection: IDbConnection;
-    procedure SeedData;
-    procedure Configure(ABuilder: IApplicationBuilder);
+    FId: TUUID;
+    FMessage: string;
+    FLogTime: TDateTime;
   public
-    procedure Initialize;
-    procedure Run;
-    procedure Finalize;
+    [PK]
+    property Id: TUUID read FId write FId;
+    property Message: string read FMessage write FMessage;
+    property LogTime: TDateTime read FLogTime write FLogTime;
   end;
 
-// Standalone root handler (cannot be nested due to capture limitations)
-procedure HandleRoot(Ctx: IHttpContext);
+  TDatabaseContext = class(TDbContext)
+  protected
+    procedure OnModelCreating(Builder: TModelBuilder); override;
+  end;
+
+  TStartup = class(TInterfacedObject, IStartup)
+  public
+    procedure ConfigureServices(const Services: TDextServices; const Configuration: IConfiguration);
+    procedure Configure(const App: IWebApplication);
+  end;
+
+{ TDatabaseContext }
+
+procedure TDatabaseContext.OnModelCreating(Builder: TModelBuilder);
 begin
-  Results.Text('Database as API Example. Try /api/customers').Execute(Ctx);
+  inherited;
+  Builder.Entity<TCustomer>;
+  Builder.Entity<TSystemLog>;
 end;
 
 { TStartup }
 
-function TStartup.CreateSQLiteConnection: IDbConnection;
-var
-  FDConn: TFDConnection;
+procedure TStartup.ConfigureServices(const Services: TDextServices; const Configuration: IConfiguration);
 begin
-  FDConn := TFDConnection.Create(nil);
-  FDConn.DriverName := 'SQLite';
-  FDConn.Params.Values['Database'] := ':memory:';
-  FDConn.Params.Values['LockingMode'] := 'Normal';
-  Result := TFireDACConnection.Create(FDConn);
+  { --- Standard Dext Scoped DbContext with Physical SQLite DB --- }
+  { UseSQLite is a fluent extension that creates the connection pool properly. }
+  { To avoid closure capture issues (AV), we call the extension with a literal string. }
+  
+  Services.AddDbContext<TDatabaseContext>(
+    procedure(Options: TDbContextOptions)
+    begin
+      Options.UseSQLite('databaseapi.db');
+      Options.Pooling := True;
+    end);
 end;
 
-procedure TStartup.SeedData;
-var
-  Customer: TCustomer;
+procedure TStartup.Configure(const App: IWebApplication);
 begin
-  Writeln('Seeding database...');
-  
-  Customer := TCustomer.Create;
-  Customer.Name := 'John Doe';
-  Customer.Email := 'john@example.com';
-  Customer.Active := True;
-  Customer.InternalCode := 'SECRET_123';
-  Customer.CreatedAt := Now;
-  FDbContext.Entities<TCustomer>.Add(Customer);
-  
-  Customer := TCustomer.Create;
-  Customer.Name := 'Jane Smith';
-  Customer.Email := 'jane@example.com';
-  Customer.Active := False;
-  FDbContext.Entities<TCustomer>.Add(Customer);
-  
-  FDbContext.SaveChanges;
-  Writeln('Database seeded with 2 customers.');
-end;
-
-procedure TStartup.Configure(ABuilder: IApplicationBuilder);
-var
-  SwaggerOptions: TOpenAPIOptions;
-begin
-  // Map the Data API for TCustomer entity
-  // Enable Swagger documentation with .UseSwagger
-  TDataApiHandler<TCustomer>.Map(ABuilder, '/api/customers', FDbContext,
-    TDataApiOptions<TCustomer>.Create
-      .UseSnakeCase
-      .UseSwagger       // Opt-in to Swagger documentation
-      .Tag('Customers') // Optional: custom tag name
-  );
-  
-  // Map root handler
-  ABuilder.MapGet('/', HandleRoot);
-  
-  // Configure Swagger/OpenAPI
-  SwaggerOptions := TOpenAPIOptions.Default;
-  SwaggerOptions.Title := 'Database as API';
-  SwaggerOptions.Description := 'Auto-generated REST API from Dext entities with automatic Swagger documentation';
-  SwaggerOptions.Version := '1.0.0';
-  SwaggerOptions := SwaggerOptions.WithServer('http://localhost:5000', 'Development server');
-  
-  TSwaggerExtensions.UseSwagger(ABuilder, SwaggerOptions);
-end;
-
-procedure TStartup.Initialize;
-begin
-  Writeln('Database as API Example');
-  Writeln('=======================');
-  Writeln('');
-  
-  // 1. Create database connection
-  FConnection := CreateSQLiteConnection;
-  
-  // 2. Create DbContext with SQLite dialect
-  FDbContext := TDbContext.Create(FConnection, TSQLiteDialect.Create);
-  
-  // 3. Register entities
-  FDbContext.Entities<TCustomer>;
-  
-  // 4. Create schema
-  FDbContext.EnsureCreated;
-  
-  // 5. Seed data
-  SeedData;
-  
-  // 6. Build web host
-  Writeln('');
-  Writeln('Starting web server...');
-  
-  FHost := TDextWebHost.CreateDefaultBuilder
-    .Configure(Configure)
-    .Build;
+  App.Builder
+    {$IFDEF DEBUG}
+    .UseDeveloperExceptionPage
+    {$ELSE}
+    .UseHttpLogging
+    {$ENDIF}
+    .UseExceptionHandler
+    .MapGet('/', 
+      procedure(Ctx: IHttpContext)
+      begin
+        Results.Text('Database as API Example (Physical SQLite). Go to /api/customers or /api/logs').Execute(Ctx);
+      end)
     
-  Writeln('');
-  Writeln('Server listening on http://localhost:5000');
-  Writeln('');
-  Writeln('Endpoints:');
-  Writeln('  API:     http://localhost:5000/api/customers');
-  Writeln('  Swagger: http://localhost:5000/swagger');
-  Writeln('  JSON:    http://localhost:5000/swagger.json');
+    // --- Data API for Integer PK ---
+    .MapDataApi<TCustomer>('/api/customers',
+      DataApiOptions
+        .DbContext<TDatabaseContext>
+        .UseSnakeCase
+        .Tag('Customers')
+        .UseSwagger)
+
+    // --- Data API for UUID PK ---
+    .MapDataApi<TSystemLog>('/api/logs',
+      DataApiOptions
+        .DbContext<TDatabaseContext>
+        .UseSnakeCase
+        .Tag('System Logs')
+        .UseSwagger)
+
+    .UseSwagger(
+      Swagger
+        .Title('Database as API - CRUD Examples')
+        .Description('Auto-generated REST API from Dext entities with Physical SQLite support.')
+        .Version('1.0.0')
+        .Server('http://localhost:5000', 'Development server')
+    );
 end;
 
-procedure TStartup.Run;
+procedure SeedDatabase(const Provider: IServiceProvider);
+var
+  Scope: IServiceScope;
+  Db: TDatabaseContext;
+  Customer: TCustomer;
+  Log: TSystemLog;
 begin
-  FHost.Run;
-end;
+  Scope := Provider.CreateScope;
+  try
+    Db := Scope.ServiceProvider.GetService(TDatabaseContext) as TDatabaseContext;
+    if Assigned(Db) then
+    begin
+      Db.EnsureCreated;
 
-procedure TStartup.Finalize;
-begin
-  FDbContext.Free;
+      { Only seed if empty to avoid duplicates in physical DB }
+      if Db.Entities<TCustomer>.QueryAll.Count = 0 then
+      begin
+        Writeln('Seeding database...');
+        
+        Customer := TCustomer.Create;
+        Customer.Name := 'John Doe';
+        Customer.Email := 'john@example.com';
+        Customer.Active := True;
+        Customer.CreatedAt := Now;
+        Db.Entities<TCustomer>.Add(Customer);
+        
+        Log := TSystemLog.Create;
+        Log.Id := TUUID.NewV4; 
+        Log.Message := 'System startup (Physical DB).';
+        Log.LogTime := Now;
+        Db.Entities<TSystemLog>.Add(Log);
+
+        Db.SaveChanges;
+        Writeln('Database seeded.');
+      end;
+    end;
+  finally
+    Scope := nil;
+  end;
 end;
 
 var
-  Startup: TStartup;
+  App: IWebApplication;
+  Provider: IServiceProvider;
 begin
+  SetConsoleCharSet;
   try
-    Startup := TStartup.Create;
-    try
-      Startup.Initialize;
-      Startup.Run;
-    finally
-      Startup.Finalize;
-      Startup.Free;
-    end;
+    Writeln('Dext Database as API Example (Physical SQLite DB)');
+    Writeln('==================================================');
+    Writeln('');
+    
+    App := WebApplication;
+    App.UseStartup(TStartup.Create);
+    
+    Provider := App.BuildServices;
+    if Provider <> nil then
+      SeedDatabase(Provider);
+    
+    Writeln('Server listening on http://localhost:5000');
+    App.Run(5000);
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
   end;
   
-  // Only pause if not running in automated mode
+  { Explicit cleanup at the very end }
+  App := nil;
+  Provider := nil;
+  
   ConsolePause;
 end.

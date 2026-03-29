@@ -26,8 +26,11 @@ uses
   Dext.Entity.Mapping,
   Dext.Entity.Drivers.Interfaces,
   Dext.Entity.TypeConverters,
+  Dext.Entity.Dialects,
   Dext.Core.ValueConverters,
-  Dext.OpenAPI.Extensions;
+  Dext.OpenAPI.Extensions,
+  Dext.Web.DataApi.Resolver,
+  Dext.Web.ModelBinding;
 
 type
   TApiMethod = (amGet, amGetList, amPost, amPut, amDelete);
@@ -131,6 +134,7 @@ implementation
 
 uses
   System.DateUtils,
+  Dext,
   Dext.Core.Activator,
   Dext.Collections,
   Dext.Collections.Dict,
@@ -143,7 +147,10 @@ uses
   Dext.Json.Utf8,
   Dext.Auth.Identity,
   Dext.Web.Results,
-  Dext.Utils;
+  Dext.Utils,
+  Dext.Core.Reflection,
+  Dext.DI.Extensions,
+  Dext.Types.UUID;
 
 
 { TDataApiOptions }
@@ -755,7 +762,8 @@ function TDataApiHandler<T>.HandleGet(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   IdStr: string;
-  Id: Integer;
+  PKValue: Variant;
+  Binder: IModelBinder;
   Entity: T;
   AuthResult: IResult;
 begin
@@ -768,15 +776,16 @@ begin
     // Get ID from route parameter
     if not Context.Request.RouteParams.TryGetValue('id', IdStr) then
       Exit(Results.BadRequest('{"error":"Missing id parameter"}'));
-      
-    if not TryStrToInt(IdStr, Id) then
-      Exit(Results.BadRequest('{"error":"Invalid id format"}'));
-    
+
     DbCtx := GetDbContext(Context);
-    Entity := DbCtx.Entities<T>.Find(Id);
     
+    // Resolve Strong-Typed ID using metadata and Model Binder (optional service)
+    Binder := TServiceProviderExtensions.GetService<IModelBinder>(Context.Services);
+    PKValue := TEntityIdResolver.Resolve(TEntityMap(DbCtx.GetMapping(TypeInfo(T))), IdStr, Binder);
+
+    Entity := DbCtx.Entities<T>.Find(PKValue);
     if Entity = nil then
-      Result := Results.NotFound(Format('{"error":"Entity with id %d not found"}', [Id]))
+      Result := Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr]))
     else
       Result := Results.Json(EntityToJson(Entity));
   except
@@ -789,15 +798,11 @@ function TDataApiHandler<T>.HandlePost(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   Entity: T;
-  IdProp: TRttiProperty;
-  IdValue: Integer;
   Stream: TStream;
   JsonString: string;
   Bytes: TBytes;
   JsonNode: IDextJsonNode;
   AuthResult: IResult;
-  Ctx: TRttiContext;
-  Typ: TRttiType;
 begin
   // Authorization check
   AuthResult := CheckAuthorization(Context, True);  // Write operation
@@ -835,23 +840,33 @@ begin
        Serializer.Free;
     end;
       
-    DbCtx.Entities<T>.Add(Entity);
+    var TargetSet := DbCtx.Entities<T>;
+    var Map := TEntityMap(DbCtx.GetMapping(TypeInfo(T)));
+
+    // Validation for Manual IDs
+    for var KeyName in Map.Keys do
+    begin
+      var PropMap := Map.Properties[KeyName];
+      if not PropMap.IsAutoInc then
+      begin
+        var Val := PropMap.Prop.GetValue(TObject(Entity));
+        if Val.IsEmpty or ((Val.Kind = tkInteger) and (Val.AsInteger = 0)) or ((Val.Kind in [tkString, tkUString, tkWString, tkLString]) and (Val.AsString = '')) then
+           Exit(Results.BadRequest(Format('{"error":"Primary key %s is required for this entity"}', [KeyName])));
+      end;
+    end;
+      
+    TargetSet.Add(Entity);
     DbCtx.SaveChanges;
     
-    // Get ID for response via RTTI
-    Ctx := TRttiContext.Create;
-    try
-      Typ := Ctx.GetType(TypeInfo(T));
-      IdProp := Typ.GetProperty('Id');
-      if IdProp <> nil then
-        IdValue := IdProp.GetValue(TObject(Entity)).AsInteger
-      else
-        IdValue := 0;
-    finally
-      Ctx.Free;
-    end;
+    // Get ID for response. If manual PK, it should be obtainable from the entity.
+    var IdStr := TargetSet.GetEntityId(Entity);
     
-    Result := Results.Created(FPath + '/' + IntToStr(IdValue), EntityToJson(Entity));
+    // Canonical format for URL (lowercase, no braces)
+    if IdStr.StartsWith('{') and (IdStr.Length = 38) then
+      IdStr := IdStr.Substring(1, 36);
+    IdStr := IdStr.ToLower;
+
+    Result := Results.Created(FPath + '/' + IdStr, EntityToJson(Entity));
   except
     on E: Exception do
       Result := Results.StatusCode(500, Format('{"error":"%s"}', [EscapeJsonString(E.Message)]));
@@ -862,7 +877,7 @@ function TDataApiHandler<T>.HandlePut(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   IdStr: string;
-  Id: Integer;
+  PKValue: Variant;
   Entity: T;
   Stream: TStream;
   JsonString: string;
@@ -878,15 +893,16 @@ begin
   try
     if not Context.Request.RouteParams.TryGetValue('id', IdStr) then
       Exit(Results.BadRequest('{"error":"Missing id parameter"}'));
-      
-    if not TryStrToInt(IdStr, Id) then
-      Exit(Results.BadRequest('{"error":"Invalid id format"}'));
-    
+
     DbCtx := GetDbContext(Context);
-    Entity := DbCtx.Entities<T>.Find(Id);
+
+    // Resolve Strong-Typed ID using metadata and Model Binder (optional service)
+    var Binder := TServiceProviderExtensions.GetService<IModelBinder>(Context.Services);
+    PKValue := TEntityIdResolver.Resolve(TEntityMap(DbCtx.GetMapping(TypeInfo(T))), IdStr, Binder);
+    Entity := DbCtx.Entities<T>.Find(PKValue);
     
     if Entity = nil then
-      Exit(Results.NotFound(Format('{"error":"Entity with id %d not found"}', [Id])));
+      Exit(Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr])));
     
     // Read JSON body
     Stream := Context.Request.Body;
@@ -930,7 +946,7 @@ function TDataApiHandler<T>.HandleDelete(const Context: IHttpContext): IResult;
 var
   DbCtx: TDbContext;
   IdStr: string;
-  Id: Integer;
+  PKValue: Variant;
   Entity: T;
   AuthResult: IResult;
 begin
@@ -942,20 +958,21 @@ begin
   try
     if not Context.Request.RouteParams.TryGetValue('id', IdStr) then
       Exit(Results.BadRequest('{"error":"Missing id parameter"}'));
-      
-    if not TryStrToInt(IdStr, Id) then
-      Exit(Results.BadRequest('{"error":"Invalid id format"}'));
-    
+
     DbCtx := GetDbContext(Context);
-    Entity := DbCtx.Entities<T>.Find(Id);
+
+    // Resolve Strong-Typed ID using metadata and Model Binder (optional service)
+    var Binder := TServiceProviderExtensions.GetService<IModelBinder>(Context.Services);
+    PKValue := TEntityIdResolver.Resolve(TEntityMap(DbCtx.GetMapping(TypeInfo(T))), IdStr, Binder);
+    Entity := DbCtx.Entities<T>.Find(PKValue);
     
     if Entity = nil then
-      Exit(Results.NotFound(Format('{"error":"Entity with id %d not found"}', [Id])));
+      Exit(Results.NotFound(Format('{"error":"Entity with id %s not found"}', [IdStr])));
     
     DbCtx.Entities<T>.Remove(Entity);
     DbCtx.SaveChanges;
     
-    Result := Results.Ok(Format('{"deleted":true,"id":%d}', [Id]));
+    Result := Results.Ok(Format('{"deleted":true,"id":"%s"}', [IdStr]));
   except
     on E: Exception do
       Result := Results.StatusCode(500, Format('{"error":"%s"}', [EscapeJsonString(E.Message)]));

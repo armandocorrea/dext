@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -165,6 +165,11 @@ type
     ///   where records may have fields from different sources.
     /// </summary>
     function BindRecordHybrid(AType: PTypeInfo; Context: IHttpContext): TValue;
+
+    /// <summary>
+    ///   Binds a raw string value to a specific type using internal conversion rules.
+    /// </summary>
+    function BindValue(const AValue: string; AType: PTypeInfo): TValue;
   end;
 
   TModelBinder = class(TInterfacedObject, IModelBinder)
@@ -194,6 +199,8 @@ type
     ///   Supports [FromHeader], [FromQuery], [FromRoute], [FromServices] and implicit [FromBody].
     /// </summary>
     function BindRecordHybrid(AType: PTypeInfo; Context: IHttpContext): TValue;
+
+    function BindValue(const AValue: string; AType: PTypeInfo): TValue;
   end;
 
   TModelBinderHelper = class
@@ -1167,6 +1174,11 @@ begin
   finally
     ContextRtti.Free;
   end;
+end;
+
+function TModelBinder.BindValue(const AValue: string; AType: PTypeInfo): TValue;
+begin
+  Result := ConvertStringToType(AValue, AType);
 end;
 
 function TModelBinder.ConvertStringToType(const AValue: string; AType: PTypeInfo): TValue;
