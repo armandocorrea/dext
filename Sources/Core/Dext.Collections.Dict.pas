@@ -433,11 +433,11 @@ end;
 function TDictionary<K, V>.Remove(const Key: K): Boolean;
 var
   KP: Pointer;
+  VP: Pointer;
 begin
   KP := @Key;
   if FOwnsValues and (PTypeInfo(System.TypeInfo(V))^.Kind = tkClass) then
   begin
-    var VP: Pointer;
     if FCore.TryGetRaw(KP, VP) then
     begin
       if PPointer(VP)^ <> nil then

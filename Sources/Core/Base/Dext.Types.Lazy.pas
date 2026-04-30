@@ -236,11 +236,12 @@ begin
 end;
 
 function Lazy<T>.GetValue: T;
+var
+  LSpecific: ILazy<T>;
 begin
   if FInstance <> nil then
   begin
      // If it is our generic interface, use it directly (optimized)
-     var LSpecific: ILazy<T>;
      if Supports(FInstance, ILazy<T>, LSpecific) then
        Exit(LSpecific.Value);
 

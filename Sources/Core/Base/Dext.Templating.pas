@@ -1,4 +1,4 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 //
 //           Dext Framework
 //
@@ -29,6 +29,8 @@
 unit Dext.Templating;
 
 interface
+
+{$MESSAGE HINT ' REMOVE System.Generics.Collections DEPENDENCY'}
 
 uses
   System.Classes,
@@ -678,6 +680,16 @@ var
   LDataSet: TDataSet;
   LObjectList: IObjectList;
   LBuilder: TStringBuilder;
+  LTotalCount: Integer;
+  LMeta: TTypeMetadata;
+  LRtti: TRttiType;
+  LCountProp: TRttiProperty;
+  LIndexedProp: TRttiIndexedProperty;
+  LItemsList: TArray<TRttiIndexedProperty>;
+  P: TRttiIndexedProperty;
+  LCount: Integer;
+  LItemValue: TValue;
+  LArgs: TArray<TValue>;
 
   procedure RenderItem(AValue: TValue; AIndex: Integer; AFirst, ALast: Boolean);
   var
@@ -736,7 +748,7 @@ begin
           begin
             LDataSet.DisableControls;
             try
-              var LTotalCount := LDataSet.RecordCount;
+              LTotalCount := LDataSet.RecordCount;
               LDataSet.First;
               I := 1;
               while not LDataSet.Eof do
@@ -770,14 +782,14 @@ begin
           end
           else if TReflection.IsListType(LSource.TypeInfo) then
           begin
-            var LMeta := TReflection.GetMetadata(LSource.TypeInfo);
-            var LRtti := LMeta.RttiType;
-            var LCountProp := LRtti.GetProperty('Count');
+            LMeta := TReflection.GetMetadata(LSource.TypeInfo);
+            LRtti := LMeta.RttiType;
+            LCountProp := LRtti.GetProperty('Count');
             if LCountProp = nil then LCountProp := LRtti.GetProperty('GetCount');
             
-            var LIndexedProp: TRttiIndexedProperty := nil;
-            var LItemsList := LRtti.GetIndexedProperties;
-            for var P in LItemsList do
+            LIndexedProp := nil;
+            LItemsList := LRtti.GetIndexedProperties;
+            for P in LItemsList do
               if SameText(P.Name, 'Items') then
               begin
                 LIndexedProp := P;
@@ -789,7 +801,6 @@ begin
 
             if Assigned(LCountProp) and Assigned(LIndexedProp) then
             begin
-              var LCount: Integer;
               if LSource.Kind = tkInterface then
                 LCount := LCountProp.GetValue(LSource.AsInterface).AsInteger
               else
@@ -801,8 +812,6 @@ begin
               begin
                 for I := 0 to LCount - 1 do
                 begin
-                  var LItemValue: TValue;
-                  var LArgs: TArray<TValue>;
                   SetLength(LArgs, 1);
                   LArgs[0] := TValue.From(I);
                   
@@ -1290,6 +1299,7 @@ end;
 function TDextTemplateEngine.ValueToString(const AValue: TValue): string;
 var
   LUnwrapped: TValue;
+  LObj: TObject;
 begin
   if AValue.IsEmpty then
     Exit('');
@@ -1299,7 +1309,7 @@ begin
 
   if (AValue.Kind = tkClass) then
   begin
-    var LObj := AValue.AsObject;
+    LObj := AValue.AsObject;
     if LObj = nil then Exit('');
     Exit(LObj.ToString);
   end;
@@ -1376,6 +1386,7 @@ var
   LWorkPath: string;
   LParts: TArray<string>;
   I: Integer;
+  LPart: string;
 begin
   LWorkPath := System.SysUtils.Trim(APath);
   if StartsText('@', LWorkPath) and (not StartsText('@@', LWorkPath)) then
@@ -1388,7 +1399,7 @@ begin
   Result := ResolveRootValue(System.SysUtils.Trim(LParts[0]), AContext);
   for I := 1 to High(LParts) do
   begin
-    var LPart := System.SysUtils.Trim(LParts[I]);
+    LPart := System.SysUtils.Trim(LParts[I]);
     Result := ResolveMemberValue(Result, LPart, AContext);
     
     if Result.IsEmpty then
@@ -1403,6 +1414,19 @@ var
   LHandler: IPropertyHandler;
   LName: string;
   LObject: TObject;
+  LCheckName: string;
+  LArgs: TArray<TValue>;
+  LArgsStr: string;
+  LParenPos: Integer;
+  LDataSetField: TField;
+  LContext: TRttiContext;
+  LRttiType: TRttiType;
+  LMethod: TRttiMethod;
+  LProp: TRttiProperty;
+  LRttiField: TRttiField;
+  LBPos: Integer;
+  LIndexStr: string;
+  LField: TField;
 begin
   Result := TValue.Empty;
   LName := System.SysUtils.Trim(APath);
@@ -1419,13 +1443,13 @@ begin
     Exit(TValue.Empty);
 
   // Check if it's a filter call (fallback or dot-syntax)
-  var LCheckName := LName;
-  var LArgs: TArray<TValue> := [];
-  var LParenPos := LName.IndexOf('(');
+  LCheckName := LName;
+  LArgs := [];
+  LParenPos := LName.IndexOf('(');
   if LParenPos >= 0 then
   begin
       LCheckName := LName.Substring(0, LParenPos);
-      var LArgsStr := LName.Substring(LParenPos + 1, LName.Length - LParenPos - 2);
+      LArgsStr := LName.Substring(LParenPos + 1, LName.Length - LParenPos - 2);
       if LArgsStr <> '' then
         LArgs := ParseFilterArguments(LArgsStr, AContext);
   end;
@@ -1441,27 +1465,27 @@ begin
     begin
       if LObject is TDataSet then
       begin
-        var LDataSetField := TDataSet(LObject).FindField(LCheckName);
+        LDataSetField := TDataSet(LObject).FindField(LCheckName);
         if LDataSetField <> nil then
           Exit(TValue.FromVariant(LDataSetField.Value));
       end;
       
-      var LContext := TRttiContext.Create;
-      var LRttiType := LContext.GetType(LObject.ClassType);
+      LContext := TRttiContext.Create;
+      LRttiType := LContext.GetType(LObject.ClassType);
       if LRttiType <> nil then
       begin
         // Try Method invocation
-        var LMethod := LRttiType.GetMethod(LCheckName);
+        LMethod := LRttiType.GetMethod(LCheckName);
         if LMethod <> nil then
            Exit(LMethod.Invoke(LObject, LArgs));
            
         // Try Property
-        var LProp := LRttiType.GetProperty(LCheckName);
+        LProp := LRttiType.GetProperty(LCheckName);
         if LProp <> nil then
            Exit(LProp.GetValue(LObject));
            
         // Try Field
-        var LRttiField := LRttiType.GetField(LCheckName);
+        LRttiField := LRttiType.GetField(LCheckName);
         if LRttiField = nil then LRttiField := LRttiType.GetField('F' + LCheckName);
         if LRttiField <> nil then
            Exit(LRttiField.GetValue(LObject));
@@ -1488,14 +1512,14 @@ begin
   // Check if it's an indexed property
   if (LName.Length > 2) and LName.EndsWith(']') then
   begin
-    var LBPos := LName.LastIndexOf('[');
+    LBPos := LName.LastIndexOf('[');
     if LBPos > 0 then
     begin
-        var LIndexStr := LName.Substring(LBPos + 1, LName.Length - LBPos - 2);
+        LIndexStr := LName.Substring(LBPos + 1, LName.Length - LBPos - 2);
         // Special case for TDataSet fields/indexed
         if (LWorking.Kind = tkClass) and (not LWorking.IsEmpty) and (LWorking.AsObject is TDataSet) then
         begin
-           var LField := TDataSet(LWorking.AsObject).FindField(LIndexStr);
+           LField := TDataSet(LWorking.AsObject).FindField(LIndexStr);
            if LField <> nil then Exit(TValue.FromVariant(LField.Value));
         end;
         // Generic GetValue handles some indexed props
@@ -1849,6 +1873,7 @@ var
   var
     LName: string;
     LArgs: TList<TValue>;
+    LStartPos: Integer;
   begin
     SkipSpaces;
     if P > Length(S) then
@@ -1875,7 +1900,7 @@ var
       Exit(StrToInt64Def(LName, 0));
     end;
 
-    var LStartPos := P;
+    LStartPos := P;
     LName := ParseNameToken;
     SkipSpaces;
     if (P <= Length(S)) and (S[P] = '(') and (Pos('.', LName) = 0) then
@@ -2195,13 +2220,14 @@ end;
 function TDextTemplateEngine.CaptureUntil(const AText: string; var APos: Integer; const AEndMarker: string): string;
 var
   LEndPos: Integer;
+  LLine, LCol, I: Integer;
 begin
   LEndPos := Pos(AEndMarker, AText, APos);
   if LEndPos = 0 then
   begin
-    var LLine := 1;
-    var LCol := 1;
-    for var I := 1 to APos - 1 do
+    LLine := 1;
+    LCol := 1;
+    for I := 1 to APos - 1 do
       if AText[I] = #10 then begin Inc(LLine); LCol := 1; end else Inc(LCol);
     raise ETemplateException.Create('Missing closing marker ' + AEndMarker,
       TSourcePos.Create(LLine, LCol), GetTemplateSnippet(AText, APos));
@@ -2297,6 +2323,18 @@ var
     LDirectivePos: TSourcePos;
     LNext: Integer;
     LMatchName: string;
+    LReportMarkers: TArray<string>;
+    LHasElse, LHasEndif: Boolean;
+    LM: string;
+    LExpectedList: string;
+    LChar: Char;
+    LPseudoStart, LPseudoEnd: Integer;
+    LPseudoName: string;
+    LBlockContent: string;
+    LPrefix: string;
+    LFinalPath: string;
+    LCandidate: string;
+    LP: Integer;
 
     function MatchCommand(const ACommand: string; AConsume: Boolean; ABoundaryCheck: Boolean = True): Boolean;
     var
@@ -2353,20 +2391,20 @@ var
         begin
           // When both 'else' and 'endif' are markers, only report 'endif'
           // because @else is optional — the user must close with @endif
-          var LReportMarkers := AEndMarkers;
-          var LHasElse := System.StrUtils.MatchStr('else', LReportMarkers);
-          var LHasEndif := System.StrUtils.MatchStr('endif', LReportMarkers);
+          LReportMarkers := AEndMarkers;
+          LHasElse := System.StrUtils.MatchStr('else', LReportMarkers);
+          LHasEndif := System.StrUtils.MatchStr('endif', LReportMarkers);
           if LHasElse and LHasEndif then
           begin
             SetLength(LReportMarkers, 0);
-            for var LM in AEndMarkers do
+            for LM in AEndMarkers do
               if LM <> 'else' then
               begin
                 SetLength(LReportMarkers, Length(LReportMarkers) + 1);
                 LReportMarkers[High(LReportMarkers)] := LM;
               end;
           end;
-          var LExpectedList := string.Join(' or @', LReportMarkers);
+          LExpectedList := string.Join(' or @', LReportMarkers);
           raise ETemplateException.Create('Missing closing marker @' + LExpectedList, ABeginPos, '');
         end;
         Exit;
@@ -2391,10 +2429,10 @@ var
       LPos := LNextAt; 
       UpdatePos(LOldPos, LPos);
 
-      // Now LPos is at @
       if (LPos <= Length(ATemplate)) and (ATemplate[LPos] = '@') then
       begin
-        if (ATemplate[LPos] = '@') and (LPos < Length(ATemplate)) and (ATemplate[LPos+1] = '@') then
+        LChar := ATemplate[LPos];
+        if (LChar = '{') and (LPos < Length(ATemplate)) and (ATemplate[LPos+1] = '{') then
         begin
           LNext := LPos + 2;
           LMatchName := '';
@@ -2413,7 +2451,7 @@ var
             Continue;
           end;
         end;
-        Inc(LPos); // Skip @
+        Inc(LPos); 
       if (LPos <= Length(ATemplate)) and (ATemplate[LPos] = '~') then
       begin
         if (ATarget.Count > 0) and (ATarget.Last is TTextNode) then
@@ -2474,7 +2512,6 @@ var
           ATrimNext := ConsumeTrimRight(ATemplate, LPos);
           if ATrimNext then
           begin
-            // Also trim the trailing whitespace inside the last rendered block
             if LNode.FalseNodes.Count > 0 then
               TrimTrailingWhitespaceFromLastText(LNode.FalseNodes)
             else
@@ -2732,18 +2769,16 @@ var
       LOldPos := LPos;
       while (LPos <= Length(ATemplate)) do
       begin
-        var LChar := ATemplate[LPos];
-        // Stop at delimiters
+        LChar := ATemplate[LPos];
         if CharInSet(LChar, [#13, #10, ' ', '<', '>', '/', '\', ';', ':', ',', '=', '+', '-', '*', '!', '?', '|', '~', ')', ']', '''', '"']) then
            Break;
 
         if (LPos > LOldPos) and (LChar = '@') then
         begin
-          // Allow @@pseudo-names (e.g. @@index, @@first, @@last) to be part of the path
           if (LPos < Length(ATemplate)) and (ATemplate[LPos + 1] = '@') then
           begin
-            var LPseudoStart := LPos + 2;
-            var LPseudoName := '';
+            LPseudoStart := LPos + 2;
+            LPseudoName := '';
             while (LPseudoStart <= Length(ATemplate)) and CharInSet(ATemplate[LPseudoStart], ['a'..'z', 'A'..'Z']) do
             begin
               LPseudoName := LPseudoName + ATemplate[LPseudoStart];
@@ -2753,8 +2788,8 @@ var
                SameText(LPseudoName, 'first') or SameText(LPseudoName, 'last') or
                SameText(LPseudoName, 'odd') or SameText(LPseudoName, 'even') then
             begin
-              Inc(LPos); // skip first @
-              Continue; // will continue and process second @ + name
+              Inc(LPos); 
+              Continue; 
             end;
           end;
           Break;
@@ -2762,11 +2797,10 @@ var
 
         if (LChar = '(') then
         begin
-             // Peek next to see if it's a nested directive starting with @ (but not @@pseudo)
              if (LPos + 1 <= Length(ATemplate)) and (ATemplate[LPos+1] = '@') then
              begin
                   if (LPos + 2 > Length(ATemplate)) or (ATemplate[LPos+2] <> '@') then
-                    Break; // It's a directive, stop here
+                    Break; 
              end;
              
              ReadBalanced(ATemplate, LPos, '(', ')');
@@ -2785,7 +2819,6 @@ var
       UpdatePos(LOldPos, LPos);
       ATarget.Add(TExpressionNode.CreateAt(Self, GetCurrentPos, LContent, False));
       
-      // Handle trailing whitespace control ~
       if (LPos <= Length(ATemplate)) and (ATemplate[LPos] = '~') then
       begin
         LOldPos := LPos;
@@ -2953,6 +2986,7 @@ var
   LBaseDir, LName: string;
   LPrefix: string;
   LCandName, LCandidate: string;
+  LFinalPath: string;
 begin
   if ARequestedName = '' then
     Exit('');
@@ -2976,7 +3010,7 @@ begin
   begin
     SetLength(LCandidates, Length(LCandidates) + 1);
     LCandName := TPath.Combine(FTemplateRoot, LName);
-    LCandidates[High(LCandidates)] := LCandName.Replace('/', '\'); // Normalize for memory loader keys
+    LCandidates[High(LCandidates)] := LCandName.Replace('/', '\');
   end;
 
   for LPrefix in ['shared', 'components', 'layouts'] do
@@ -2990,7 +3024,7 @@ begin
   begin
     for LPrefix in ['', '.html', '.dext', '.htm'] do
     begin
-      var LFinalPath := LCandidate + LPrefix;
+      LFinalPath := LCandidate + LPrefix;
       try
         if Assigned(FTemplateLoader) then
         begin

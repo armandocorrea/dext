@@ -44,8 +44,10 @@ begin
 end;
 
 procedure TComplexQueryingStartup.Configure(const App: IWebApplication);
+var
+  WebApp: IWebApplicationBuilder;
 begin
-  var WebApp := App.GetBuilder;
+  WebApp := App.GetBuilder;
 
   // Global JSON settings
   JsonDefaultSettings(JsonSettings.Default.CamelCase.CaseInsensitive);

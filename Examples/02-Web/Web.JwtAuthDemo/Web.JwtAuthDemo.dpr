@@ -1,4 +1,4 @@
-﻿program Web.JwtAuthDemo;
+program Web.JwtAuthDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -29,6 +29,7 @@ var
   App: IWebApplication;
   JwtHandler: TJwtTokenHandler;
   SecretKey: string;
+  Builder: IApplicationBuilder;
 
 begin
 
@@ -44,7 +45,7 @@ begin
     JwtHandler := TJwtTokenHandler.Create(SecretKey, 'DextAuthDemo', 'DextAPI', 60);
 
     App := TDextApplication.Create;
-    var Builder := App.GetApplicationBuilder;
+    Builder := App.GetApplicationBuilder;
 
     // ✅ 1. Middleware de Autenticação JWT
     WriteLn('📦 Configuring JWT Authentication Middleware...');

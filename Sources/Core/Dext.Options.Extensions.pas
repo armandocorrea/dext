@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -63,8 +63,10 @@ begin
     TServiceType.FromInterface(GetTypeData(TypeInfo(IOptions<T>))^.Guid),
     TClass(TOptions<T>),
     function(Provider: IServiceProvider): TObject
+    var
+      Value: T;
     begin
-      var Value: T := TConfigurationBinder.Bind<T>(Configuration);
+      Value := TConfigurationBinder.Bind<T>(Configuration);
       Result := TOptions<T>.Create(Value);
     end
   );
@@ -77,11 +79,14 @@ begin
     TServiceType.FromInterface(GetTypeData(TypeInfo(IOptions<T>))^.Guid),
     TClass(TOptions<T>),
     function(Provider: IServiceProvider): TObject
+    var
+      Value: T;
+      Error: string;
     begin
-      var Value: T := TConfigurationBinder.Bind<T>(Configuration);
+      Value := TConfigurationBinder.Bind<T>(Configuration);
       if Assigned(Validator) then
       begin
-        var Error := Validator(Value);
+        Error := Validator(Value);
         if Error.Trim <> '' then
         begin
           Value.Free;
@@ -101,8 +106,10 @@ begin
     TServiceType.FromInterface(GetTypeData(TypeInfo(IOptions<T>))^.Guid),
     TClass(TOptions<T>),
     function(Provider: IServiceProvider): TObject
+    var
+      Value: T;
     begin
-      var Value: T := TConfigurationBinder.Bind<T>(Section);
+      Value := TConfigurationBinder.Bind<T>(Section);
       Result := TOptions<T>.Create(Value);
     end
   );
@@ -115,11 +122,14 @@ begin
     TServiceType.FromInterface(GetTypeData(TypeInfo(IOptions<T>))^.Guid),
     TClass(TOptions<T>),
     function(Provider: IServiceProvider): TObject
+    var
+      Value: T;
+      Error: string;
     begin
-      var Value: T := TConfigurationBinder.Bind<T>(Section);
+      Value := TConfigurationBinder.Bind<T>(Section);
       if Assigned(Validator) then
       begin
-        var Error := Validator(Value);
+        Error := Validator(Value);
         if Error.Trim <> '' then
         begin
           Value.Free;

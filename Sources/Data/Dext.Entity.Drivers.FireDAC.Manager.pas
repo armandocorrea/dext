@@ -170,9 +170,11 @@ function TDextFireDACManager.RegisterConnectionDef(const ADriverName: string;
   const AParams: TStrings; APoolMax: Integer): string;
 var
   HashKey: string;
+  SortedList: TStringList;
+  Def: IFDStanConnectionDef;
 begin
     // Create a unique key based on params
-    var SortedList := TStringList.Create;
+    SortedList := TStringList.Create;
     try
       SortedList.Sorted := True;
       SortedList.AddStrings(AParams);
@@ -193,7 +195,7 @@ begin
       begin
         FManager.AddConnectionDef(Result, ADriverName, AParams);
         
-        var Def := FManager.ConnectionDefs.FindConnectionDef(Result);
+        Def := FManager.ConnectionDefs.FindConnectionDef(Result);
         if Def <> nil then
         begin
           Def.Params.Pooled := True;
@@ -218,8 +220,10 @@ begin
 end;
 
 procedure TDextFireDACManager.ApplyResourceOptions(AConnection: TFDConnection; AOptimizations: TFireDACOptimizations);
+var
+  Dialect: TDatabaseDialect;
 begin
-  var Dialect := TDialectFactory.DetectDialect(AConnection.DriverName);
+  Dialect := TDialectFactory.DetectDialect(AConnection.DriverName);
   
   // Apply SQLite specific settings
   if Dialect = ddSQLite then

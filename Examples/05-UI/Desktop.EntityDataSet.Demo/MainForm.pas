@@ -23,9 +23,9 @@ type
     FQuantity: Double;
   public
     constructor Create(Id: Integer; const Warehouse: string; Qty: Double);
-    [PK, DisplayLabel('Código')]
+    [PK, DisplayLabel('CÃ³digo')]
     property Id: Integer read FId write FId;
-    [DisplayLabel('Depósito'), DisplayWidth(100)]
+    [DisplayLabel('DepÃ³sito'), DisplayWidth(100)]
     property Warehouse: string read FWarehouse write FWarehouse;
     [DisplayLabel('Quantidade')]
     property Quantity: Double read FQuantity write FQuantity;
@@ -41,9 +41,9 @@ type
   public
     constructor Create(Id: Integer; const Description: string; Price: Money);
     destructor Destroy; override;
-    [PK, DisplayLabel('Código')]
+    [PK, DisplayLabel('CÃ³digo')]
     property Id: Integer read FId write FId;
-    [DisplayLabel('Descrição'), DisplayWidth(75), MaxLength(200)]
+    [DisplayLabel('DescriÃ§Ã£o'), DisplayWidth(75), MaxLength(200)]
     property Description: string read FDescription write FDescription;
     [DisplayLabel('Valor'), Currency]
     property Price: Money read FPrice write FPrice;
@@ -79,6 +79,9 @@ uses
 {$R *.dfm}
 
 procedure TFormMain.FormCreate(Sender: TObject);
+var
+  i: Integer;
+  LProduct: TProduct;
 begin
   FDataSet := TEntityDataSet.Create(Self);
   DataSource.DataSet := FDataSet;
@@ -86,9 +89,9 @@ begin
 
   FProducts := TCollections.CreateList<TProduct>(True);
 
-  for var i := 0 to 99 do
+  for i := 0 to 99 do
   begin
-    var LProduct := TProduct.Create(
+    LProduct := TProduct.Create(
       100 + i,
       'Product ' + IntToStr(i + 1),
       100.0 * (i + 1)

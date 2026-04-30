@@ -192,12 +192,17 @@ var
   Fixture: TTestFixtureInfo;
   MethodInfo: TTestMethodInfo;
   LastAttributes: TSyntaxNode;
+  SearchRoot: TSyntaxNode;
   
   procedure ProcessClass(AClassNode: TSyntaxNode; const AClassName: string; ClassAttributes: TSyntaxNode);
   var
     IsFixture: Boolean;
     MChild: TSyntaxNode;
     LastMethodAttrs: TSyntaxNode;
+    ActualClassNode: TSyntaxNode;
+    Members: IList<TSyntaxNode>;
+    Child: TSyntaxNode;
+    VisChild: TSyntaxNode;
   begin
     IsFixture := HasAttribute(ClassAttributes, 'TestFixture');
     if not IsFixture then Exit;
@@ -207,21 +212,20 @@ var
     Fixture.UnitName := AUnitName;
     Fixture.LineNumber := AClassNode.Line;
     
-    var ActualClassNode := AClassNode.FindNode(ntType);
+    ActualClassNode := AClassNode.FindNode(ntType);
     if ActualClassNode = nil then Exit;
 
     LastMethodAttrs := nil;
     
-    var Members: IList<TSyntaxNode>;
     Members := TCollections.CreateList<TSyntaxNode>;
     try
       // Collect all members from all visibility sections
-      for var Child in ActualClassNode.ChildNodes do
+      for Child in ActualClassNode.ChildNodes do
       begin
         case Child.Typ of
           ntPrivate, ntProtected, ntPublic, ntPublished, ntStrictPrivate, ntStrictProtected:
           begin
-            for var VisChild in Child.ChildNodes do
+            for VisChild in Child.ChildNodes do
               Members.Add(VisChild);
           end;
         else
@@ -268,7 +272,6 @@ begin
   InterfaceNode := ARoot.FindNode(ntInterface);
   
   // If interface found, use it as parent for search. If not, use Root (e.g. for .dpr)
-  var SearchRoot: TSyntaxNode;
   if InterfaceNode <> nil then 
     SearchRoot := InterfaceNode
   else

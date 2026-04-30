@@ -1,4 +1,4 @@
-﻿program TestMetadataCache;
+program TestMetadataCache;
 
 {$APPTYPE CONSOLE}
 
@@ -21,6 +21,7 @@ type
 procedure TestCache;
 var
   Map1, Map2: TEntityMap;
+  Prop: TPropertyMap;
 begin
   WriteLn('Testing Metadata Cache...');
   
@@ -44,7 +45,7 @@ begin
   WriteLn('  ✓ Table Name: ', Map1.TableName);
   
   // 3. Verify Properties are cached
-  var Prop := Map1.Properties['Name'];
+  Prop := Map1.Properties['Name'];
   if Prop = nil then
     raise Exception.Create('Property Name not cached');
     

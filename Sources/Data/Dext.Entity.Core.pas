@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -463,12 +463,14 @@ implementation
 
 function TryUnwrapAndValidateFK(var AValue: TValue): Boolean;
 var
+  Field: TRttiField;
+  Fields: TArray<TRttiField>;
+  HasValue: Boolean;
+  HasValueField, ValueField: TRttiField;
+  HasValueVal: TValue;
+  Instance: Pointer;
   RType: TRttiType;
   TypeName: string;
-  Fields: TArray<TRttiField>;
-  HasValueField, ValueField: TRttiField;
-  HasValue: Boolean;
-  Instance: Pointer;
 begin
   Result := False;
   
@@ -489,7 +491,7 @@ begin
         ValueField := nil;
         
         // Find fHasValue and fValue fields
-        for var Field in Fields do
+        for Field in Fields do
         begin
           if Field.Name.ToLower.Contains('hasvalue') then
             HasValueField := Field
@@ -502,7 +504,7 @@ begin
           Instance := AValue.GetReferenceToRawData;
           
           // Check HasValue - it can be a string (Spring4D) or Boolean
-          var HasValueVal := HasValueField.GetValue(Instance);
+          HasValueVal := HasValueField.GetValue(Instance);
           if HasValueVal.Kind = tkUString then
             HasValue := HasValueVal.AsString <> ''
           else if HasValueVal.Kind = tkEnumeration then
@@ -709,8 +711,10 @@ begin
 end;
 
 function TEntityClassCollection.FindByName(const AClassName: string): TEntityClassMetadata;
+var
+  i: integer;
 begin
-  for var i := 0 to Count - 1 do
+  for i := 0 to Count - 1 do
   begin
     if SameText(Items[i].EntityClassName, AClassName) then
       Exit(Items[i]);

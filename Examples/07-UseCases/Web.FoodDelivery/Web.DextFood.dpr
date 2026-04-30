@@ -1,4 +1,4 @@
-﻿program Web.DextFood;
+program Web.DextFood;
 
 {$APPTYPE CONSOLE}
 
@@ -12,20 +12,23 @@ uses
   DextFood.Services in 'DextFood.Services.pas',
   DextFood.DbSeeder in 'DextFood.DbSeeder.pas';
 
+var
+  App: IWebApplication;
+  Provider: IServiceProvider;
 begin
   SetConsoleCharSet;
   try
     Writeln('🚀 Iniciando DextFood Backend...');
     
     // Instancia a aplicação Dext
-    var App: IWebApplication := TDextApplication.Create;
+    App := TDextApplication.Create;
     
     // Configura a aplicação via classe Startup
     App.UseStartup(TStartup.Create);
     
     // OBRIGATÓRIO para SQLite :memory: ou Seeding manual:
     // Construir os serviços antes de rodar o seeder, para que ele use o Provider final.
-    var Provider := App.BuildServices;
+    Provider := App.BuildServices;
     TDbSeeder.Seed(Provider);
 
     Writeln('🌐 Servidor ouvindo em: http://localhost:9000');

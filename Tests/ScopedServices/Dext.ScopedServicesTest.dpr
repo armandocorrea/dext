@@ -79,12 +79,14 @@ begin
   Result := Format('Hello from request %s!', [FRequestContext.RequestId]);
 end;
 
+var
+  Host: IWebHost;
 begin
   try
     WriteLn('=== Dext Scoped Services Test ===');
     WriteLn;
 
-    var Host := TDextWebHost.CreateDefaultBuilder
+    Host := TDextWebHost.CreateDefaultBuilder
       .ConfigureServices(procedure(Services: IServiceCollection)
       begin
         WriteLn('Registering services...');
@@ -117,9 +119,11 @@ begin
           App,
           '/api/greeting',
           function(GreetingService: IGreetingService): IResult
+          var
+            Message: string;
           begin
             WriteLn('  [/api/greeting] Handler executing...');
-            var Message := GreetingService.GetGreeting;
+            Message := GreetingService.GetGreeting;
             WriteLn('  [/api/greeting] Message: ' + Message);
             Result := Results.Json(Format('{"message":"%s"}', [Message]));
           end

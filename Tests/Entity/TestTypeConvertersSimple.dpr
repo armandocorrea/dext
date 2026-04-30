@@ -1,4 +1,4 @@
-﻿program TestTypeConvertersSimple;
+program TestTypeConvertersSimple;
 
 {$APPTYPE CONSOLE}
 
@@ -24,6 +24,7 @@ var
   Converter: TGuidConverter;
   TestGuid, LoadedGuid: TGUID;
   Value, DbValue, Result: TValue;
+  GuidStr: string;
 begin
   WriteLn('► Testing GUID Converter with PostgreSQL...');
   
@@ -69,7 +70,7 @@ begin
         Query.Open;
         if not Query.Eof then
         begin
-          var GuidStr := Query.Fields[0].AsString;
+          GuidStr := Query.Fields[0].AsString;
           WriteLn('  Read from DB:  ', GuidStr);
           
           Result := Converter.FromDatabase(TValue.From<string>(GuidStr), TypeInfo(TGUID));
@@ -104,6 +105,7 @@ var
   Converter: TEnumConverter;
   TestRole, LoadedRole: TUserRole;
   Value, DbValue, Result: TValue;
+  RoleStr: string;
 begin
   WriteLn('► Testing Enum Converter with PostgreSQL (String mode)...');
   
@@ -146,7 +148,7 @@ begin
         Query.Open;
         if not Query.Eof then
         begin
-          var RoleStr := Query.Fields[0].AsString;
+          RoleStr := Query.Fields[0].AsString;
           WriteLn('  Read from DB: ', RoleStr);
           
           Result := Converter.FromDatabase(TValue.From<string>(RoleStr), TypeInfo(TUserRole));

@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -120,7 +120,7 @@ end;
 
 function TRingBuffer.TryWrite(out Entry: PLogEntry): Boolean;
 var
-  CurrentHead, NextHead, Cap: Int64;
+  CurrentHead, NextHead, Cap, Tail: Int64;
 begin
   Cap := Length(FBuffer);
   
@@ -129,7 +129,7 @@ begin
     CurrentHead := TInterlocked.Read(FPointers.Head);
     
     // Check if full (Head wraps around and "catches" Tail)
-    var Tail := TInterlocked.Read(FPointers.Tail);
+    Tail := TInterlocked.Read(FPointers.Tail);
     if (CurrentHead - Tail) >= Cap then
     begin
       Result := False; // Buffer Full

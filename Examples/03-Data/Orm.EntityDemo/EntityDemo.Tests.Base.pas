@@ -1,4 +1,4 @@
-﻿unit EntityDemo.Tests.Base;
+unit EntityDemo.Tests.Base;
 
 interface
 
@@ -114,6 +114,10 @@ var
   Tables: TStringList;
   
   procedure DropTableIfExists(const ATableName: string);
+  var
+    FoundIdx: Integer;
+    i: Integer;
+    CurrentTable: string;
   begin
     try
       case TDbConfig.GetProvider of
@@ -136,13 +140,13 @@ var
           try
             FConn.GetTableNames('', '', '', Tables, [osMy], [tkTable], True);
             
-            var FoundIdx: Integer := -1;
-            for var i := 0 to Tables.Count - 1 do
+            FoundIdx := -1;
+            for i := 0 to Tables.Count - 1 do
             begin
               // Firebird stores names in UPPERCASE unless quoted. 
               // FireDAC GetTableNames returns them with quotes if they were created with quotes.
               // We check both quoted and unquoted case-insensitively.
-              var CurrentTable := Tables[i].Replace('"', '');
+              CurrentTable := Tables[i].Replace('"', '');
               if SameText(CurrentTable, ATableName) then
               begin
                 FoundIdx := i;

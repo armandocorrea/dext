@@ -123,6 +123,7 @@ end;
 procedure TStartup.Configure(const App: IWebApplication);
 var
   Options: TOpenAPIOptions;
+  GetAllUsers: IApplicationBuilder;
 begin
   Writeln('📚 Configuring routes...');
   Writeln('');
@@ -142,7 +143,7 @@ begin
 
   // GET /api/users
   Writeln('1. GET /api/users');
-  var GetAllUsers := App.Builder.MapGet('/api/users',
+  GetAllUsers := App.Builder.MapGet('/api/users',
       procedure(Ctx: IHttpContext)
       begin
         Ctx.Response.Json(TDextJson.Serialize<TArray<TUser>>(FUsers));

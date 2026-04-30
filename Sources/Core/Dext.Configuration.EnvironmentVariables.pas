@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -84,15 +84,25 @@ var
   Key, Value: string;
   EqIndex: Integer;
   EnvKey: string;
+  Line: string;
+  {$IFDEF MSWINDOWS}
+  P, PVar: PChar;
+  {$ENDIF}
+  {$IFDEF LINUX}
+  Stream: TFileStream;
+  Bytes: TBytes;
+  TotalCount, ReadCount: Integer;
+  StartIdx, J: Integer;
+  {$ENDIF}
 begin
   ClearData;
   Vars := TStringList.Create;
   try
     // Capture environment variables - Platform specific
     {$IFDEF MSWINDOWS}
-    var P: PChar := GetEnvironmentStrings;
+    P := GetEnvironmentStrings;
     try
-      var PVar := P;
+      PVar := P;
       while PVar^ <> #0 do
       begin
         Vars.Add(string(PVar));
@@ -107,12 +117,10 @@ begin
     // Read from /proc/self/environ using TFileStream because TFile.ReadAllBytes fails on 0-size files (procfs)
     if TFile.Exists('/proc/self/environ') then
     begin
-      var Stream := TFileStream.Create('/proc/self/environ', fmOpenRead or fmShareDenyNone);
+      Stream := TFileStream.Create('/proc/self/environ', fmOpenRead or fmShareDenyNone);
       try
-        var Bytes: TBytes;
         SetLength(Bytes, 4096);
-        var TotalCount: Integer := 0;
-        var ReadCount: Integer;
+        TotalCount := 0;
 
         // Read chunks until EOF
         while True do
@@ -127,8 +135,8 @@ begin
         SetLength(Bytes, TotalCount);
 
         // Parse null-terminated strings
-        var StartIdx: Integer := 0;
-        for var J := 0 to High(Bytes) do
+        StartIdx := 0;
+        for J := 0 to High(Bytes) do
         begin
           if Bytes[J] = 0 then
           begin
@@ -146,7 +154,7 @@ begin
     // Process variables
     for I := 0 to Vars.Count - 1 do
     begin
-      var Line := Vars[I];
+      Line := Vars[I];
       EqIndex := Pos('=', Line);
       if EqIndex > 1 then
       begin

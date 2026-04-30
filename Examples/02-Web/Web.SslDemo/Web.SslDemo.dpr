@@ -1,4 +1,4 @@
-﻿program Web.SslDemo;
+program Web.SslDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -36,6 +36,9 @@ end;
 procedure EnsureCertificates;
 var
   SourcePath: string;
+  Paths: TArray<string>;
+  Path: string;
+  CheckPath: string;
 begin
   // Se os certificados já existem, ok
   if FileExists('server.crt') and FileExists('server.key') then
@@ -48,7 +51,7 @@ begin
   // Vou procurar recursivamente para simplificar
   
   // Try common relative paths
-  var Paths: TArray<string> := [
+  Paths := [
     '..\Examples\Web.SslDemo', 
     '..\..\Examples\Web.SslDemo', 
     '..\..\..\Examples\Web.SslDemo',
@@ -56,9 +59,9 @@ begin
   ];
   
   SourcePath := '';
-  for var Path in Paths do
+  for Path in Paths do
   begin
-    var CheckPath := TPath.GetFullPath(Path);
+    CheckPath := TPath.GetFullPath(Path);
     if FileExists(TPath.Combine(CheckPath, 'server.crt')) then
     begin
       SourcePath := CheckPath;
@@ -100,6 +103,11 @@ begin
   end;
 end;
 
+var
+  App: IWebApplication;
+  Config: IConfigurationSection;
+  Port: Integer;
+  UseHttps: Boolean;
 begin
   try
     Writeln('Dext SSL/HTTPS Demo');
@@ -110,12 +118,12 @@ begin
     EnsureCertificates;
     EnsureOpenSSLDlls;
 
-    var App: IWebApplication := TDextApplication.Create;
+    App := TDextApplication.Create;
 
     // 2. Report Configuration Status
-    var Config := App.Configuration.GetSection('Server');
-    var Port := 8080;
-    var UseHttps := False;
+    Config := App.Configuration.GetSection('Server');
+    Port := 8080;
+    UseHttps := False;
     
     if Config <> nil then
     begin

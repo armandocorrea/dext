@@ -393,6 +393,8 @@ var
   Node: IDextJsonNode;
   NestedObjAdapter: TJsonDataObjectAdapter;
   NestedArrAdapter: TJsonDataArrayAdapter;
+  NestedObj: IDextJsonObject;
+  NestedArr: IDextJsonArray;
 begin
   if Value = nil then
     FObj.O[Name] := nil
@@ -419,7 +421,7 @@ begin
           jntNull: ; // Skip or set null
           jntObject: 
             begin
-              var NestedObj := Value.GetObject(PropName);
+              NestedObj := Value.GetObject(PropName);
               if (NestedObj <> nil) and (NestedObj is TJsonDataObjectAdapter) then
               begin
                 NestedObjAdapter := NestedObj as TJsonDataObjectAdapter;
@@ -429,7 +431,7 @@ begin
             end;
           jntArray:
             begin
-              var NestedArr := Value.GetArray(PropName);
+              NestedArr := Value.GetArray(PropName);
               if (NestedArr <> nil) and (NestedArr is TJsonDataArrayAdapter) then
               begin
                 NestedArrAdapter := NestedArr as TJsonDataArrayAdapter;

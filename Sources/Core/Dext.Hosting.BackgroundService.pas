@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -272,9 +272,10 @@ end;
 procedure THostedServiceManager.StopAsync(Token: ICancellationToken);
 var
   Service: IHostedService;
+  I: Integer;
 begin
   // Stop services in reverse order
-  for var I := FServices.Count - 1 downto 0 do
+  for I := FServices.Count - 1 downto 0 do
   begin
     Service := FServices[I];
     if not Assigned(Service) then Continue;

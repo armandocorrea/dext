@@ -658,6 +658,13 @@ var
   ActualPropName: string;
   Found: Boolean;
   Instance: TObject;
+  Attr: TCustomAttribute;
+  I: Integer;
+  Key: string;
+  LowerProp: string;
+  Node: IDextJsonNode;
+  Handler: IPropertyHandler;
+  Val: TValue;
 begin
   if AJson = nil then
     Exit(TValue.Empty);
@@ -689,7 +696,7 @@ begin
       PropName := ApplyCaseStyle(Prop.Name);
       
       // Check JsonName
-      for var Attr in Prop.GetAttributes do
+      for Attr in Prop.GetAttributes do
         if Attr is JsonNameAttribute then
         begin
           PropName := JsonNameAttribute(Attr).Name;
@@ -702,10 +709,10 @@ begin
       if (not Found) and FSettings.FCaseInsensitive then
       begin
          // Simple scan
-         var LowerProp := LowerCase(PropName);
-         for var I := 0 to AJson.GetCount - 1 do
+         LowerProp := LowerCase(PropName);
+         for I := 0 to AJson.GetCount - 1 do
          begin
-            var Key := AJson.GetName(I);
+            Key := AJson.GetName(I);
             if LowerCase(Key) = LowerProp then
             begin
                ActualPropName := Key;
@@ -717,11 +724,11 @@ begin
 
       if not Found then Continue;
 
-      var Node := AJson.GetNode(ActualPropName);
+      Node := AJson.GetNode(ActualPropName);
       if Node <> nil then
       begin
-        var Handler := TReflection.GetHandler(AType, Prop.Name);
-        var Val: TValue := TValue.Empty;
+        Handler := TReflection.GetHandler(AType, Prop.Name);
+        Val := TValue.Empty;
         case Node.GetNodeType of
           jntString: Val := TValue.From<string>(Node.AsString);
           jntNumber:
@@ -786,6 +793,10 @@ var
   ActualFieldName: string;
   FieldValue: TValue;
   Found: Boolean;
+  LowerFieldName, UpperFieldName, CamelCaseName: string;
+  GuidStr: string;
+  Node: IDextJsonNode;
+  Val: TValue;
 begin
   if AType = TypeInfo(TGUID) then
     Exit(TValue.From<TGUID>(StringToGUID(AJson.GetString(ValueField))));
@@ -806,8 +817,8 @@ begin
 
     if (not Found) and FSettings.FCaseInsensitive then
     begin
-      var LowerFieldName := LowerCase(FieldName);
-      var UpperFieldName := UpperCase(FieldName);
+      LowerFieldName := LowerCase(FieldName);
+      UpperFieldName := UpperCase(FieldName);
       
       if AJson.Contains(LowerFieldName) then
       begin
@@ -821,7 +832,7 @@ begin
       end
       else if Length(FieldName) > 0 then
       begin
-        var CamelCaseName := LowerCase(FieldName[1]) + Copy(FieldName, 2, Length(FieldName) - 1);
+        CamelCaseName := LowerCase(FieldName[1]) + Copy(FieldName, 2, Length(FieldName) - 1);
         if AJson.Contains(CamelCaseName) then
         begin
           ActualFieldName := CamelCaseName;
@@ -836,7 +847,7 @@ begin
     if Field.FieldType.Handle = TypeInfo(TGUID) then
     begin
       try
-        var GuidStr := AJson.GetString(ActualFieldName).Trim;
+        GuidStr := AJson.GetString(ActualFieldName).Trim;
         if (GuidStr <> '') and (not GuidStr.StartsWith('{')) then
           GuidStr := '{' + GuidStr + '}';
         FieldValue := TValue.From<TGUID>(StringToGUID(GuidStr));
@@ -858,10 +869,9 @@ begin
       Continue;
     end;
 
-    var Node := AJson.GetNode(ActualFieldName);
+    Node := AJson.GetNode(ActualFieldName);
     if Node <> nil then
     begin
-      var Val: TValue;
       case Node.GetNodeType of
         jntString: Val := TValue.From<string>(Node.AsString);
         jntNumber:
@@ -927,6 +937,10 @@ begin
 end;
 
 function TDextSerializer.JsonToValue(AJson: IDextJsonObject; AType: PTypeInfo): TValue;
+var
+  Arr: IDextJsonArray;
+  DtStr: string;
+  DtVal: TDateTime;
 begin
   if AType.Kind = tkRecord then
   begin
@@ -945,7 +959,7 @@ begin
   begin
     if AJson.Contains('value') then
     begin
-      var Arr := AJson.GetArray('value');
+      Arr := AJson.GetArray('value');
       if Arr <> nil then
         Result := DeserializeArray(Arr, AType)
       else
@@ -958,7 +972,7 @@ begin
   begin
     if AJson.Contains('value') then
     begin
-      var Arr := AJson.GetArray('value');
+      Arr := AJson.GetArray('value');
       if Arr <> nil then
         Result := DeserializeList(Arr, AType)
       else
@@ -986,8 +1000,7 @@ begin
              (AType = TypeInfo(TDate)) or 
              (AType = TypeInfo(TTime)) then
           begin
-            var DtStr := AJson.GetString(ValueField);
-            var DtVal: TDateTime;
+            DtStr := AJson.GetString(ValueField);
             if TryParseCommonDate(DtStr, DtVal) then
               Result := TValue.From<TDateTime>(DtVal)
             else
@@ -1060,6 +1073,12 @@ var
   RttiType: TRttiType;
   HasCustomFormat: Boolean;
   CustomFormat: string;
+  Unwrapped: TValue;
+  Attr: TCustomAttribute;
+  ForceString: Boolean;
+  ForceNumber: Boolean;
+  NumValue: Double;
+  NestedRecord: IDextJsonObject;
 begin
   if AValue.TypeInfo = TypeInfo(TGUID) then
   begin
@@ -1090,7 +1109,6 @@ begin
     if (FieldValue.Kind = tkRecord) and (FieldValue.TypeInfo <> nil) and
        TReflection.IsSmartProp(FieldValue.TypeInfo) then
     begin
-      var Unwrapped: TValue;
       if TReflection.TryUnwrapProp(FieldValue, Unwrapped) then
         FieldValue := Unwrapped;
     end;
@@ -1106,7 +1124,7 @@ begin
     HasCustomFormat := False;
     CustomFormat := '';
 
-    for var Attr in Field.GetAttributes do
+    for Attr in Field.GetAttributes do
     begin
       if Attr is JsonFormatAttribute then
       begin
@@ -1143,8 +1161,8 @@ begin
     case FieldValue.TypeInfo.Kind of
       tkInteger, tkInt64:
         begin
-          var ForceString := False;
-          for var Attr in Field.GetAttributes do
+          ForceString := False;
+          for Attr in Field.GetAttributes do
             if Attr is JsonStringAttribute then
               ForceString := True;
 
@@ -1174,8 +1192,8 @@ begin
           end
           else
           begin
-            var ForceString := False;
-            for var Attr in Field.GetAttributes do
+            ForceString := False;
+            for Attr in Field.GetAttributes do
               if Attr is JsonStringAttribute then
                 ForceString := True;
 
@@ -1188,14 +1206,14 @@ begin
 
       tkString, tkLString, tkWString, tkUString:
         begin
-          var ForceNumber := False;
-          for var Attr in Field.GetAttributes do
+          ForceNumber := False;
+          for Attr in Field.GetAttributes do
             if Attr is JsonNumberAttribute then
               ForceNumber := True;
 
           if ForceNumber then
           begin
-            var NumValue := JsonStringToFloat(FieldValue.AsString);
+            NumValue := JsonStringToFloat(FieldValue.AsString);
             Result.SetDouble(FieldName, NumValue);
           end
           else
@@ -1208,8 +1226,8 @@ begin
         begin
           if FieldValue.TypeInfo = TypeInfo(Boolean) then
           begin
-            var ForceString := False;
-            for var Attr in Field.GetAttributes do
+            ForceString := False;
+            for Attr in Field.GetAttributes do
               if Attr is JsonStringAttribute then
                 ForceString := True;
 
@@ -1224,7 +1242,7 @@ begin
 
       tkRecord:
         begin
-          var NestedRecord := SerializeRecord(FieldValue);
+          NestedRecord := SerializeRecord(FieldValue);
           Result.SetObject(FieldName, NestedRecord);
         end;
     end;
@@ -1238,6 +1256,11 @@ var
   PropValue: TValue;
   RttiType: TRttiType;
   Obj: TObject;
+  ShouldSkip: Boolean;
+  Attr: TCustomAttribute;
+  Handler: IPropertyHandler;
+  Unwrapped: TValue;
+  NestedRecord: IDextJsonObject;
 begin
   Result := TDextJson.Provider.CreateObject;
 
@@ -1264,8 +1287,8 @@ begin
       Continue;
 
     // Skip if has JsonIgnore attribute
-    var ShouldSkip := False;
-    for var Attr in Prop.GetAttributes do
+    ShouldSkip := False;
+    for Attr in Prop.GetAttributes do
     begin
       if (Attr is JsonIgnoreAttribute) or (Attr.ClassName = 'NotMappedAttribute') then
       begin
@@ -1280,22 +1303,20 @@ begin
     PropName := ApplyCaseStyle(Prop.Name);
     
     // Check for JsonName attribute
-    for var Attr in Prop.GetAttributes do
+    for Attr in Prop.GetAttributes do
       if Attr is JsonNameAttribute then
       begin
         PropName := JsonNameAttribute(Attr).Name;
         Break;
       end;
 
-    var Handler := TReflection.GetHandler(Obj.ClassInfo, Prop.Name);
+    Handler := TReflection.GetHandler(Obj.ClassInfo, Prop.Name);
     PropValue := Handler.GetValue(Pointer(Obj));
-
 
     // Smart Properties Support: Unwrap Prop<T>
     if (PropValue.Kind = tkRecord) and (PropValue.TypeInfo <> nil) and
        TReflection.IsSmartProp(PropValue.TypeInfo) then
     begin
-      var Unwrapped: TValue;
       if TReflection.TryUnwrapProp(PropValue, Unwrapped) then
         PropValue := Unwrapped;
     end;
@@ -1342,7 +1363,7 @@ begin
             Result.SetString(PropName, GetUUIDString(PropValue))
           else
           begin
-            var NestedRecord := SerializeRecord(PropValue);
+            NestedRecord := SerializeRecord(PropValue);
             Result.SetObject(PropName, NestedRecord);
           end;
         end;
@@ -1542,9 +1563,11 @@ begin
 end;
 
 procedure TDextSerializer.Populate(AInstance: TObject; const AJson: string);
+var
+  Node: IDextJsonNode;
 begin
   if (AInstance = nil) or (AJson = '') then Exit;
-  var Node := TDextJson.Provider.Parse(AJson);
+  Node := TDextJson.Provider.Parse(AJson);
   if (Node <> nil) and (Node.GetNodeType = jntObject) then
     DeserializeObject(Node as IDextJsonObject, AInstance.ClassInfo, AInstance);
 end;
@@ -1557,6 +1580,7 @@ var
   ElementValue: TValue;
   P: PByte;
   Count: NativeInt;
+  Node: IDextJsonNode;
 begin
   ElementType := GetArrayElementType(AType);
   DynArray := nil;
@@ -1566,7 +1590,7 @@ begin
   try
     for I := 0 to AJson.GetCount - 1 do
     begin
-      var Node := AJson.GetNode(I);
+      Node := AJson.GetNode(I);
       case ElementType.Kind of
         tkInteger:
           ElementValue := TValue.From<Integer>(AJson.GetInteger(I));
@@ -1640,6 +1664,17 @@ var
   I: Integer;
   ElementValue: TValue;
   AddMethod: TRttiMethod;
+  RttiType: TRttiType;
+  Collection: ICollection;
+  OwnsProp: TRttiProperty;
+  InstObj: TObject;
+  ActualRttiType: TRttiType;
+  Method: TRttiMethod;
+  Intf: TRttiInterfaceType;
+  Node: IDextJsonNode;
+  TargetInst: TValue;
+  StrictValue: TValue;
+  LObj: TObject;
 begin
   // TODO : Refactory and optimize
   try
@@ -1650,12 +1685,11 @@ begin
     // Instantiate via Activator (Handles DI, Fallbacks and Factory)
     Result := TActivator.CreateInstance(FSettings.FServiceProvider, AType);
 
-    var RttiType := TReflection.GetMetadata(AType).RttiType;
+    RttiType := TReflection.GetMetadata(AType).RttiType;
     
     // Ensure the list owns its objects if they are classes
     if (ElementType.Kind = tkClass) then
     begin
-       var Collection: ICollection;
        if Result.Kind = tkInterface then
        begin
          if Supports(Result.AsInterface, ICollection, Collection) then
@@ -1664,19 +1698,18 @@ begin
        else if Result.Kind = tkClass then
        begin
          // Try fetching via RTTI directly to avoid reference counting premature destruction
-         var OwnsProp := RttiType.GetProperty('OwnsObjects');
+         OwnsProp := RttiType.GetProperty('OwnsObjects');
          if (OwnsProp <> nil) and (OwnsProp.PropertyType.Handle = TypeInfo(Boolean)) then
            OwnsProp.SetValue(Result.AsObject, True);
        end;
     end;
 
-    var InstObj: TObject := nil;
+    InstObj := nil;
     if Result.Kind = tkInterface then
       InstObj := Result.AsInterface as TObject
     else if Result.Kind = tkClass then
       InstObj := Result.AsObject;
 
-    var ActualRttiType: TRttiType;
     if Assigned(InstObj) then
       ActualRttiType := TReflection.Context.GetType(InstObj.ClassType)
     else
@@ -1687,7 +1720,7 @@ begin
     // First try concrete instance type
     if ActualRttiType is TRttiInstanceType then
     begin
-      for var Method in ActualRttiType.GetMethods do
+      for Method in ActualRttiType.GetMethods do
         if (Method.Name = 'Add') and (Length(Method.GetParameters) = 1) then
         begin
           AddMethod := Method;
@@ -1698,10 +1731,10 @@ begin
     // Fallback to interface hierarchy
     if not Assigned(AddMethod) and (RttiType is TRttiInterfaceType) then
     begin
-      var Intf := TRttiInterfaceType(RttiType);
+      Intf := TRttiInterfaceType(RttiType);
       while Intf <> nil do
       begin
-        for var Method in Intf.GetMethods do
+        for Method in Intf.GetMethods do
           if (Method.Name = 'Add') and (Length(Method.GetParameters) = 1) then
           begin
             AddMethod := Method;
@@ -1721,7 +1754,7 @@ begin
     try
       for I := 0 to AJson.GetCount - 1 do
       begin
-        var Node := AJson.GetNode(I);
+        Node := AJson.GetNode(I);
         if (Node <> nil) and (Node.GetNodeType = jntObject) then
         begin
           if (ElementType.Kind = tkClass) or (ElementType.Kind = tkInterface) then
@@ -1763,16 +1796,15 @@ begin
 
         if not ElementValue.IsEmpty then
         begin
-          var TargetInst: TValue;
           if Assigned(InstObj) and (AddMethod.Parent.IsInstance) then
             TargetInst := InstObj
           else
             TargetInst := Result;
             
-          var StrictValue := ElementValue;
+          StrictValue := ElementValue;
           if (ElementType.Kind = tkClass) and (StrictValue.AsObject <> nil) then
           begin
-            var LObj: TObject := StrictValue.AsObject;
+            LObj := StrictValue.AsObject;
             TValue.Make(@LObj, ElementType, StrictValue);
           end;
             
@@ -1794,6 +1826,13 @@ var
   AddMethod: TRttiMethod;
   KeyVal, ValVal: TValue;
   KeyName: string;
+  RttiType: TRttiType;
+  InstObj: TObject;
+  ActualRttiType: TRttiType;
+  Method: TRttiMethod;
+  Intf: TRttiInterfaceType;
+  Node: IDextJsonNode;
+  TargetInst: TValue;
 begin
   try
     KeyType := GetDictionaryKeyType(AType);
@@ -1805,15 +1844,14 @@ begin
     // Instantiate via Activator
     Result := TActivator.CreateInstance(FSettings.FServiceProvider, AType);
     
-    var RttiType := TReflection.GetMetadata(AType).RttiType;
+    RttiType := TReflection.GetMetadata(AType).RttiType;
     
-    var InstObj: TObject := nil;
+    InstObj := nil;
     if Result.Kind = tkInterface then
       InstObj := Result.AsInterface as TObject
     else if Result.Kind = tkClass then
       InstObj := Result.AsObject;
 
-    var ActualRttiType: TRttiType;
     if Assigned(InstObj) then
       ActualRttiType := TReflection.Context.GetType(InstObj.ClassType)
     else
@@ -1824,7 +1862,7 @@ begin
     // First try concrete instance type
     if ActualRttiType is TRttiInstanceType then
     begin
-      for var Method in ActualRttiType.GetMethods do
+      for Method in ActualRttiType.GetMethods do
         if ((Method.Name = 'Add') or (Method.Name = 'AddOrSetValue')) and (Length(Method.GetParameters) = 2) then
         begin
           AddMethod := Method;
@@ -1835,10 +1873,10 @@ begin
     // Fallback to interface hierarchy
     if not Assigned(AddMethod) and (RttiType is TRttiInterfaceType) then
     begin
-      var Intf := TRttiInterfaceType(RttiType);
+      Intf := TRttiInterfaceType(RttiType);
       while Intf <> nil do
       begin
-        for var Method in Intf.GetMethods do
+        for Method in Intf.GetMethods do
           if ((Method.Name = 'Add') or (Method.Name = 'AddOrSetValue')) and (Length(Method.GetParameters) = 2) then
           begin
             AddMethod := Method;
@@ -1870,7 +1908,7 @@ begin
       if KeyVal.IsEmpty then Continue;
 
       // Value conversion
-      var Node := AJson.GetNode(KeyName);
+      Node := AJson.GetNode(KeyName);
       if (Node <> nil) and (Node.GetNodeType = jntObject) then
       begin
         if (ValueType.Kind = tkClass) or (ValueType.Kind = tkInterface) then 
@@ -1901,7 +1939,6 @@ begin
 
       if not ValVal.IsEmpty then
       begin
-        var TargetInst: TValue;
         if Assigned(InstObj) and (AddMethod.Parent.IsInstance) then
           TargetInst := InstObj
         else

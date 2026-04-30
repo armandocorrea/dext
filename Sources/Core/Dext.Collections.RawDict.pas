@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -234,8 +234,10 @@ begin
 end;
 
 function FastHash8(Key: Pointer; KeySize: Integer): Cardinal;
+var
+  V: UInt64;
 begin
-  var V := PUInt64(Key)^;
+  V := PUInt64(Key)^;
   Result := Cardinal(V) xor Cardinal(V shr 32);
 end;
 

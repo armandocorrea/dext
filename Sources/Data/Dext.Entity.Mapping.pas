@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -570,6 +570,15 @@ var
   Attr: TCustomAttribute;
   Prop: TRttiProperty;
   PropMap: TPropertyMap;
+  Fld: TRttiField;
+  Metadata: TTypeMetadata;
+  IsSmart: Boolean;
+  FldName: string;
+  LPropInfo: PPropInfo;
+  LTypeConv: ITypeConverter;
+  BackingFld: TRttiField;
+  Meta: TTypeMetadata;
+  LTypeName: string;
 begin
   Typ := TReflection.Context.GetType(FEntityType);
     if Typ = nil then Exit;
@@ -594,15 +603,15 @@ begin
       if Attr is ProxyAttribute then FIsProxy := True;
     end;
     
-    for var Fld in Typ.GetFields do
+    for Fld in Typ.GetFields do
     begin
       // 1. Smart Properties (detected by TReflection which handles attributes, naming and aliases)
-      var Metadata := TReflection.GetMetadata(Fld.FieldType.Handle);
-      var IsSmart := Metadata.IsSmartProp or Metadata.IsNullable or Metadata.IsLazy;
+      Metadata := TReflection.GetMetadata(Fld.FieldType.Handle);
+      IsSmart := Metadata.IsSmartProp or Metadata.IsNullable or Metadata.IsLazy;
 
       if IsSmart then
       begin
-        var FldName := TReflection.NormalizeFieldName(Fld.Name);
+        FldName := TReflection.NormalizeFieldName(Fld.Name);
           
         PropMap := GetOrAddProperty(FldName);
         PropMap.FieldOffset := -1; // Reset to avoid incorrect null detection for records
@@ -639,7 +648,7 @@ begin
       // 2. Campos normais públicos ou com atributos
       else if (Fld.Visibility in [mvPublic, mvPublished]) or (Length(Fld.GetAttributes) > 0) then
       begin
-        var FldName := Fld.Name;
+        FldName := Fld.Name;
         if (FldName.Length > 1) and (FldName[1] = 'F') then
           FldName := FldName.Substring(1);
           
@@ -674,7 +683,7 @@ begin
       // as it might bypass business logic or calculated values.
       if Prop is TRttiInstanceProperty then
       begin
-        var LPropInfo := TRttiInstanceProperty(Prop).PropInfo;
+        LPropInfo := TRttiInstanceProperty(Prop).PropInfo;
         if Assigned(LPropInfo) then
         begin
           // If GetProc points to a field (high-byte $FF), it's a direct field access property (e.g., 'read FCurrencyVal').
@@ -704,7 +713,7 @@ begin
       begin
         // Filter out classes that have a registered converter (e.g. TStrings)
         // These should be treated as columns, not navigation properties.
-        var LTypeConv := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
+        LTypeConv := TTypeConverterRegistry.Instance.GetConverter(Prop.PropertyType.Handle);
         
         if LTypeConv = nil then
         begin
@@ -726,13 +735,13 @@ begin
       // Try to find the backing field by convention (FPropName) if offset is not set
       if PropMap.FieldValueOffset <= 0 then
       begin
-        var BackingFld := Typ.GetField(TReflection.NormalizeFieldName(Prop.Name));
+        BackingFld := Typ.GetField(TReflection.NormalizeFieldName(Prop.Name));
         if BackingFld <> nil then
         begin
            // If the backing field is a SmartProp, we need to extract the inner offset
            if TReflection.IsSmartProp(BackingFld.FieldType.Handle) then
            begin
-             var Meta := TReflection.GetMetadata(BackingFld.FieldType.Handle);
+             Meta := TReflection.GetMetadata(BackingFld.FieldType.Handle);
                 if Meta.IsSmartProp then
                 begin
                   // Detect Lazy
@@ -776,7 +785,7 @@ begin
       // Automatically mark large types (TStrings, TBytes) as Lazy
       if (PropMap.Converter <> nil) and not PropMap.IsPK and not PropMap.IsNavigation then
       begin
-          var LTypeName := string(Prop.PropertyType.Handle.Name);
+          LTypeName := string(Prop.PropertyType.Handle.Name);
           if (LTypeName = 'TStrings') or (LTypeName = 'TBytes') then
             PropMap.IsLazy := True;
       end;

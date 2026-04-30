@@ -1,4 +1,4 @@
-﻿program Web.OrderAPI;
+program Web.OrderAPI;
 
 {***************************************************************************}
 {                                                                           }
@@ -22,6 +22,8 @@ uses
   OrderAPI.Services in 'OrderAPI.Services.pas',
   OrderAPI.Controllers in 'OrderAPI.Controllers.pas';
 
+var
+  App: IWebApplication;
 begin
   try
     WriteLn('');
@@ -31,7 +33,7 @@ begin
     WriteLn('==============================================');
     WriteLn('');
 
-    var App := WebApplication;
+    App := WebApplication;
     
     // 1. Configure Startup Class
     // The framework will call ConfigureServices and Configure automatically

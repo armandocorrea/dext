@@ -1,4 +1,4 @@
-﻿unit WebFrameworkTests.Tests.DataApi;
+unit WebFrameworkTests.Tests.DataApi;
 
 interface
 
@@ -104,10 +104,13 @@ begin
 end;
 
 procedure TDataApiTest.SeedData;
+var
+  i: Integer;
+  Item: TTestItem;
 begin
-  for var i := 1 to 10 do
+  for i := 1 to 10 do
   begin
-    var Item := TTestItem.Create;
+    Item := TTestItem.Create;
     Item.Name := 'Item ' + i.ToString;
     Item.Value := i * 10;
     Item.Active := (i mod 2 = 0);
@@ -150,6 +153,8 @@ procedure TDataApiTest.Run;
 var
   Resp: System.Net.HttpClient.IHTTPResponse;
   JsonArray: IDextJsonArray;
+  content: string;
+  LItem: IDextJsonObject;
 begin
   Log('--- Starting Data API Tests ---');
   JsonDefaultSettings(JsonSettings.SnakeCase);
@@ -184,7 +189,7 @@ begin
   // Memory leak : 16: 1 x Unknown
   // 4. Test pagination: _limit and _offset
   Resp := FClient.Get(GetBaseUrl + '/api/test-items?_limit=2&_offset=1&_orderby=id');
-  var content := Resp.ContentAsString;
+  content := Resp.ContentAsString;
   WriteLn('Content: ', content);
   JsonArray := TDextJson.Provider.Parse(Resp.ContentAsString) as IDextJsonArray;
   AssertTrue(JsonArray.GetCount = 2, 'Should return 2 items due to limit', 'Returned ' + JsonArray.GetCount.ToString + ' items');
@@ -206,9 +211,9 @@ begin
   JsonArray := TDextJson.Provider.Parse(content) as IDextJsonArray;
   AssertTrue(JsonArray.GetCount = 1, 'Should return 1 item', 'Should return 1 item but got ' + JsonArray.GetCount.ToString);
   
-  Item := JsonArray.GetObject(0);
-  AssertTrue(Item.Contains('category'), 'Should have nested category object', 'category object missing');
-  AssertEqual('Category A', Item.GetObject('category').GetString('name'), 'Nested category name should match');
+  LItem := JsonArray.GetObject(0);
+  AssertTrue(LItem.Contains('category'), 'Should have nested category object', 'category object missing');
+  AssertEqual('Category A', LItem.GetObject('category').GetString('name'), 'Nested category name should match');
 }
   Log('--- Data API Tests Completed ---');
 end;

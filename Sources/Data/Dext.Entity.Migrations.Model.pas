@@ -173,8 +173,10 @@ begin
 end;
 
 function TSnapshotTable.FindColumn(const AName: string): TSnapshotColumn;
+var
+  Col: TSnapshotColumn;
 begin
-  for var Col in Columns do
+  for Col in Columns do
     if SameText(Col.Name, AName) then
       Exit(Col);
   Result := nil;
@@ -194,8 +196,10 @@ begin
 end;
 
 function TSnapshotModel.FindTable(const AName: string): TSnapshotTable;
+var
+  Tab: TSnapshotTable;
 begin
-  for var Tab in Tables do
+  for Tab in Tables do
     if SameText(Tab.Name, AName) then
       Exit(Tab);
   Result := nil;

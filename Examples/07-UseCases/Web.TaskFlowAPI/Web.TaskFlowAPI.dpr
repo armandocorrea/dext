@@ -1,4 +1,4 @@
-﻿program Web.TaskFlowAPI;
+program Web.TaskFlowAPI;
 
 uses
   Dext.MM,
@@ -41,6 +41,7 @@ end;
 
 var
   App: IWebApplication;
+  AppBuilder: TAppBuilder;
 
 begin
   try
@@ -64,7 +65,7 @@ begin
     WriteLn('');
 
     // 4. ✅ MAPEAMENTO COM SMART BINDING (FASE 2)
-    var AppBuilder := App.GetApplicationBuilder;
+    AppBuilder := App.GetApplicationBuilder;
     
     // ✅ Functional Middleware: Logging Simples
     AppBuilder.Use(

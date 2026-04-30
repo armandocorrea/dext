@@ -12,9 +12,11 @@ uses
   Download.Endpoints in 'Features\Download\Download.Endpoints.pas',
   Download.Service in 'Features\Download\Download.Service.pas';
 
+var
+  App: IWebApplication;
 begin
   try
-    var App: IWebApplication := TDextApplication.Create;
+    App := TDextApplication.Create;
     App.UseStartup(TStartup.Create);
     App.Run(8080);
   except

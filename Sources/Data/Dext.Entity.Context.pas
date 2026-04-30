@@ -281,6 +281,8 @@ var
   HasValueField, ValueField: TRttiField;
   HasValue: Boolean;
   Instance: Pointer;
+  Field: TRttiField;
+  HasValueVal: TValue;
 begin
   Result := False;
   
@@ -301,11 +303,11 @@ begin
         ValueField := nil;
         
         // Find fHasValue and fValue fields
-        for var Field in Fields do
+        for Field in Fields do
         begin
-          if Field.Name.ToLower.Contains('hasvalue') then
+          if Pos('hasvalue', LowerCase(Field.Name)) > 0 then
             HasValueField := Field
-          else if Field.Name.ToLower = 'fvalue' then
+          else if SameText(Field.Name, 'fvalue') then
             ValueField := Field;
         end;
         
@@ -314,7 +316,7 @@ begin
           Instance := AValue.GetReferenceToRawData;
           
           // Check HasValue - it can be a string (Spring4D) or Boolean
-          var HasValueVal := HasValueField.GetValue(Instance);
+          HasValueVal := HasValueField.GetValue(Instance);
           if HasValueVal.Kind = tkUString then
             HasValue := HasValueVal.AsString <> ''
           else if HasValueVal.Kind = tkEnumeration then
@@ -546,6 +548,9 @@ var
   typ : TRttiType;
   props :  TArray<TRttiProperty>;
   Prop : TRttiProperty;
+  IntfType: TRttiType;
+  Val: TValue;
+  DbSet: IDbSet;
 begin
    Typ := TReflection.Context.GetType(self.classtype);
    Props := Typ.GetProperties;
@@ -560,7 +565,7 @@ begin
        begin
          // Capture the property name for naming discovery (e.g. "Customers" -> "customers")
          // We need to find the generic type T from IDbSet<T>
-         var IntfType := Prop.PropertyType;
+         IntfType := Prop.PropertyType;
          if IntfType.Name.StartsWith('IDbSet<') then
          begin
             // This is a simple heuristic. Better: check GUID or use RTTI to find the entity type.
@@ -571,9 +576,8 @@ begin
             // Entities<T> is called, which registers the type. 
             // We just need to associate this specific property name with the type T.
             
-             var Val := Prop.GetValue(Self);
+             Val := Prop.GetValue(Self);
              try
-               var DbSet: IDbSet;
                if (not Val.IsEmpty) and Supports(Val.AsInterface, IDbSet, DbSet) then
                begin
                  // Register this property name as the "Discovery Name" for this entity type
@@ -596,6 +600,7 @@ procedure TDbContext.ApplyTenantConfig(ACreateSchema: Boolean);
 var
   Sql: string;
   CurrentTenantId: string;
+  Cmd: IDbCommand;
 begin
   CurrentTenantId := '';
   if (FTenantProvider <> nil) and (FTenantProvider.Tenant <> nil) then
@@ -614,7 +619,7 @@ begin
         Sql := '';
         if Sql <> '' then
         begin
-          var Cmd := FConnection.CreateCommand(Sql);
+          Cmd := FConnection.CreateCommand(Sql);
           Cmd.ExecuteNonQuery;
         end;
       end;
@@ -623,7 +628,7 @@ begin
       Sql := '';
       if Sql <> '' then
       begin
-        var Cmd := FConnection.CreateCommand(Sql);
+        Cmd := FConnection.CreateCommand(Sql);
         Cmd.ExecuteNonQuery;
       end;
     end;
@@ -739,6 +744,14 @@ var
   CmdIntf: IInterface;
   HasProgress, CanCreate: Boolean;
   i: Integer;
+  Map: TEntityMap;
+  LMeta: TTypeMetadata;
+  DepType: PTypeInfo;
+  Dep: PTypeInfo;
+  TableName, MapTableName: string;
+  Mapping: TObject;
+  RType: TRttiType;
+  TableAttr: TableAttribute;
 begin
   Result := False;
   ApplyTenantConfig(True);
@@ -750,7 +763,7 @@ begin
     
   // Ensure all entities registered in the ModelBuilder (via Fluent API or attributes) 
   // are also present in the cache for schema creation.
-  for var Map in ModelBuilder.GetMaps do
+  for Map in ModelBuilder.GetMaps do
     DataSet(Map.EntityType);
   // 1. Build Dependency Graph
   for Pair in FCache do
@@ -775,12 +788,12 @@ begin
             // Found a FK. Check if the property type is a class we manage.
             if True then
             begin
-               var DepType: PTypeInfo := nil;
+               DepType := nil;
                if Prop.PropertyType.TypeKind = tkClass then
                  DepType := Prop.PropertyType.Handle
                else if Prop.PropertyType.TypeKind = tkRecord then
                begin
-                 var LMeta := TReflection.GetMetadata(Prop.PropertyType.Handle);
+                 LMeta := TReflection.GetMetadata(Prop.PropertyType.Handle);
                  if (LMeta <> nil) and (LMeta.InnerType <> nil) then
                    DepType := LMeta.InnerType;
                end;
@@ -807,7 +820,7 @@ begin
         CanCreate := True;
         
         // Check if all dependencies are created
-        for var Dep in Node.Dependencies do
+        for Dep in Node.Dependencies do
         begin
           if not Created.Contains(Dep) then
           begin
@@ -827,9 +840,9 @@ begin
             // But we already have the name in the Node/DbSet metadata.
             // Actually, we can just use FConnection.TableExists(TableName)
             
-            var TableName := '';
-            var Mapping := GetMapping(Node.TypeInfo);
-            var MapTableName := '';
+            TableName := '';
+            Mapping := GetMapping(Node.TypeInfo);
+            MapTableName := '';
             
             if Mapping <> nil then
               MapTableName := Dext.Entity.Mapping.TEntityMap(Mapping).TableName;
@@ -841,10 +854,10 @@ begin
             else
             begin
               // Fallback to Attribute or Naming Strategy if Mapping doesn't specify TableName
-              var RType := TReflection.Context.GetType(Node.TypeInfo);
+              RType := TReflection.Context.GetType(Node.TypeInfo);
               if RType <> nil then
               begin
-                var TableAttr := RType.GetAttribute<TableAttribute>;
+                TableAttr := RType.GetAttribute<TableAttribute>;
                 if TableAttr <> nil then
                   TableName := TableAttr.Name;
               end;
@@ -935,6 +948,13 @@ var
   Pair: TPair<TObject, TEntityState>;
   Entity: TObject;
   DbSet: IDbSet;
+  AddedGroups: IDictionary<PTypeInfo, IList<TObject>>;
+  TenantAware: ITenantAware;
+  Map: TEntityMap;
+  APair: TPair<PTypeInfo, IList<TObject>>;
+  List: IList<TObject>;
+  Item: TObject;
+  Deletes: IList<TObject>;
 begin
   ApplyTenantConfig(False);
   Result := 0;
@@ -943,7 +963,7 @@ begin
    if not InTransaction then BeginTransaction;
    try
      // 1. Process Inserts (Bulk Optimized)
-     var AddedGroups := TCollections.CreateDictionary<PTypeInfo, IList<TObject>>;
+     AddedGroups := TCollections.CreateDictionary<PTypeInfo, IList<TObject>>;
      try
        for Pair in FChangeTracker.GetTrackedEntities do
        begin
@@ -956,7 +976,6 @@ begin
             // Auto-populate TenantId if applicable (Security & Convenience)
             if (FTenantProvider <> nil) and (FTenantProvider.Tenant <> nil) then
             begin
-              var TenantAware: ITenantAware;
               if Supports(Entity, ITenantAware, TenantAware) then
               begin
                  // Always enforce current tenant ID on insert
@@ -966,7 +985,7 @@ begin
               
  
             // Validate Entity
-            var Map: TEntityMap := nil;
+            Map := nil;
             if FModelBuilder <> nil then
               Map := FModelBuilder.GetMap(Entity.ClassInfo);
               
@@ -976,14 +995,14 @@ begin
          end;
        end;
  
-       for var APair in AddedGroups do
+       for APair in AddedGroups do
        begin
-         var List := APair.Value;
+         List := APair.Value;
          DbSet := DataSet(APair.Key);
          
          // Force loop to ensure IDs are retrieved for all entities.
          // Bulk Insert (PersistAddRange) does not currently support ID retrieval.
-         for var Item in List do
+         for Item in List do
            DbSet.PersistAdd(Item);
            
          Inc(Result, List.Count);
@@ -1000,7 +1019,7 @@ begin
          Entity := Pair.Key;
          
          // Validate Entity
-         var Map: TEntityMap := nil;
+         Map := nil;
          if FModelBuilder <> nil then
            Map := FModelBuilder.GetMap(Entity.ClassInfo);
            
@@ -1014,7 +1033,7 @@ begin
      
      // 3. Process Deletes
      // Note: We need a snapshot for deletes because PersistRemove calls Remove from tracker
-     var Deletes := TCollections.CreateList<TObject>;
+     Deletes := TCollections.CreateList<TObject>;
      try
        for Pair in FChangeTracker.GetTrackedEntities do
          if Pair.Value = esDeleted then
@@ -1110,6 +1129,7 @@ var
   ParamNames: IList<string>;
   PropList: IList<TRttiProperty>;
   i: Integer;
+  ParamName: string;
 begin
   ParamNames := TCollections.CreateList<string>;
   PropList := TCollections.CreateList<TRttiProperty>;
@@ -1140,7 +1160,7 @@ begin
     begin
       Prop := PropList[i];
       ParamAttr := Prop.GetAttribute<DbParamAttribute>;
-      var ParamName := ParamNames[i];
+      ParamName := ParamNames[i];
       
       Cmd.AddParam(ParamName, Prop.GetValue(Pointer(ADto)));
       if ParamAttr.ParamType <> ptInput then
@@ -1277,14 +1297,16 @@ end;
 
 constructor TPropertyEntry.Create(const AContext: TDbContext; const AEntity: TObject;
   const APropName: string);
+var
+  Map: TEntityMap;
+  PropMap: TPropertyMap;
 begin
   inherited Create;
   FContext := AContext;
   FEntity := AEntity;
   FPropName := APropName;
   
-  var Map := FContext.ModelBuilder.GetMap(FEntity.ClassInfo);
-  var PropMap: TPropertyMap;
+  Map := FContext.ModelBuilder.GetMap(FEntity.ClassInfo);
   if (Map <> nil) and Map.Properties.TryGetValue(FPropName, PropMap) then
     FIsShadow := PropMap.IsShadow
   else
@@ -1292,18 +1314,23 @@ begin
 end;
 
 function TPropertyEntry.GetCurrentValue: TValue;
+var
+  Tracker: TChangeTracker;
+  State: TEntityShadowState;
+  Typ: TRttiType;
+  Prop: TRttiProperty;
 begin
   if FIsShadow then
   begin
-    var Tracker := TChangeTracker(FContext.ChangeTracker);
-    var State := Tracker.GetShadowState(FEntity);
+    Tracker := TChangeTracker(FContext.ChangeTracker);
+    State := Tracker.GetShadowState(FEntity);
     if not State.ShadowValues.TryGetValue(FPropName, Result) then
       Result := TValue.Empty;
   end
   else
   begin
-    var Typ := TReflection.Context.GetType(FEntity.ClassType);
-    var Prop := Typ.GetProperty(FPropName);
+    Typ := TReflection.Context.GetType(FEntity.ClassType);
+    Prop := Typ.GetProperty(FPropName);
     if Prop <> nil then
       Result := Prop.GetValue(Pointer(FEntity))
     else
@@ -1312,18 +1339,23 @@ begin
 end;
 
 procedure TPropertyEntry.SetCurrentValue(const AValue: TValue);
+var
+  Tracker: TChangeTracker;
+  State: TEntityShadowState;
+  Typ: TRttiType;
+  Prop: TRttiProperty;
 begin
   if FIsShadow then
   begin
-    var Tracker := TChangeTracker(FContext.ChangeTracker);
-    var State := Tracker.GetShadowState(FEntity);
+    Tracker := TChangeTracker(FContext.ChangeTracker);
+    State := Tracker.GetShadowState(FEntity);
     State.ShadowValues.AddOrSetValue(FPropName, AValue);
     SetIsModified(True);
   end
   else
   begin
-    var Typ := TReflection.Context.GetType(FEntity.ClassType);
-    var Prop := Typ.GetProperty(FPropName);
+    Typ := TReflection.Context.GetType(FEntity.ClassType);
+    Prop := Typ.GetProperty(FPropName);
     if Prop <> nil then
     begin
       Prop.SetValue(Pointer(FEntity), AValue);
@@ -1333,16 +1365,22 @@ begin
 end;
 
 function TPropertyEntry.GetIsModified: Boolean;
+var
+  Tracker: TChangeTracker;
+  State: TEntityShadowState;
 begin
-  var Tracker := TChangeTracker(FContext.ChangeTracker);
-  var State := Tracker.GetShadowState(FEntity);
+  Tracker := TChangeTracker(FContext.ChangeTracker);
+  State := Tracker.GetShadowState(FEntity);
   Result := State.ModifiedProperties.ContainsKey(FPropName);
 end;
 
 procedure TPropertyEntry.SetIsModified(const AValue: Boolean);
+var
+  Tracker: TChangeTracker;
+  State: TEntityShadowState;
 begin
-  var Tracker := TChangeTracker(FContext.ChangeTracker);
-  var State := Tracker.GetShadowState(FEntity);
+  Tracker := TChangeTracker(FContext.ChangeTracker);
+  State := Tracker.GetShadowState(FEntity);
   if AValue then
   begin
     State.ModifiedProperties.AddOrSetValue(FPropName, True);
@@ -1365,14 +1403,32 @@ end;
 
 procedure TCollectionEntry.Load;
 var
+  ListType: TRttiType;
+  AddMethod: TRttiMethod;
+  ChildType: TRttiType;
+  ChildClass: TClass;
+  DbSet: IDbSet;
+  ParentPKProp: TRttiProperty;
+  ParentPKVal: TValue;
+  FKName: string;
+  ChildTyp: TRttiType;
+  Candidate: string;
+  FKProp: TRttiProperty;
+  ClearMethod: TRttiMethod;
+  Expr: IExpression;
+  Results: IList<TObject>;
+  ChildObj: TObject;
   Typ: TRttiType;
   Prop: TRttiProperty;
   Val: TValue;
-  ListObj: TObject;
-  ListIntf: IInterface;
   IsInterface: Boolean;
-  ListType: TRttiType;
+  ListIntf: IInterface;
+  ListObj: TObject;
+  CProp: TRttiProperty;
+  Attr: TCustomAttribute;
 begin
+  ListIntf := nil;
+  ListObj := nil;
   Typ := TReflection.Context.GetType(FParent.ClassType);
   Prop := Typ.GetProperty(FPropName);
   if Prop = nil then
@@ -1388,7 +1444,8 @@ begin
   if IsInterface then
   begin
     // Handle IList<T> (interface)
-    if not Val.TryAsType<IInterface>(ListIntf) or (ListIntf = nil) then
+    ListIntf := Val.AsInterface;
+    if ListIntf = nil then
       raise Exception.Create('Collection interface is nil and must be initialized before loading.');
     
     // Get the interface type to find Add method
@@ -1397,33 +1454,32 @@ begin
   else
   begin
     // Handle TList<T> or TObjectList<T> (class)
-    if not Val.TryAsType<TObject>(ListObj) or (ListObj = nil) then
+    ListObj := Val.AsObject;
+    if ListObj = nil then
       raise Exception.Create('Collection must be initialized before loading.');
     
     ListType := TReflection.Context.GetType(ListObj.ClassType);
   end;
   
   // Find Add method
-  var AddMethod := ListType.GetMethod('Add');
+  AddMethod := ListType.GetMethod('Add');
   if AddMethod = nil then
     raise Exception.Create('Collection does not have Add method');
     
-  var ChildType := AddMethod.GetParameters[0].ParamType;
-  var ChildClass := ChildType.AsInstance.MetaclassType;
+  ChildType := AddMethod.GetParameters[0].ParamType;
+  ChildClass := ChildType.AsInstance.MetaclassType;
   
   // Find DbSet for ChildClass
-  var DbSet := FContext.DataSet(ChildClass.ClassInfo);
+  DbSet := FContext.DataSet(ChildClass.ClassInfo);
   
   // Find Parent PK
-  var ParentPKProp := Typ.GetProperty('Id'); // Simplified
+  ParentPKProp := Typ.GetProperty('Id'); // Simplified
   if ParentPKProp = nil then raise Exception.Create('PK Id not found on parent');
-  var ParentPKVal := ParentPKProp.GetValue(Pointer(FParent));
+  ParentPKVal := ParentPKProp.GetValue(Pointer(FParent));
   
   // Find FK on Child pointing to Parent
-  var FKName := '';
-  var ChildTyp := TReflection.Context.GetType(ChildClass);
-  var CProp: TRttiProperty;
-  var Attr: TCustomAttribute;
+  FKName := '';
+  ChildTyp := TReflection.Context.GetType(ChildClass);
   
   for CProp in ChildTyp.GetProperties do
   begin
@@ -1444,7 +1500,7 @@ begin
   if FKName = '' then
   begin
     // Try 'UserId' if parent is TUser
-    var Candidate := Typ.Name.Substring(1) + 'Id'; // TUser -> User + Id
+    Candidate := Copy(Typ.Name, 2, MaxInt) + 'Id'; // TUser -> User + Id
     if ChildTyp.GetProperty(Candidate) <> nil then
       FKName := Candidate;
   end;
@@ -1453,7 +1509,7 @@ begin
     raise Exception.CreateFmt('Could not determine Foreign Key for collection %s', [FPropName]);
   
   // IMPORTANT: FKName is the property name, we need to convert to column name!
-  var FKProp := ChildTyp.GetProperty(FKName);
+  FKProp := ChildTyp.GetProperty(FKName);
   if FKProp <> nil then
   begin
     // Check if property has [Column] attribute
@@ -1468,7 +1524,7 @@ begin
   end;
   
   // Clear the collection before loading to ensure it reflects current DB state
-  var ClearMethod := ListType.GetMethod('Clear');
+  ClearMethod := ListType.GetMethod('Clear');
   if ClearMethod <> nil then
   begin
     if IsInterface then
@@ -1478,15 +1534,15 @@ begin
   end;
     
   // Build Query: Child.FK = Parent.Id
-  var Expr := TBinaryExpression.Create(
+  Expr := TBinaryExpression.Create(
     FKName,
     boEqual,
     ParentPKVal
   );
   
-  var Results := DbSet.ListObjects(Expr);
+  Results := DbSet.ListObjects(Expr);
     // Add results to collection
-    for var ChildObj in Results do
+    for ChildObj in Results do
     begin
       if IsInterface then
         AddMethod.Invoke(Val, [ChildObj])

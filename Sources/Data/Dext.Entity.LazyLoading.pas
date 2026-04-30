@@ -288,20 +288,24 @@ end;
 function TLazyLoader.GetTargetType: PTypeInfo;
 var
   Prop: TRttiProperty;
+  TypeName: string;
+  StartPos, EndPos: Integer;
+  ItemTypeName: string;
+  ItemType: TRttiType;
 begin
   Prop := TReflection.Context.GetType(FEntity.ClassType).GetProperty(FPropName);
   if Prop <> nil then
   begin
     // Extract inner type from Lazy<T>
-    var TypeName := Prop.PropertyType.Name;
+    TypeName := Prop.PropertyType.Name;
     if TypeName.StartsWith('Lazy<') then
     begin
-      var StartPos := Pos('<', TypeName);
-      var EndPos := Pos('>', TypeName);
+      StartPos := Pos('<', TypeName);
+      EndPos := Pos('>', TypeName);
       if (StartPos > 0) and (EndPos > StartPos) then
       begin
-        var ItemTypeName := Copy(TypeName, StartPos + 1, EndPos - StartPos - 1);
-        var ItemType := TReflection.Context.FindType(ItemTypeName);
+        ItemTypeName := Copy(TypeName, StartPos + 1, EndPos - StartPos - 1);
+        ItemType := TReflection.Context.FindType(ItemTypeName);
         if ItemType <> nil then
           Exit(ItemType.Handle);
       end;
@@ -342,6 +346,12 @@ var
   UseExistingInterface: Boolean;
   Map: TEntityMap;
   PropMap: TPropertyMap;
+  GenericTypeName: string;
+  SPos, EPos: Integer;
+  ListIntf: IInterface;
+  LIntfType: TRttiType;
+  LTypeName: string;
+  IntfType: TRttiType;
 begin
   if FLoaded then Exit;
   
@@ -438,16 +448,16 @@ begin
                       // Get Add method
                       if UseExistingInterface then
                       begin
-                         var GenericTypeName := Prop.PropertyType.Name;
+                         GenericTypeName := Prop.PropertyType.Name;
                          if GenericTypeName.StartsWith('Lazy<') then
                          begin
-                           var SPos := Pos('<', GenericTypeName);
-                           var EPos := Pos('>', GenericTypeName);
+                           SPos := Pos('<', GenericTypeName);
+                           EPos := Pos('>', GenericTypeName);
                            if (SPos > 0) and (EPos > SPos) then
                              GenericTypeName := Copy(GenericTypeName, SPos + 1, EPos - SPos - 1);
                          end;
                          
-                         var IntfType := TReflection.Context.FindType(GenericTypeName);
+                         IntfType := TReflection.Context.FindType(GenericTypeName);
                          if IntfType <> nil then
                            AddMethod := IntfType.GetMethod('Add')
                          else
@@ -486,16 +496,15 @@ begin
                       
                       if not UseExistingInterface then
                       begin
-                        var ListIntf: IInterface;
                         if (ListObj <> nil) and ListObj.GetInterface(IInterface, ListIntf) then
                         begin
                            // Attempt to get the actual interface type for the TValue metadata
-                           var LIntfType: TRttiType := nil;
-                           var LTypeName := Prop.PropertyType.Name;
+                           LIntfType := nil;
+                           LTypeName := Prop.PropertyType.Name;
                            if LTypeName.StartsWith('Lazy<') then
                            begin
-                              var SPos := Pos('<', LTypeName);
-                              var EPos := Length(LTypeName);
+                              SPos := Pos('<', LTypeName);
+                              EPos := Length(LTypeName);
                               if (SPos > 0) then
                                 LIntfType := TReflection.Context.FindType(Copy(LTypeName, SPos + 1, EPos - SPos - 1));
                            end
@@ -608,6 +617,14 @@ var
   StartPos, EndPos: Integer;
   TypeName: string;
   UseExistingInterface: Boolean;
+  SearchName: string;
+  T: TRttiType;
+  IntfName: string;
+  IntVal: Integer;
+  V: TValue;
+  i: Integer;
+  m: TRttiMethod;
+  ListRtti: TRttiType;
 begin
   // Get entity's primary key value
   EntityId := TDbContext(FContext).DataSet(FEntity.ClassInfo).GetEntityId(FEntity);
@@ -635,7 +652,7 @@ begin
   // Prop.PropertyType is Lazy<IList<T>>. We need IList<T>.
   TypeName := Prop.PropertyType.Name;
   IntfType := nil;
-  var SearchName := '';
+  SearchName := '';
   if TypeName.StartsWith('Lazy<') then
   begin
     StartPos := Pos('<', TypeName);
@@ -650,7 +667,7 @@ begin
   if (IntfType = nil) and (SearchName <> '') then 
   begin
     // Robust fallback: search all types for matching name or qualified name
-    for var T in TReflection.Context.GetTypes do
+    for T in TReflection.Context.GetTypes do
        if (T.TypeKind = tkInterface) and (SameText(T.Name, SearchName) or SameText(T.QualifiedName, SearchName)) then
        begin
           IntfType := T;
@@ -662,7 +679,7 @@ begin
   ItemType := nil;
   if IntfType <> nil then
   begin
-     var IntfName := IntfType.Name;
+     IntfName := IntfType.Name;
      StartPos := Pos('<', IntfName);
      EndPos := Pos('>', IntfName);
      if (StartPos > 0) and (EndPos > StartPos) then
@@ -672,7 +689,7 @@ begin
         
         if ItemType = nil then
         begin
-          for var T in TReflection.Context.GetTypes do
+          for T in TReflection.Context.GetTypes do
             if SameText(T.Name, ItemTypeName) or SameText(T.QualifiedName, ItemTypeName) then
             begin
                ItemType := T;
@@ -688,7 +705,6 @@ begin
     Cmd := TDbContext(FContext).Connection.CreateCommand(SQL);
     
     // Try to pass PK with correct type (Integer if possible)
-    var IntVal: Integer;
     if TryStrToInt(EntityId, IntVal) then
       Cmd.AddParam('p1', TValue.From<Integer>(IntVal))
     else
@@ -698,7 +714,7 @@ begin
     
     while Reader.Next do
     begin
-      var V := Reader.GetValue(0);
+      V := Reader.GetValue(0);
       RelatedIds.Add(V);
     end;
       
@@ -739,7 +755,7 @@ begin
     RelatedDbSet := TDbContext(FContext).DataSet(ItemType.Handle);
 
     SetLength(IdValues, RelatedIds.Count);
-    for var i := 0 to RelatedIds.Count - 1 do
+    for i := 0 to RelatedIds.Count - 1 do
       IdValues[i] := RelatedIds[i].AsVariant;
     
     PropHelper := TPropExpression.Create('Id');
@@ -778,15 +794,15 @@ begin
     begin
        AddMethod := IntfType.GetMethod('Add');
        if AddMethod = nil then
-         for var m in IntfType.GetMethods do
+         for m in IntfType.GetMethods do
            if SameText(m.Name, 'Add') then begin AddMethod := m; break; end;
     end
     else
     begin
-       var ListRtti := TReflection.Context.GetType(ListObj.ClassType);
+       ListRtti := TReflection.Context.GetType(ListObj.ClassType);
        AddMethod := ListRtti.GetMethod('Add');
        if AddMethod = nil then
-         for var m in ListRtti.GetMethods do
+         for m in ListRtti.GetMethods do
            if SameText(m.Name, 'Add') then begin AddMethod := m; break; end;
     end;
 

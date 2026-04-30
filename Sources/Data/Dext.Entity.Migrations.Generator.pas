@@ -93,6 +93,7 @@ class function TMigrationGenerator.GenerateUnit(const AUnitName, AClassName: str
 var
   SB: TStringBuilder;
   Op: TMigrationOperation;
+  ID, Code: string;
 begin
   SB := TStringBuilder.Create;
   try
@@ -121,7 +122,7 @@ begin
     SB.AppendLine('begin');
     // Extract ID from ClassName or UnitName? Usually ClassName is TMigration_Timestamp_Name
     // Let's assume the ID is the part after TMigration_
-    var ID := AClassName;
+    ID := AClassName;
     if ID.StartsWith('TMigration_', True) then
       ID := ID.Substring(11);
     SB.AppendLine('  Result := ''' + ID + ''';');
@@ -133,7 +134,7 @@ begin
     SB.AppendLine('begin');
     for Op in Ops do
     begin
-      var Code := GenerateOperation(Op);
+      Code := GenerateOperation(Op);
       if Code <> '' then
         SB.AppendLine('  ' + Code);
     end;
@@ -178,6 +179,7 @@ class function TMigrationGenerator.GenerateCreateTable(Op: TCreateTableOperation
 var
   SB: TStringBuilder;
   Col: TColumnDefinition;
+  i: Integer;
 begin
   SB := TStringBuilder.Create;
   try
@@ -194,7 +196,7 @@ begin
     if Length(Op.PrimaryKey) > 0 then
     begin
       SB.Append('    T.PrimaryKey([');
-      for var i := 0 to High(Op.PrimaryKey) do
+      for i := 0 to High(Op.PrimaryKey) do
       begin
         if i > 0 then SB.Append(', ');
         SB.Append(QuoteString(Op.PrimaryKey[i]));
@@ -277,9 +279,10 @@ end;
 class function TMigrationGenerator.GenerateCreateIndex(Op: TCreateIndexOperation): string;
 var
   Cols: string;
+  i: Integer;
 begin
   Cols := '';
-  for var i := 0 to High(Op.Columns) do
+  for i := 0 to High(Op.Columns) do
   begin
     if i > 0 then Cols := Cols + ', ';
     Cols := Cols + QuoteString(Op.Columns[i]);

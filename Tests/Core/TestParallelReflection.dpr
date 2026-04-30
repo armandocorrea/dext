@@ -23,20 +23,26 @@ type
 procedure StressReflection;
 begin
   TParallel.For(1, 1000, procedure(I: Integer)
+  var
+    Meta: TEntityClassMetadata;
+    Handler: IPropertyHandler;
+    Handler2: IPropertyHandler;
   begin
-    var Meta := TReflection.GetMetadata(TypeInfo(TTestEntity));
-    var Handler := Meta.GetHandler('Id');
+    Meta := TReflection.GetMetadata(TypeInfo(TTestEntity));
+    Handler := Meta.GetHandler('Id');
     if Handler = nil then
       raise Exception.Create('Handler not found');
-    var Handler2 := Meta.GetHandlerBySnakeCase('name');
+    Handler2 := Meta.GetHandlerBySnakeCase('name');
   end);
 end;
 
 procedure StressActivator;
 begin
   TParallel.For(1, 1000, procedure(I: Integer)
+  var
+    Obj: TTestEntity;
   begin
-    var Obj := TActivator.CreateInstance<TTestEntity>;
+    Obj := TActivator.CreateInstance<TTestEntity>;
     Obj.Free;
   end);
 end;
@@ -54,9 +60,11 @@ begin
     Writeln('Stress Tests Passed 100%!');
   except
     on E: EAggregateException do
+    var
+      I: Integer;
     begin
       Writeln('EAggregateException: ', E.Message);
-      for var I := 0 to E.Count - 1 do
+      for I := 0 to E.Count - 1 do
         Writeln('  - ', E.InnerExceptions[I].ClassName, ': ', E.InnerExceptions[I].Message);
     end;
     on E: Exception do

@@ -184,6 +184,9 @@ var
   Typ: TRttiType;
   ListTypName: string;
   ListTyp: TRttiType;
+  TypeNamePattern: string;
+  ListPattern: string;
+  tRtti: TRttiType;
 begin
   try
     Typ := TReflection.Context.GetType(AItemType);
@@ -194,8 +197,8 @@ begin
     if ListTyp = nil then
     begin
       // Fallback search: iterate all types in RTTI
-      var TypeNamePattern := 'TTrackingList<' + Typ.Name + '>';
-      for var tRtti in TReflection.Context.GetTypes do
+      TypeNamePattern := 'TTrackingList<' + Typ.Name + '>';
+      for tRtti in TReflection.Context.GetTypes do
       begin
         if tRtti.IsInstance and (tRtti.Name.Contains(TypeNamePattern) or tRtti.QualifiedName.Contains(TypeNamePattern)) then
         begin
@@ -208,8 +211,8 @@ begin
     if ListTyp = nil then
     begin
       // Last resort: try TList<T>
-      var ListPattern := 'TList<' + Typ.Name + '>';
-      for var tRtti in TReflection.Context.GetTypes do
+      ListPattern := 'TList<' + Typ.Name + '>';
+      for tRtti in TReflection.Context.GetTypes do
       begin
         if tRtti.IsInstance and (tRtti.Name.Contains(ListPattern) or tRtti.QualifiedName.Contains(ListPattern)) then
         begin

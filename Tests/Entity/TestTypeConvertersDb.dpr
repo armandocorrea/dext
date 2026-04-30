@@ -1,4 +1,4 @@
-﻿program TestTypeConvertersDb;
+program TestTypeConvertersDb;
 
 {$APPTYPE CONSOLE}
 {$TYPEINFO ON}
@@ -495,6 +495,7 @@ var
   Connection: IDbConnection;
   FDConn: TFDConnection;
   Dialect: ISQLDialect;
+  C: IInterface;
 begin
   try
     WriteLn('═══════════════════════════════════════════════════════════');
@@ -521,7 +522,7 @@ begin
     Db := TTestDbContext.Create(Connection, Dialect);
     try
       // Force clean state by dropping tables
-      var C: IInterface := Connection.CreateCommand('DROP TABLE IF EXISTS test_guid_entities');
+      C := Connection.CreateCommand('DROP TABLE IF EXISTS test_guid_entities');
       (C as IDbCommand).ExecuteNonQuery;
       
       C := Connection.CreateCommand('DROP TABLE IF EXISTS test_composite_guid_int');

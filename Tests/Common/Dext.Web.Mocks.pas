@@ -57,12 +57,13 @@ var
   I, PosEqual: Integer;
   ParamList: TStringList;
   Key, Value, QueryPart: string;
+  PosQuery: Integer;
 begin
   ADict := TCollections.CreateStringDictionary(True); // Case-insensitive
   if AQueryString = '' then Exit;
 
   QueryPart := AQueryString;
-  var PosQuery := Pos('?', AQueryString);
+  PosQuery := Pos('?', AQueryString);
   if PosQuery > 0 then
     QueryPart := Copy(AQueryString, PosQuery + 1, MaxInt);
 

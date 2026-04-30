@@ -113,6 +113,8 @@ var
   StrVal: string;
   Config: IConfiguration;
   ConfigSection: IConfigurationSection;
+  FS: TFormatSettings;
+  Instance: TObject;
 begin
   Result := TValue.Empty;
 
@@ -139,7 +141,7 @@ begin
     tkFloat:
       if StrVal <> '' then
       begin
-        var FS := TFormatSettings.Invariant;
+        FS := TFormatSettings.Invariant;
         Result := StrToFloatDef(StrVal, 0, FS);
       end;
       
@@ -166,7 +168,7 @@ begin
       begin
         if RttiType.AsInstance.MetaclassType <> nil then
         begin
-          var Instance := RttiType.AsInstance.MetaclassType.Create;
+          Instance := RttiType.AsInstance.MetaclassType.Create;
           BindInternal(Config, Instance, RttiType);
           Result := Instance;
         end;

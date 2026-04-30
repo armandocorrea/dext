@@ -1,4 +1,4 @@
-﻿unit MasterDetailForm;
+unit MasterDetailForm;
 
 interface
 
@@ -69,15 +69,17 @@ implementation
 {$R *.dfm}
 
 procedure TFormMasterDetailReal.FormCreate(Sender: TObject);
+var
+  i, j: Integer;
 begin
   // Dados de Exemplo
   FOrders := TCollections.CreateList<TOrder>(True);
   FItems := TCollections.CreateList<TOrderItem>(True);
 
-  for var i := 1 to 5 do
+  for i := 1 to 5 do
   begin
     FOrders.Add(TOrder.Create(i * 100, 'Customer ' + i.ToString));
-    for var j := 1 to 3 do
+    for j := 1 to 3 do
       FItems.Add(TOrderItem.Create(i * 1000 + j, i * 100, 'Product ' + (i * 10 + j).ToString, j * 2));
   end;
 

@@ -215,6 +215,7 @@ var
   NameList: TList<TUnitInfo>;
   Info: TUnitInfo;
   RelPath: string;
+  Folders: TArray<string>;
 begin
   for NameList in FUnitsByName.Values do
   begin
@@ -235,7 +236,7 @@ begin
         if RelPath = '' then RelPath := Info.FullPath;
         
         // Use parent folder + unit name
-        var Folders := Info.FullPath.Split(['\', '/']);
+        Folders := Info.FullPath.Split(['\', '/']);
         if Length(Folders) >= 2 then
           Info.DisplayName := Format('%s (%s)', [Info.Name, Folders[High(Folders)-1]])
         else
@@ -263,11 +264,14 @@ begin
 end;
 
 function TDocRegistry.FindClass(const ClassName: string): TClassInfo;
+var
+  U: TUnitInfo;
+  C: TClassInfo;
 begin
   Result := nil;
-  for var U in FUnits.Values do
+  for U in FUnits.Values do
   begin
-    for var C in U.Classes do
+    for C in U.Classes do
       if SameText(C.Name, ClassName) then Exit(C);
   end;
 end;
@@ -363,7 +367,7 @@ end;
 function TDextDocGenerator.GetMethodSignature(const MethodNode: TSyntaxNode; out Args, RetType: string): string;
 var
   Params: TStringBuilder;
-  Child, Param: TSyntaxNode;
+  Child, Param, ParamsNode, PChild, RChild: TSyntaxNode;
   FirstParam: Boolean;
   ParamName, ParamType: string;
   Modifier: string;
@@ -374,7 +378,7 @@ begin
     FirstParam := True;
     
     // Find Parameters node (Search all children)
-    var ParamsNode: TSyntaxNode := nil;
+    ParamsNode := nil;
     for Child in MethodNode.ChildNodes do
     begin
       if Child.Typ = ntParameters then
@@ -390,12 +394,12 @@ begin
           begin
              ParamName := GetNodeText(Param);
              if ParamName = '' then 
-               for var PChild in Param.ChildNodes do 
+               for PChild in Param.ChildNodes do 
                   if PChild.Typ = ntName then ParamName := GetNodeText(PChild);
              
              ParamType := Param.GetAttribute(anType);
              if ParamType = '' then 
-               for var PChild in Param.ChildNodes do 
+               for PChild in Param.ChildNodes do 
                   if PChild.Typ = ntType then ParamType := GetNodeText(PChild);
 
              // Modifiers: try anKind or Check attributes
@@ -432,7 +436,7 @@ begin
            RetType := ': ' + Child.GetAttribute(anType); 
            if RetType = ': ' then // Fallback to child check for return type too
            begin
-                for var RChild in Child.ChildNodes do 
+                for RChild in Child.ChildNodes do 
                     if RChild.Typ = ntType then RetType := ': ' + GetNodeText(RChild);
            end;
            Break;
@@ -449,6 +453,10 @@ procedure TDextDocGenerator.ExtractMembers(CInfo: TClassInfo; ClassNode: TSyntax
     var 
       CChild: TSyntaxNode;
       Vis: string;
+      MName, Xml: string;
+      M: TMethodInfo;
+      P: TPropertyInfo;
+      F: TMemberInfo;
     begin
        if Depth > 10 then Exit;
        Vis := CurrentVis;
@@ -463,27 +471,27 @@ procedure TDextDocGenerator.ExtractMembers(CInfo: TClassInfo; ClassNode: TSyntax
        begin
            if CChild.Typ in [ntMethod, ntProperty, ntField] then
            begin
-              var MName := GetNodeText(CChild);
+              MName := GetNodeText(CChild);
               if MName = '' then Continue;
               
-              var Xml := GetXmlDoc(CInfo.UnitName, CChild.Line);
+              Xml := GetXmlDoc(CInfo.UnitName, CChild.Line);
               
               if CChild.Typ = ntMethod then
               begin
-                 var M := TMethodInfo.Create(MName, Vis, Xml); 
+                 M := TMethodInfo.Create(MName, Vis, Xml); 
                  M.Kind := CChild.GetAttribute(anKind); 
                  GetMethodSignature(CChild, M.Args, M.ResultType);
                  CInfo.Methods.Add(M);
               end
               else if CChild.Typ = ntProperty then
               begin
-                 var P := TPropertyInfo.Create(MName, Vis, Xml);
+                 P := TPropertyInfo.Create(MName, Vis, Xml);
                  P.PropType := CChild.GetAttribute(anType);
                  CInfo.Properties.Add(P);
               end
               else
               begin
-                 var F := TMemberInfo.Create(MName, Vis, Xml);
+                 F := TMemberInfo.Create(MName, Vis, Xml);
                  CInfo.Fields.Add(F);
               end;
            end
@@ -502,6 +510,16 @@ var
   InterfaceNode, Child, TypeNode: TSyntaxNode;
   CInfo: TClassInfo;
   TypeType, NodeName: string;
+  MName, Xml: string;
+  M: TMethodInfo;
+  CNode, GP, GPT: TSyntaxNode;
+  CName, CVal: string;
+  TI: TTypeInfo;
+  GenericParams: string;
+  GChild, GSB, ClassNode, Candidate, IChild, Sub, EVal, EnumSB: TSyntaxNode; // GSB, EnumSB should be variables, not TSyntaxNode
+  // Correction: GSB and EnumSB are TStringBuilder, others are TSyntaxNode
+  _GSB, _EnumSB: TStringBuilder;
+  GPName, CandKind, NameFound: string;
 begin
   UInfo := TUnitInfo.Create;
   UInfo.Name := UnitName;
@@ -517,10 +535,11 @@ begin
     // Check for Global Methods
     if Child.Typ = ntMethod then
     begin
-         var MName := GetNodeText(Child);
+         MName := GetNodeText(Child);
          if MName <> '' then
          begin
-             var M := TMethodInfo.Create(MName, 'PUBLIC', GetXmlDoc(UnitName, Child.Line));
+             Xml := GetXmlDoc(UnitName, Child.Line);
+             M := TMethodInfo.Create(MName, 'PUBLIC', Xml);
              M.Kind := Child.GetAttribute(anKind);
              GetMethodSignature(Child, M.Args, M.ResultType);
              UInfo.GlobalMethods.Add(M);
@@ -528,25 +547,19 @@ begin
     end
     else if Child.Typ = ntConstants then // CONSTS
     begin
-         for var CNode in Child.ChildNodes do
+         for CNode in Child.ChildNodes do
          begin
              if CNode.Typ = ntConstant then
              begin
-                  var CName := GetNodeText(CNode);
+                  CName := GetNodeText(CNode);
                   if CName <> '' then
                   begin
                       // Value is child or attribute??
-                      var CVal := GetNodeText(CNode); // Often value is here
-                      // But wait, name is attribute, value might be where?
-                      // If GetNodeText returned NAME, then we check children for value?
-                      // Actually TValuedSyntaxNode.Value is usually the name/value depending on node type.
-                      // Let's assume Name is Name, and check children for Value node?
-                      // Or maybe CNode itself has the value?
-                      var TI := TTypeInfo.Create(CName, 'PUBLIC', GetXmlDoc(UnitName, CNode.Line));
+                      CVal := GetNodeText(CNode); // Often value is here
+                      Xml := GetXmlDoc(UnitName, CNode.Line);
+                      TI := TTypeInfo.Create(CName, 'PUBLIC', Xml);
                       TI.Kind := 'Constant';
                       TI.Value := ''; 
-                      // Simple hack: if we can't easily find value, just list it.
-                      // Try find value in child?
                       UInfo.GlobalConstants.Add(TI);
                   end;
              end;
@@ -562,33 +575,33 @@ begin
              NodeName := GetNodeText(TypeNode);
              
              // Check for Generic Parameters (ntTypeParams -> ntTypeParam -> ntType/ntName)
-             var GenericParams: string := '';
-             for var GChild in TypeNode.ChildNodes do
+             GenericParams := '';
+             for GChild in TypeNode.ChildNodes do
              begin
                 if GChild.Typ = ntTypeParams then
                 begin
-                   var GSB := TStringBuilder.Create;
+                   _GSB := TStringBuilder.Create;
                    try
-                      GSB.Append('<');
-                      for var GP in GChild.ChildNodes do
+                      _GSB.Append('<');
+                      for GP in GChild.ChildNodes do
                       begin
                          if GP.Typ = ntTypeParam then
                          begin
-                            var GPName := GP.GetAttribute(anName);
+                            GPName := GP.GetAttribute(anName);
                             if GPName = '' then GPName := GetNodeText(GP); // Try helper
                             // If still empty, check child type
                             if GPName = '' then
-                               for var GPT in GP.ChildNodes do 
+                               for GPT in GP.ChildNodes do 
                                   if GPT.Typ in [ntName, ntType] then GPName := GetNodeText(GPT);
                             
-                            if GSB.Length > 1 then GSB.Append(', ');
-                            GSB.Append(GPName);
+                            if _GSB.Length > 1 then _GSB.Append(', ');
+                            _GSB.Append(GPName);
                          end;
                       end;
-                      GSB.Append('>');
-                      if GSB.Length > 2 then GenericParams := GSB.ToString; 
+                      _GSB.Append('>');
+                      if _GSB.Length > 2 then GenericParams := _GSB.ToString; 
                    finally
-                      GSB.Free;
+                      _GSB.Free;
                    end;
                    Break; // Only one params section
                 end;
@@ -597,14 +610,14 @@ begin
              NodeName := NodeName + GenericParams; // Append <T> to Name
 
              // Smart Fallback for Type Attribute
-             var ClassNode: TSyntaxNode := TypeNode;
+             ClassNode := TypeNode;
              
              // Fix for Generics: Check ALL children to find the 'class'/'interface' definition
              if (TypeType = '') and (Length(TypeNode.ChildNodes) > 0) then
              begin
-                for var Candidate in TypeNode.ChildNodes do
+                for Candidate in TypeNode.ChildNodes do
                 begin
-                   var CandKind := Candidate.GetAttribute(anType);
+                   CandKind := Candidate.GetAttribute(anType);
                    if CandKind = '' then CandKind := Candidate.GetAttribute(anKind);
                    
                    if (SameText(CandKind, 'class')) or (SameText(CandKind, 'interface')) or (SameText(CandKind, 'record')) then
@@ -618,10 +631,9 @@ begin
                 // Fallback (e.g. Type Alias or Simple Type)
                 if (TypeType = '') then
                 begin
-                    var TypeChild: TSyntaxNode := TypeNode.ChildNodes[0];
-                    TypeType := TypeChild.GetAttribute(anType);
-                    if TypeType = '' then TypeType := TypeChild.GetAttribute(anKind);
-                    ClassNode := TypeChild;                        
+                    ClassNode := TypeNode.ChildNodes[0];
+                    TypeType := ClassNode.GetAttribute(anType);
+                    if TypeType = '' then TypeType := ClassNode.GetAttribute(anKind);
                 end;
              end;
              
@@ -635,18 +647,18 @@ begin
                 CInfo.XmlDoc := GetXmlDoc(UnitName, TypeNode.Line); 
                 
                 // inheritance (Modified for robust detection)
-                for var IChild in ClassNode.ChildNodes do
+                for IChild in ClassNode.ChildNodes do
                 begin
                    if IChild.Typ = ntInherited then 
                    begin
-                        var NameFound := IChild.GetAttribute(anName);
+                        NameFound := IChild.GetAttribute(anName);
                         if NameFound = '' then
-                             for var Sub in IChild.ChildNodes do 
+                             for Sub in IChild.ChildNodes do 
                                if Sub.Typ in [ntName, ntType] then 
                                begin
                                   NameFound := GetNodeText(Sub);
                                   Break;
-                               end;
+                                end;
                         // Fix for Generics (e.g. TDictionary<K,V>)
                         if NameFound = '' then NameFound := GetNodeText(IChild);
 
@@ -659,7 +671,7 @@ begin
                    else if (IChild.Typ = ntType) then
                    begin
                       // A child ntType node often represents the parent class or interfaces
-                      var NameFound := IChild.GetAttribute(anName);
+                      NameFound := IChild.GetAttribute(anName);
                       // Ignore 'class', 'interface' type nodes themselves
                       if (NameFound <> '') and (NameFound <> 'class') and (NameFound <> 'interface') and (NameFound <> 'record') then
                       begin
@@ -684,7 +696,7 @@ begin
                  // 1. Check if TypeType is empty, try to find "enum" in children types
                  if (TypeType = '') and (Length(ClassNode.ChildNodes) > 0) then
                  begin
-                     for var Sub in ClassNode.ChildNodes do
+                     for Sub in ClassNode.ChildNodes do
                        if (Sub.Typ = ntType) and SameText(Sub.GetAttribute(anName), 'enum') then
                        begin
                           TypeType := 'enumeration';
@@ -692,7 +704,7 @@ begin
                        end;
                  end;
                  
-                 var TI := TTypeInfo.Create(NodeName, 'PUBLIC', GetXmlDoc(UnitName, TypeNode.Line));
+                 TI := TTypeInfo.Create(NodeName, 'PUBLIC', GetXmlDoc(UnitName, TypeNode.Line));
                  TI.Kind := TypeType; 
                  
                  // Smart Detect Enum if still empty but has values
@@ -705,17 +717,17 @@ begin
                  // If Enumeration, list values
                  if SameText(TI.Kind, 'enumeration') or SameText(TI.Kind, '(enumeration)') then
                  begin
-                      var EnumSB := TStringBuilder.Create;
+                      _EnumSB := TStringBuilder.Create;
                       try
-                         for var EVal in ClassNode.ChildNodes do 
+                         for EVal in ClassNode.ChildNodes do 
                          begin
                             // Support ntName OR ntIdentifier
                             if (EVal.Typ = ntName) or (EVal.Typ = ntIdentifier) then 
-                               EnumSB.Append(GetNodeText(EVal) + ', ');
+                               _EnumSB.Append(GetNodeText(EVal) + ', ');
                          end;
-                         TI.Details := EnumSB.ToString.TrimRight([',', ' ']);
+                         TI.Details := _EnumSB.ToString.TrimRight([',', ' ']);
                       finally
-                         EnumSB.Free;
+                         _EnumSB.Free;
                       end;
                  end;
                  
@@ -725,9 +737,6 @@ begin
        end;
     end;
   end;
-  
-   // Debug AST removed
-
   
   Result := UInfo;
 end;
@@ -743,6 +752,9 @@ var
   FinalHtml: string;
   AllUnits: TArray<TUnitInfo>;
   Info: TUnitInfo;
+  Node, _Node: TSyntaxNode;
+  UnitInfo: TUnitInfo;
+  SafeFileName: string;
 begin
   Files := TDirectory.GetFiles(InputDir, '*.pas', TSearchOption.SoAllDirectories);
   UnitNodes := TDictionary<string, TSyntaxNode>.Create;
@@ -754,13 +766,13 @@ begin
        if FileName.ToLower.Contains('\tests\') then Continue; 
 
        try
-         var Node := ParseFile(FileName);
+         Node := ParseFile(FileName);
          if Node <> nil then
          begin
            UnitName := TPath.GetFileNameWithoutExtension(FileName);
            
            // Build Model using Generator Logic (with access to XmlDoc)
-           var UnitInfo := BuildUnitModel(UnitName, FileName, Node);
+           UnitInfo := BuildUnitModel(UnitName, FileName, Node);
            
            // Try to add - may fail for duplicates (gracefully handled)
            if FRegistry.AddUnit(UnitInfo, InputDir) then
@@ -805,7 +817,7 @@ begin
         UnitHtml := GenerateUnitHtml(Info, UnitNodes[Info.FullPath.ToLower]);
        
         // Use safe filename (replace problematic chars for duplicates with paths)
-        var SafeFileName := Info.DisplayName
+        SafeFileName := Info.DisplayName
           .Replace(' ', '_')
           .Replace('(', '_')
           .Replace(')', '_');
@@ -834,8 +846,7 @@ begin
     TFile.WriteAllText(TPath.Combine(FOutputDir, 'index.html'), FinalHtml);
     
   finally
-    var Node: TSyntaxNode;
-    for Node in UnitNodes.Values do Node.Free;
+    for _Node in UnitNodes.Values do _Node.Free;
     UnitNodes.Free;
   end;
 end;
@@ -886,6 +897,7 @@ var
   I: Integer;
   Comment: string;
   Doc: string;
+  StartP, EndP: Integer;
 begin
   Result := '';
   if not FSourceLines.TryGetValue(UnitName, Lines) then Exit;
@@ -905,8 +917,8 @@ begin
   end;
   if Doc.Contains('<summary>') then
   begin
-     var StartP := Doc.IndexOf('<summary>') + 9;
-     var EndP := Doc.IndexOf('</summary>');
+     StartP := Doc.IndexOf('<summary>') + 9;
+     EndP := Doc.IndexOf('</summary>');
      if EndP > StartP then Result := Doc.Substring(StartP, EndP - StartP).Trim;
   end
   else if Doc <> '' then Result := Doc; 
@@ -915,28 +927,34 @@ end;
 function TDextDocGenerator.RenderHtmlDocumentationObj(CInfo: TClassInfo): string;
 var
   SB: TStringBuilder;
+  TargetVis: string;
+  List: TList<TMemberInfo>;
+  M: TMethodInfo;
+  P: TPropertyInfo;
+  F: TMemberInfo;
+  Item: TMemberInfo;
+  Sig: string;
 begin
   SB := TStringBuilder.Create;
   try
-    var TargetVis: string;
     for TargetVis in ['PUBLISHED', 'PUBLIC', 'PROTECTED', 'PRIVATE'] do
     begin
-       var List := TList<TMemberInfo>.Create;
+       List := TList<TMemberInfo>.Create;
        try
-          for var M in CInfo.Methods do if M.Visibility = TargetVis then List.Add(M);
-          for var P in CInfo.Properties do if P.Visibility = TargetVis then List.Add(P);
-          for var F in CInfo.Fields do if F.Visibility = TargetVis then List.Add(F);
+          for M in CInfo.Methods do if M.Visibility = TargetVis then List.Add(M);
+          for P in CInfo.Properties do if P.Visibility = TargetVis then List.Add(P);
+          for F in CInfo.Fields do if F.Visibility = TargetVis then List.Add(F);
           
           if List.Count > 0 then
           begin
              SB.AppendFormat('<div class="visibility-group"><h5>%s</h5>', [TargetVis]);
-             for var Item in List do
+             for Item in List do
              begin
                  SB.AppendLine('<div class="api-item">');
                  if Item is TMethodInfo then
                  begin
-                    var M := TMethodInfo(Item);
-                    var Sig := M.Kind + ' ' + M.Name + M.Args + M.ResultType; 
+                    M := TMethodInfo(Item);
+                    Sig := M.Kind + ' ' + M.Name + M.Args + M.ResultType; 
                     if M.Kind = '' then Sig := 'procedure ' + M.Name + M.Args; 
                     SB.AppendFormat('<div class="api-signature">%s</div>', [CleanType(Sig)]);
                  end
@@ -965,6 +983,14 @@ function TDextDocGenerator.GenerateUnitHtml(Info: TUnitInfo; UnitNode: TSyntaxNo
 var
   SB, MermaidSB: TStringBuilder;
   ValidClasses: Integer;
+  C: TClassInfo;
+  AddedMethods: TList<string>;
+  M: TMethodInfo;
+  MName, Intf: string;
+  P: TPropertyInfo;
+  Sig: string;
+  T: TTypeInfo;
+  GlobalC: TTypeInfo;
 begin
   SB := TStringBuilder.Create;
   MermaidSB := TStringBuilder.Create;
@@ -978,7 +1004,7 @@ begin
         MermaidSB.AppendLine('classDiagram');
         ValidClasses := 0;
         
-        for var C in Info.Classes do
+        for C in Info.Classes do
         begin
              ValidClasses := ValidClasses + 1;
              // Use CleanMermaidId (List~T~) directly as the Class ID
@@ -990,11 +1016,11 @@ begin
              // Actually, we can just list methods from CInfo!
              
              // Methods and Properties
-              var AddedMethods := TList<string>.Create;
+              AddedMethods := TList<string>.Create;
               try
-                 for var M in C.Methods do 
+                 for M in C.Methods do 
                  begin
-                    var MName := CleanMermaidText(M.Name);
+                    MName := CleanMermaidText(M.Name);
                     if not AddedMethods.Contains(MName) then
                     begin
                         MermaidSB.AppendFormat('    +%s()%s', [MName, sLineBreak]);
@@ -1002,7 +1028,7 @@ begin
                     end;
                  end;
                  
-                 for var P in C.Properties do MermaidSB.AppendFormat('    +%s%s', [CleanMermaidText(P.Name), sLineBreak]);
+                 for P in C.Properties do MermaidSB.AppendFormat('    +%s%s', [CleanMermaidText(P.Name), sLineBreak]);
               finally
                  AddedMethods.Free;
               end;
@@ -1012,7 +1038,7 @@ begin
              // No Label Mapping needed if ID is readable (List~T~)
              
              if C.ParentName <> '' then MermaidSB.AppendFormat('%s <|-- %s%s', [CleanMermaidId(C.ParentName), CleanMermaidId(C.Name), sLineBreak]);
-             for var Intf in C.Interfaces do MermaidSB.AppendFormat('%s <|.. %s%s', [CleanMermaidId(Intf), CleanMermaidId(C.Name), sLineBreak]);
+             for Intf in C.Interfaces do MermaidSB.AppendFormat('%s <|.. %s%s', [CleanMermaidId(Intf), CleanMermaidId(C.Name), sLineBreak]);
         end;
         
         if ValidClasses > 0 then
@@ -1031,7 +1057,7 @@ begin
         SB.AppendLine('<h2>API Details</h2>');
         
         // Render Class Details
-        for var C in Info.Classes do
+        for C in Info.Classes do
         begin
              SB.AppendLine('<div class="class-header">');
               SB.AppendFormat('<h3>%s %s</h3>', [C.Kind, CleanType(C.Name)]); // Show Kind (record/class) - Escape Name for HTML!
@@ -1048,27 +1074,20 @@ begin
     if Info.GlobalMethods.Count > 0 then
     begin
        SB.AppendLine('<h2>Global Routines</h2>');
-        var List := TList<TMemberInfo>.Create;
-       try
-          // Cast TMethodInfo to TMemberInfo for re-use of simple loop? 
-          // No, reusing logic is hard. Custom loop.
-          SB.AppendFormat('<div class="visibility-group"><h5>Routines</h5>', []);
-          for var M in Info.GlobalMethods do
-          begin
-                 SB.AppendLine('<div class="api-item">');
-                 
-                 var Sig := M.Kind + ' ' + M.Name + M.Args + M.ResultType; 
-                 if M.Kind = '' then Sig := 'procedure ' + M.Name + M.Args; 
-                 
-                 SB.AppendFormat('<div class="api-signature">%s</div>', [CleanType(Sig)]);
-                 
-                 if M.XmlDoc <> '' then SB.AppendFormat('<div class="description">%s</div>', [M.XmlDoc]);
-                 SB.AppendLine('</div>');
-          end;
-          SB.AppendLine('</div>');
-       finally
-          List.Free;
+       SB.AppendFormat('<div class="visibility-group"><h5>Routines</h5>', []);
+       for M in Info.GlobalMethods do
+       begin
+              SB.AppendLine('<div class="api-item">');
+              
+              Sig := M.Kind + ' ' + M.Name + M.Args + M.ResultType; 
+              if M.Kind = '' then Sig := 'procedure ' + M.Name + M.Args; 
+              
+              SB.AppendFormat('<div class="api-signature">%s</div>', [CleanType(Sig)]);
+              
+              if M.XmlDoc <> '' then SB.AppendFormat('<div class="description">%s</div>', [M.XmlDoc]);
+              SB.AppendLine('</div>');
        end;
+       SB.AppendLine('</div>');
     end;
 
     // 3. Global Constants
@@ -1076,11 +1095,11 @@ begin
     begin
        SB.AppendLine('<h2>Constants</h2>');
        SB.AppendFormat('<div class="visibility-group">', []);
-       for var C in Info.GlobalConstants do
+       for GlobalC in Info.GlobalConstants do
        begin
               SB.AppendLine('<div class="api-item">');
-              SB.AppendFormat('<div class="api-signature">const %s</div>', [C.Name]);
-              if C.XmlDoc <> '' then SB.AppendFormat('<div class="description">%s</div>', [C.XmlDoc]);
+              SB.AppendFormat('<div class="api-signature">const %s</div>', [GlobalC.Name]);
+              if GlobalC.XmlDoc <> '' then SB.AppendFormat('<div class="description">%s</div>', [GlobalC.XmlDoc]);
               SB.AppendLine('</div>');
        end;
        SB.AppendLine('</div>');
@@ -1091,7 +1110,7 @@ begin
     begin
        SB.AppendLine('<h2>Types</h2>');
        SB.AppendFormat('<div class="visibility-group">', []);
-       for var T in Info.GlobalTypes do
+       for T in Info.GlobalTypes do
        begin
               SB.AppendLine('<div class="api-item">');
               SB.AppendFormat('<div class="api-signature">type %s = %s</div>', [T.Name, T.Kind]);
@@ -1108,7 +1127,5 @@ begin
     SB.Free;
   end;
 end;
-
-
 
 end.

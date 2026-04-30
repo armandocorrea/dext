@@ -1,4 +1,4 @@
-﻿program Web.BasicAuthDemo;
+program Web.BasicAuthDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -10,13 +10,15 @@ uses
   Dext.Auth.BasicAuth,
   Dext.Web.Interfaces;
 
+var
+  App: IWebApplication;
 begin
   try
     WriteLn('🔐 Dext Basic Authentication Demo');
     WriteLn('==================================');
     WriteLn;
-
-    var App: IWebApplication := TWebApplication.Create;
+    
+    App := TWebApplication.Create;
 
     // 1. Configure Basic Authentication Middleware
     // This defines HOW users are validated

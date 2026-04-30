@@ -186,6 +186,10 @@ end;
 class procedure TUtf8JsonSerializer.DeserializeFieldDirect(var AReader: TUtf8JsonReader; const FieldInfo: TJsonFieldInfo; Instance: Pointer);
 var
   P: Pointer;
+  DateStr: string;
+  Dt: TDateTime;
+  GuidStr: string;
+  G: TGUID;
 begin
   P := Pointer(NativeUInt(Instance) + NativeUInt(FieldInfo.Offset));
   case FieldInfo.TypeKind of
@@ -200,8 +204,7 @@ begin
          (FieldInfo.TypeInfo = TypeInfo(TDate)) or
          (FieldInfo.TypeInfo = TypeInfo(TTime)) then
       begin
-         var DateStr := AReader.GetString;
-         var Dt: TDateTime;
+         DateStr := AReader.GetString;
          if TryParseCommonDate(DateStr, Dt) then
            PDateTime(P)^ := Dt
          else
@@ -229,8 +232,7 @@ begin
       begin
         if FieldInfo.TypeInfo = TypeInfo(TGUID) then
         begin
-          var GuidStr := AReader.GetString;
-          var G: TGUID;
+          GuidStr := AReader.GetString;
           
           if GuidStr.Trim = '' then
             G := TGUID.Empty
@@ -245,7 +247,7 @@ begin
         end
         else if FieldInfo.TypeInfo = TypeInfo(TUUID) then
         begin
-          var GuidStr := AReader.GetString;
+          GuidStr := AReader.GetString;
           if GuidStr.Trim = '' then
             PTUUID(P)^ := TUUID.Null
           else

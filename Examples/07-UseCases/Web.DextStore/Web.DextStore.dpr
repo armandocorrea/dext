@@ -1,4 +1,4 @@
-﻿program Web.DextStore;
+program Web.DextStore;
 
 {$APPTYPE CONSOLE}
 
@@ -8,11 +8,13 @@ uses
   Dext.Web,
   Web.DextStore.Startup in 'Web.DextStore.Startup.pas';
 
+var
+  App: IWebApplication;
 begin
   try
     WriteLn('🛒 Starting DextStore API...');
     
-    var App: IWebApplication := TDextApplication.Create;
+    App := TDextApplication.Create;
     App.UseStartup(TStartup.Create);
     
     WriteLn('🚀 Server running on http://localhost:9000');

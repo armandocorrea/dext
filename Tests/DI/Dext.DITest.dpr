@@ -58,7 +58,7 @@ end;
 
 var
   Provider: IServiceProvider;
-  Logger: ILogger;
+  Logger, Logger2: ILogger;
   DataService: IDataService;
 begin
   try
@@ -85,7 +85,7 @@ begin
       Writeln('Data: ', DataService.GetData);
 
     // Testar singleton - mesma instância
-    var Logger2: ILogger := TDextServices.GetService<ILogger>(Provider);
+    Logger2 := TDextServices.GetService<ILogger>(Provider);
     if Logger = Logger2 then
       Writeln('✔ Singleton working - same instance')
     else

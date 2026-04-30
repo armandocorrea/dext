@@ -48,11 +48,13 @@ begin
   Result := DateTimeToStr(Now);
 end;
 
+var
+  Host: IWebHost;
 begin
   try
     Writeln('=== Starting Dext Web Server ===');
 
-    var Host := TDextWebHost.CreateDefaultBuilder
+    Host := TDextWebHost.CreateDefaultBuilder
       .ConfigureServices(procedure(Services: IServiceCollection)
       begin
         // Registrar serviços usando a API fluente
@@ -61,12 +63,15 @@ begin
           .AddSingleton<ILogger, TConsoleLogger>;
       end)
       .Configure(procedure(App: IApplicationBuilder)
+      var
+        ExceptionOptions: TExceptionHandlerOptions;
+        LoggingOptions: THttpLoggingOptions;
       begin
         // Configurar pipeline
-        var ExceptionOptions := TExceptionHandlerOptions.Development;
+        ExceptionOptions := TExceptionHandlerOptions.Development;
         App.UseMiddleware(TExceptionHandlerMiddleware, TValue.From(ExceptionOptions));
         
-        var LoggingOptions := THttpLoggingOptions.Default;
+        LoggingOptions := THttpLoggingOptions.Default;
         App.UseMiddleware(THttpLoggingMiddleware, TValue.From(LoggingOptions));
 
         App.Map('/',

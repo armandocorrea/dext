@@ -366,6 +366,11 @@ begin
        F: string;
        FinalObj: IDextJsonObject;
        Res: IResult;
+       TestFiles: TArray<string>;
+       Name: string;
+       Found: Boolean;
+       I: Integer;
+       TestObj: IDextJsonObject;
     begin
        if not Ctx.Request.Query.TryGetValue('path', ScanPath) then
          ScanPath := '';
@@ -390,10 +395,10 @@ begin
               Files := TDirectory.GetFiles(ScanPath, '*.dpr', TSearchOption.soAllDirectories);
               for F in Files do 
               begin
-                 var Name := TPath.GetFileNameWithoutExtension(F);
+                 Name := TPath.GetFileNameWithoutExtension(F);
                  // Avoid duplicates if dproj already found
-                 var Found := False;
-                 for var I := 0 to Projects.GetCount - 1 do
+                 Found := False;
+                 for I := 0 to Projects.GetCount - 1 do
                    if Projects.GetString(I).Equals(Name) then
                    begin
                      Found := True;
@@ -408,15 +413,15 @@ begin
               
               // Scan for Test Projects (.dpr) instead of units (.pas)
               // Convention: Starts with "Test" or ends with "Tests"
-              var TestFiles := TDirectory.GetFiles(ScanPath, 'Test*.dpr', TSearchOption.soAllDirectories);
+              TestFiles := TDirectory.GetFiles(ScanPath, 'Test*.dpr', TSearchOption.soAllDirectories);
               TestFiles := TestFiles + TDirectory.GetFiles(ScanPath, '*Tests.dpr', TSearchOption.soAllDirectories);
               
               for F in TestFiles do 
               begin
-                 var Name := TPath.GetFileNameWithoutExtension(F);
+                 Name := TPath.GetFileNameWithoutExtension(F);
                  // Avoid duplicates
-                 var Found := False;
-                 for var I := 0 to Tests.GetCount - 1 do
+                 Found := False;
+                 for I := 0 to Tests.GetCount - 1 do
                    if (Tests.GetNode(I).GetNodeType = jntObject) and Tests.GetObject(I).GetString('name').Equals(Name) then
                    begin
                      Found := True;
@@ -425,7 +430,7 @@ begin
                  
                  if not Found then 
                  begin
-                   var TestObj := TDextJson.Provider.CreateObject;
+                   TestObj := TDextJson.Provider.CreateObject;
                    TestObj.SetString('name', Name);
                    TestObj.SetString('path', F);
                    Tests.Add(TestObj);
@@ -784,6 +789,8 @@ begin
       RequestIndex: Integer;
       Res: IResult;
       SR: TStreamReader;
+      HdrKey: string;
+      HistoryItem: THttpHistoryItem;
     begin
       SR := TStreamReader.Create(Ctx.Request.Body);
       try
@@ -818,7 +825,7 @@ begin
                   
                   HeadersObj := TDextJson.Provider.CreateObject;
                   if ExResult.ResponseHeaders <> nil then
-                    for var HdrKey in ExResult.ResponseHeaders.Keys do
+                    for HdrKey in ExResult.ResponseHeaders.Keys do
                       HeadersObj.SetString(HdrKey, ExResult.ResponseHeaders[HdrKey]);
                   ResJson.SetObject('responseHeaders', HeadersObj);
                   
@@ -831,7 +838,7 @@ begin
                   
                   TMonitor.Enter(TObject(FHttpHistory));
                   try
-                    var HistoryItem := THttpHistoryItem.Create;
+                    HistoryItem := THttpHistoryItem.Create;
                     HistoryItem.Id := TGUID.NewGuid.ToString;
                     HistoryItem.Method := Collection.Requests[RequestIndex].Method;
                     HistoryItem.Url := Collection.Requests[RequestIndex].Url;

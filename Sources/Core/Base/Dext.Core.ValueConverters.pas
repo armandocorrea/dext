@@ -190,6 +190,13 @@ uses
 { TValueConverterRegistry }
 
 class constructor TValueConverterRegistry.Create;
+var
+  NumericToFloat: IValueConverter;
+  NumericToInt: IValueConverter;
+  NumericToEnum: IValueConverter;
+  FloatToStrConv: IValueConverter;
+  IntToStrConv: IValueConverter;
+  BoolToStrConv: IValueConverter;
 begin
   FLock := System.SyncObjs.TCriticalSection.Create;
   FConverters := TCollections.CreateDictionary<string, IValueConverter>(False);
@@ -251,12 +258,12 @@ begin
   RegisterConverter(TypeInfo(Variant), TypeInfo(TUUID), TVariantToUUIDConverter.Create);
 
   // Numerical Kinds catch-all (ensures Double -> Currency, Integer -> Double, etc)
-  var NumericToFloat := TVariantToFloatConverter.Create;
+  NumericToFloat := TVariantToFloatConverter.Create;
   RegisterConverter(tkInteger, tkFloat, NumericToFloat);
   RegisterConverter(tkInt64, tkFloat, NumericToFloat);
   RegisterConverter(tkFloat, tkFloat, NumericToFloat);
   
-  var NumericToInt := TVariantToIntegerConverter.Create;
+  NumericToInt := TVariantToIntegerConverter.Create;
   RegisterConverter(tkFloat, tkInteger, NumericToInt);
   RegisterConverter(tkInt64, tkInteger, NumericToInt);
   RegisterConverter(tkInteger, tkInteger, NumericToInt);
@@ -265,23 +272,23 @@ begin
   RegisterConverter(tkInteger, tkInt64, NumericToInt);
   
   // Float/Integer -> Enum support
-  var NumericToEnum := TVariantToEnumConverter.Create;
+  NumericToEnum := TVariantToEnumConverter.Create;
   RegisterConverter(tkInteger, tkEnumeration, NumericToEnum);
   RegisterConverter(tkInt64, tkEnumeration, NumericToEnum);
   RegisterConverter(tkFloat, tkEnumeration, NumericToEnum);
 
   // Invariant String support
-  var FloatToStrConv := TFloatToStringConverter.Create;
+  FloatToStrConv := TFloatToStringConverter.Create;
   RegisterConverter(tkFloat, tkUString, FloatToStrConv);
   RegisterConverter(tkFloat, tkString, FloatToStrConv);
   
-  var IntToStrConv := TIntegerToStringConverter.Create;
+  IntToStrConv := TIntegerToStringConverter.Create;
   RegisterConverter(tkInteger, tkUString, IntToStrConv);
   RegisterConverter(tkInteger, tkString, IntToStrConv);
   RegisterConverter(tkInt64, tkUString, IntToStrConv);
   RegisterConverter(tkInt64, tkString, IntToStrConv);
 
-  var BoolToStrConv := TBooleanToStringConverter.Create;
+  BoolToStrConv := TBooleanToStringConverter.Create;
   RegisterConverter(tkEnumeration, tkUString, BoolToStrConv);
   RegisterConverter(tkEnumeration, tkString, BoolToStrConv);
 end;
@@ -428,15 +435,11 @@ begin
          Result := TimeToStr(AValue.AsType<TTime>)
        else if AValue.TypeInfo = TypeInfo(TGUID) then
        begin
-         var G: TGUID;
-         AValue.ExtractRawData(@G);
-         Result := GUIDToString(G);
+         Result := GUIDToString(AValue.AsType<TGUID>);
        end
        else if AValue.TypeInfo = TypeInfo(TUUID) then
        begin
-         var U: TUUID;
-         AValue.ExtractRawData(@U);
-         Result := U.ToString;
+         Result := AValue.AsType<TUUID>().ToString;
        end
        else
          Result := AValue.ToString;
@@ -541,6 +544,8 @@ function TVariantToFloatConverter.Convert(const AValue: TValue; ATargetType: PTy
 var
   Val: Extended;
   V: Variant;
+  S: string;
+  Dt: TDateTime;
 begin
   V := AValue.AsVariant;
   if VarIsNull(V) or VarIsEmpty(V) then
@@ -549,12 +554,11 @@ begin
     Val := V
   else
   begin
-    var S := VarToStr(V);
+    S := VarToStr(V);
     // If it looks like a date (ISO or common), use the date parser first!
     if (S.Contains('-') or S.Contains(':') or S.Contains('/')) and (not S.StartsWith('{')) then
     begin
-       var Dt: TDateTime;
-     if TryParseCommonDate(S, Dt) then
+       if TryParseCommonDate(S, Dt) then
          Val := Dt
        else
        begin

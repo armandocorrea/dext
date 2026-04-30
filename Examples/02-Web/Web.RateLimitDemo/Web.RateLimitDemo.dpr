@@ -1,4 +1,4 @@
-﻿program Web.RateLimitDemo;
+program Web.RateLimitDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -12,6 +12,7 @@ uses
 
 var
   App: IWebApplication;
+  Policy: TRateLimitPolicy;
 begin
   try
     WriteLn('🚦 Dext Rate Limiting Demo');
@@ -23,7 +24,7 @@ begin
     // ✅ Configure Rate Limiting
     WriteLn('📦 Configuring Rate Limiting...');
     
-    var Policy := TRateLimitPolicy.FixedWindow(10, 60)
+    Policy := TRateLimitPolicy.FixedWindow(10, 60)
       .RejectionMessage('{"error":"Too many requests! Please slow down."}')
       .RejectionStatusCode(429);
       

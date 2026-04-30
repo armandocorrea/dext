@@ -1,4 +1,4 @@
-﻿program Web.SwaggerExample;
+program Web.SwaggerExample;
 
 {$APPTYPE CONSOLE}
 
@@ -9,13 +9,15 @@ uses
   Dext.Web,
   Web.SwaggerExample.Startup in 'Web.SwaggerExample.Startup.pas';
 
+var
+  App: IWebApplication;
 begin
   SetConsoleCharSet;
   try
     Writeln('🚀 Starting Dext Swagger Example...');
     Writeln('');
 
-    var App: IWebApplication := TDextApplication.Create;
+    App := TDextApplication.Create;
     App.UseStartup(TStartup.Create);
     
     Writeln('');

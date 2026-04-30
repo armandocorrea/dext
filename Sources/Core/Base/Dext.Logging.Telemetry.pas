@@ -150,10 +150,12 @@ begin
 end;
 
 procedure TLoggingTelemetryObserver.OnEvent(const AEvent: TTelemetryEvent);
+var
+  SqlCmd: string;
 begin
   if AEvent.Category = 'SQL' then
   begin
-    var SqlCmd := AEvent.Data.GetValue<string>('sql');
+    SqlCmd := AEvent.Data.GetValue<string>('sql');
     if SqlCmd = '' then SqlCmd := AEvent.Name;
     
     FLogger.Info( 

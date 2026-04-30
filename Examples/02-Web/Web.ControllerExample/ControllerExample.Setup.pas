@@ -30,9 +30,11 @@ uses
   Dext.OpenAPI.Extensions;
 
 procedure EnsureAppSettingsExists;
+var
+  JsonContent: string;
 begin
   // Always overwrite to ensure correct configuration for this example
-  var JsonContent := 
+  JsonContent := 
     '{' + sLineBreak +
     '  "AppSettings": {' + sLineBreak +
     '    "Message": "Hello from Dext Configuration!",' + sLineBreak +

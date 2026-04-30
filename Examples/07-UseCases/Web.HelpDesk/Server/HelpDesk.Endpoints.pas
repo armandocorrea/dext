@@ -97,9 +97,11 @@ begin
 
   Builder.MapPost<TLoginRequest, IUserService, IResult>('/api/auth/login',
     function(Req: TLoginRequest; Svc: IUserService): IResult
+    var
+      Token: TTokenResponse;
     begin
       try
-        var Token := Svc.Login(Req);
+        Token := Svc.Login(Req);
         Result := Results.Ok<TTokenResponse>(Token);
       except
         on E: EAccessDenied do
@@ -111,9 +113,11 @@ begin
 
   Builder.MapPost<TRegisterUserRequest, IUserService, IResult>('/api/auth/register',
     function(Req: TRegisterUserRequest; Svc: IUserService): IResult
+    var
+      User: TUser;
     begin
       try
-        var User := Svc.Register(Req);
+        User := Svc.Register(Req);
         Result := Results.Created('/api/users/' + IntToStr(Integer(User.Id)), User);
       except
         on E: Exception do
@@ -137,6 +141,7 @@ begin
     function(Req: TCreateTicketBindRequest; Svc: ITicketService): IResult
     var
       SvcReq: TCreateTicketRequest;
+      Ticket: TTicket;
     begin
       SvcReq.Subject := Req.Subject;
       SvcReq.Description := Req.Description;
@@ -144,7 +149,7 @@ begin
       SvcReq.Channel := Req.Channel;
 
       try
-        var Ticket := Svc.CreateTicket(SvcReq, Req.UserId);
+        Ticket := Svc.CreateTicket(SvcReq, Req.UserId);
         Result := Results.Created('/api/tickets/' + IntToStr(Integer(Ticket.Id)), Ticket);
       except
         on E: EUserNotFound do

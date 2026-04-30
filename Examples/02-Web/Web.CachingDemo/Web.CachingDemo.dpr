@@ -1,4 +1,4 @@
-﻿program Web.CachingDemo;
+program Web.CachingDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -11,6 +11,7 @@ uses
 var
   App: IWebApplication;
   RequestCount: Integer = 0;
+  Builder: IApplicationBuilder;
 begin
   try
     WriteLn('💾 Dext Response Caching Demo');
@@ -18,7 +19,7 @@ begin
     
     // Create App
     App := TDextApplication.Create;
-    var Builder := App.Builder;
+    Builder := App.Builder;
 
     // 1. Configure Response Caching
     WriteLn('📦 Configuring Response Caching...');
@@ -34,11 +35,13 @@ begin
     // Endpoint to demonstrate caching (returns generic IResult / JSON string)
     Builder.MapGet('/api/time',
       procedure(Ctx: IHttpContext)
+      var
+        Json: string;
       begin
         Inc(RequestCount);
         WriteLn(Format('[%d] Generating fresh response at %s', [RequestCount, FormatDateTime('hh:nn:ss', Now)]));
         
-        var Json := Format(
+        Json := Format(
           '{"timestamp":"%s","request_count":%d,"message":"This response is cached for 30 seconds"}',
           [FormatDateTime('yyyy-mm-dd hh:nn:ss', Now), RequestCount]);
           
@@ -48,8 +51,10 @@ begin
     // Endpoint with vary by query
     Builder.MapGet('/api/data',
       procedure(Ctx: IHttpContext)
+      var
+        Json: string;
       begin
-        var Json := Format(
+        Json := Format(
           '{"data":"Sample data","generated_at":"%s"}',
           [FormatDateTime('hh:nn:ss', Now)]);
         Ctx.Response.Json(Json);

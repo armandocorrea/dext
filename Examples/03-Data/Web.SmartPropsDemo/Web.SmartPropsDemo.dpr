@@ -26,6 +26,7 @@ var
   Scope: IServiceScope;
   Db: TAppDbContext;
   P1, P2, P3: TProduct;
+  EnsureSet: IDbSet<TProduct>;
 begin
   WriteLn('Seeding database...');
   
@@ -47,7 +48,7 @@ begin
     end;
     
     // Access property to register entity before EnsureCreated
-    var EnsureSet := Db.Products;
+    EnsureSet := Db.Products;
     Db.EnsureCreated;
     
     P1 := TProduct.Create;
@@ -107,12 +108,13 @@ begin
       var
         Db: TAppDbContext;
         u: TProduct;
+        List: IList<TProduct>;
       begin
         Db := Context.Services.GetService(TServiceType.FromClass(TAppDbContext)) as TAppDbContext;
 
         // Smart Property Query: Price > 100
         u := Prototype.Entity<TProduct>;
-        var List := Db.Products.Where(u.Price > 100).ToList;
+        List := Db.Products.Where(u.Price > 100).ToList;
 
         // Automatic JSON Serialization
         Context.Response.Json(TDextJson.Serialize(List));

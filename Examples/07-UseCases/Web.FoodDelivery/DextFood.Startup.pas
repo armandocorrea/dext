@@ -1,4 +1,4 @@
-﻿unit DextFood.Startup;
+unit DextFood.Startup;
 
 interface
 
@@ -107,9 +107,12 @@ begin
     // Exemplo de consulta com Smart Properties e Dependency Injection
     .MapGet<TAppDbContext, IResult>('/api/orders/high-value',
       function(Db: TAppDbContext): IResult
+      var
+        Order: TOrder;
+        List: IList<TOrder>;
       begin
-        var Order := Prototype.Entity<TOrder>;
-        var List := Db.Orders.Where(Order.Total > 50).ToList;
+        Order := Prototype.Entity<TOrder>;
+        List := Db.Orders.Where(Order.Total > 50).ToList;
         Result := Results.Ok(List);
       end);
 

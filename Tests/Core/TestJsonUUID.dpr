@@ -1,4 +1,4 @@
-﻿program TestJsonUUID;
+program TestJsonUUID;
 
 {$APPTYPE CONSOLE}
 
@@ -139,6 +139,7 @@ var
   JsonBytes: TBytes;
   Span: TByteSpan;
   Rec: TTestRecordWithGuid;
+  GuidStr: string;
 begin
   WriteLn('► Testing UTF-8 Deserializer (TGUID)...');
   
@@ -152,7 +153,7 @@ begin
   WriteLn('  Deserialized Name: ', Rec.Name);
   
   // TGUID.ToString includes braces, so compare without them
-  var GuidStr := GUIDToString(Rec.Id).ToLower;
+  GuidStr := GUIDToString(Rec.Id).ToLower;
   if GuidStr <> '{5b1a1e5a-ada4-4448-892d-e8dd00916690}' then
     raise Exception.Create('TGUID UTF-8 deserialization mismatch');
     

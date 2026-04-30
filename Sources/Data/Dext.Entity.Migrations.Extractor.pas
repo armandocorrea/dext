@@ -60,9 +60,7 @@ var
   Col: TSnapshotColumn;
   RType: TRttiType;
   RProp: TRttiProperty;
-  
-  // Helper to get all maps
-  // Assuming TModelBuilder has a Maps property (I will add it).
+  Attr: TableAttribute;
   Maps: TArray<TEntityMap>; 
 begin
   Result := TSnapshotModel.Create;
@@ -87,7 +85,7 @@ begin
     // If TableName is empty, check Attribute
     if Table.Name = '' then
     begin
-       var Attr := RType.GetAttribute<TableAttribute>;
+       Attr := RType.GetAttribute<TableAttribute>;
        if Attr <> nil then
          Table.Name := Attr.Name;
     end;

@@ -177,6 +177,10 @@ var
   LProvidersList: IList<ILoggerProvider>;
   LProvidersArray: TArray<ILoggerProvider>;
   LMinLevel: TLogLevel;
+  LTelemetryEnabled: Boolean;
+  CapturedMinLevel: TLogLevel;
+  CapturedTelemetryEnabled: Boolean;
+  CapturedProviders: TArray<ILoggerProvider>;
 begin
   LBuilderObj := TLoggingBuilder.Create(AServices);
   LBuilderIntf := LBuilderObj; // Mantém a referência viva
@@ -188,13 +192,13 @@ begin
   LProvidersArray := LProvidersList.ToArray;
   LProvidersList := nil;
   LMinLevel := LBuilderObj.GetMinLevel;
-  var LTelemetryEnabled := LBuilderObj.GetTelemetryEnabled;
+  LTelemetryEnabled := LBuilderObj.GetTelemetryEnabled;
   
   // Capture state for factory delegate
-  var CapturedMinLevel := LMinLevel;
-  var CapturedTelemetryEnabled := LTelemetryEnabled;
+  CapturedMinLevel := LMinLevel;
+  CapturedTelemetryEnabled := LTelemetryEnabled;
   // Dynamic arrays are managed types, so they are safely captured by value (copy-on-write reference)
-  var CapturedProviders := LProvidersArray;
+  CapturedProviders := LProvidersArray;
 
   // 1. Register Owner (as concrete singleton Class) to ensure lifecycle destruction
   AServices.AddSingleton(
@@ -205,6 +209,7 @@ begin
       Factory: TLoggerFactory;
       Owner: TLoggerFactoryOwner;
       P: ILoggerProvider;
+      L: ILogger;
     begin
       Factory := TLoggerFactory.Create;
       try
@@ -215,7 +220,7 @@ begin
         // If Telemetry is enabled, start the bridge
         if CapturedTelemetryEnabled then
         begin
-           var L := Factory.CreateLogger('Telemetry');
+           L := Factory.CreateLogger('Telemetry');
            TDiagnosticSource.Instance.Subscribe(TLoggingTelemetryObserver.Create(L));
         end;
         
@@ -233,9 +238,11 @@ begin
     TServiceType.FromInterface(ILoggerFactory),
     TClass(nil),
     function(Provider: IServiceProvider): TObject
+    var
+      Owner: TLoggerFactoryOwner;
     begin
       // Resolve owner (guaranteed to exist and be managed)
-      var Owner := Provider.GetService(TServiceType.FromClass(TLoggerFactoryOwner)) as TLoggerFactoryOwner;
+      Owner := Provider.GetService(TServiceType.FromClass(TLoggerFactoryOwner)) as TLoggerFactoryOwner;
       Result := Owner.Factory;
     end
   );
