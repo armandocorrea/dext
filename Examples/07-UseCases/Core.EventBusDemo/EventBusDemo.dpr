@@ -333,6 +333,7 @@ end;
 
 begin
   try
+    SetConsoleCharSet(65001);
     WriteLn('');
     WriteLn('╔══════════════════════════════════════════════════════════════╗');
     WriteLn('║         Dext Framework — Event Bus Demo                      ║');

@@ -1,4 +1,4 @@
-program Web.RateLimitDemo;
+﻿program Web.RateLimitDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -14,6 +14,7 @@ var
   App: IWebApplication;
   Policy: TRateLimitPolicy;
 begin
+  SetConsoleCharSet;
   try
     WriteLn('🚦 Dext Rate Limiting Demo');
     WriteLn('===========================');
@@ -23,11 +24,11 @@ begin
 
     // ✅ Configure Rate Limiting
     WriteLn('📦 Configuring Rate Limiting...');
-    
+
     Policy := TRateLimitPolicy.FixedWindow(10, 60)
       .RejectionMessage('{"error":"Too many requests! Please slow down."}')
       .RejectionStatusCode(429);
-      
+
     // Fluent middleware registration
     App.Builder.UseRateLimiting(Policy);
 
@@ -38,7 +39,7 @@ begin
     App.Builder.MapGet<IResult>('/api/test',
       function: IResult
       begin
-        Result := Results.Ok('{"message":"Request successful!","timestamp":"' + 
+        Result := Results.Ok('{"message":"Request successful!","timestamp":"' +
           DateTimeToStr(Now) + '"}');
       end);
 
@@ -81,7 +82,7 @@ begin
     WriteLn;
 
     App.Run(8080);
-    
+
     // Only pause if not running in automated mode
     ConsolePause;
 
@@ -92,7 +93,7 @@ begin
     on E: Exception do
     begin
       WriteLn('❌ Error: ', E.Message);
-      
+
       // Only pause if not running in automated mode
       ConsolePause;
     end;

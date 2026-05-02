@@ -1,4 +1,4 @@
-program Web.SwaggerControllerExample;
+﻿program Web.SwaggerControllerExample;
 
 {$APPTYPE CONSOLE}
 

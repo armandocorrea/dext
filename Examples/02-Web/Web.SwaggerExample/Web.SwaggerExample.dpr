@@ -1,4 +1,4 @@
-program Web.SwaggerExample;
+﻿program Web.SwaggerExample;
 
 {$APPTYPE CONSOLE}
 
@@ -19,15 +19,15 @@ begin
 
     App := TDextApplication.Create;
     App.UseStartup(TStartup.Create);
-    
+
     Writeln('');
     Writeln('✅ Server configured successfully!');
     Writeln('');
     Writeln('📖 Swagger UI: http://localhost:5000/api/swagger');
     Writeln('');
-    
+
     App.Run(5000);
-    
+
     ConsolePause;
     App.Stop;
 

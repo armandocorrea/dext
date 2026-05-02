@@ -1,4 +1,4 @@
-program Web.JwtAuthDemo;
+﻿program Web.JwtAuthDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -34,6 +34,7 @@ var
 begin
 
   try
+    SetConsoleCharSet(65001);
     WriteLn('🔐 Dext JWT Authentication Demo');
     WriteLn('================================');
     WriteLn;
@@ -187,7 +188,7 @@ begin
     WriteLn;
 
     App.Run(8080);
-    
+
     // Only pause if not running in automated mode
     ConsolePause;
 
@@ -200,7 +201,7 @@ begin
     on E: Exception do
     begin
       WriteLn('❌ Error: ', E.Message);
-      
+
       // Only pause if not running in automated mode
       ConsolePause;
     end;

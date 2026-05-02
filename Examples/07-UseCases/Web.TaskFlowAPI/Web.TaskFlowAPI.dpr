@@ -1,4 +1,4 @@
-﻿program Web.TaskFlowAPI;
+program Web.TaskFlowAPI;
 
 uses
   Dext.MM,
@@ -11,7 +11,8 @@ uses
   TaskFlow.Domain,
   TaskFlow.Repository.Interfaces,
   TaskFlow.Repository.Mock,
-  TaskFlow.Handlers.Tasks;
+  TaskFlow.Handlers.Tasks,
+  Dext.DI.Interfaces;
 
 type
   // ✅ Modelo para teste
@@ -45,10 +46,11 @@ var
   AppBuilder: TAppBuilder;
 
 begin
+  SetConsoleCharSet(65001);
   try
-    WriteLn('🚀 Starting TaskFlow API...');
-    WriteLn('📦 Dext Framework v0.1.0');
-    WriteLn('⏰ ', FormatDateTime('yyyy-mm-dd hh:nn:ss', Now));
+    WriteLn('Starting TaskFlow API...');
+    WriteLn('Dext Framework v0.1.0');
+    WriteLn('Time: ', FormatDateTime('yyyy-mm-dd hh:nn:ss', Now));
     WriteLn('');
 
     // 1. Criar aplicação Dext
@@ -62,12 +64,12 @@ begin
     // 3. Mapear Handlers
     App.MapControllers;
 
-    WriteLn('✅ Auto-mapped routes registered');
+    WriteLn('Auto-mapped routes registered');
     WriteLn('');
 
     // 4. ✅ MAPEAMENTO COM SMART BINDING (FASE 2)
     AppBuilder := App.Builder;
-    
+
     // ✅ Response Compression (gzip/deflate)
     AppBuilder.UseMiddleware(TCompressionMiddleware);
 
@@ -129,12 +131,27 @@ begin
       end);
 
     // POST /api/users
-    AppBuilder.MapPost('/api/users',
-      procedure(Context: IHttpContext)
+    AppBuilder.MapPost<IHttpContext, TUser>('/api/users',
+      procedure(Context: IHttpContext; User: TUser)
+      var
+        UserService: IUserService;
+        Created: TUser;
       begin
-        WriteLn('🎯 HANDLER: CreateUser executing');
-        Context.Response.StatusCode := 201;
-        Context.Response.Json('{"message":"User created"}');
+        WriteLn('HANDLER: CreateUser executing');
+
+        // Resolve service from context
+        UserService := Context.Services.GetServiceAsInterface(TServiceType.FromInterface(IUserService)) as IUserService;
+        if Assigned(UserService) then
+        begin
+          Created := UserService.CreateUser(User);
+          Context.Response.StatusCode := 201;
+          Context.Response.Json(Format('{"message":"User created", "name":"%s"}', [Created.Name]));
+        end
+        else
+        begin
+          Context.Response.StatusCode := 500;
+          Context.Response.Json('{"error":"UserService not available"}');
+        end;
       end);
 
     WriteLn('✅ Manual routes mapped:');
@@ -155,7 +172,7 @@ begin
 
     // 5. 🚀 INICIAR SERVIDOR!
     App.Run(8080);
-    
+
     // Only pause if not running in automated mode
     ConsolePause;
 
@@ -164,7 +181,7 @@ begin
     begin
       WriteLn('❌ Startup error: ', E.Message);
       WriteLn('💀 Application terminated');
-      
+
       // Only pause if not running in automated mode
       ConsolePause;
     end;

@@ -1,4 +1,4 @@
-program Web.DextFood;
+﻿program Web.DextFood;
 
 {$APPTYPE CONSOLE}
 
@@ -20,13 +20,13 @@ begin
   SetConsoleCharSet;
   try
     Writeln('🚀 Iniciando DextFood Backend...');
-    
+
     // Instancia a aplicação Dext
     App := TDextApplication.Create;
-    
+
     // Configura a aplicação via classe Startup
     App.UseStartup(TStartup.Create);
-    
+
     // OBRIGATÓRIO para SQLite :memory: ou Seeding manual:
     // Construir os serviços antes de rodar o seeder, para que ele use o Provider final.
     Provider := App.BuildServices;
@@ -40,10 +40,10 @@ begin
     Writeln('  CRUD /api/super-orders');
     Writeln;
     Writeln('Pressione Enter para encerrar.');
-    
+
     // Inicia o servidor na porta 9000
     App.Run(9000);
-    
+
   except
     on E: Exception do
       Writeln('❌ Erro crítico: ', E.ClassName, ': ', E.Message);

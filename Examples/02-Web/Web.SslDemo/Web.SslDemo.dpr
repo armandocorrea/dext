@@ -1,4 +1,4 @@
-program Web.SslDemo;
+﻿program Web.SslDemo;
 
 {$APPTYPE CONSOLE}
 
@@ -14,12 +14,12 @@ uses
 
 procedure EnsureAppSettings;
 const
-  DEFAULT_SETTINGS = 
+  DEFAULT_SETTINGS =
     '{' + sLineBreak +
     '    "Server": {' + sLineBreak +
     '        "Port": 8080,' + sLineBreak +
     '        "UseHttps": "true",' + sLineBreak +
-    '        "SslProvider": "OpenSSL",' + sLineBreak + 
+    '        "SslProvider": "OpenSSL",' + sLineBreak +
     '        "SslCert": "server.crt",' + sLineBreak +
     '        "SslKey": "server.key",' + sLineBreak +
     '        "SslRootCert": ""' + sLineBreak +
@@ -43,21 +43,22 @@ begin
   // Se os certificados já existem, ok
   if FileExists('server.crt') and FileExists('server.key') then
     Exit;
-    
+
   Writeln('Certificates not found in output directory.');
-  
+
   // Tentar encontrar na pasta raiz do exemplo (Source)
   // Assumindo estrutura Output\Platform\Config -> ..\..\..\Examples\Web.SslDemo
   // Vou procurar recursivamente para simplificar
-  
+
   // Try common relative paths
   Paths := [
-    '..\Examples\Web.SslDemo', 
-    '..\..\Examples\Web.SslDemo', 
+    '..\..\02-Web\Web.SslDemo',
+    '..\Examples\Web.SslDemo',
+    '..\..\Examples\Web.SslDemo',
     '..\..\..\Examples\Web.SslDemo',
     '..\..\..\..\Examples\Web.SslDemo'
   ];
-  
+
   SourcePath := '';
   for Path in Paths do
   begin
@@ -67,8 +68,8 @@ begin
       SourcePath := CheckPath;
       Break;
     end;
-  end;  
-  
+  end;
+
   if (SourcePath <> '') and FileExists(TPath.Combine(SourcePath, 'server.crt')) then
   begin
     Writeln('Copying certificates from source directory: ', SourcePath);
@@ -76,7 +77,7 @@ begin
     TFile.Copy(TPath.Combine(SourcePath, 'server.key'), 'server.key', True);
     Exit;
   end;
-  
+
   Writeln('[WARNING] Certificates not found! Please run generate_certs.bat in the example folder.');
 end;
 
@@ -110,9 +111,10 @@ var
   UseHttps: Boolean;
 begin
   try
-    Writeln('Dext SSL/HTTPS Demo');
-    Writeln('-------------------');
-    
+    SetConsoleCharSet;
+    Writeln('🔒 Dext SSL/HTTPS Enforced Demo');
+    Writeln('-------------------------------');
+
     // 1. Ensure configuration, certificates and DLLs
     EnsureAppSettings;
     EnsureCertificates;
@@ -124,32 +126,28 @@ begin
     Config := App.Configuration.GetSection('Server');
     Port := 8080;
     UseHttps := False;
-    
+
     if Config <> nil then
     begin
       Port := StrToIntDef(Config['Port'], 8080);
       UseHttps := SameText(Config['UseHttps'], 'true');
     end;
-    
-    Writeln('Configuration Loaded:');
-    Writeln('  Port:     ', Port);
-    Writeln('  Protocol: ', Copy('HTTP HTTPS', 1 + Ord(UseHttps)*5, 4 + Ord(UseHttps)));
-    
-    if UseHttps then
-    begin
-      Writeln('  Provider: ', Config['SslProvider']);
-      Writeln('  Cert:     ', Config['SslCert']);
-      Writeln('  Key:      ', Config['SslKey']);
-      
-      if not FileExists(Config['SslCert']) then
-        Writeln('  [ERROR] Certificate file not found: ', Config['SslCert']);
-      if not FileExists(Config['SslKey']) then
-        Writeln('  [ERROR] Key file not found: ', Config['SslKey']);
-    end
-    else
-    begin
-      Writeln('  Note: SSL is disabled in appsettings.json (UseHttps: false)');
-    end;
+
+    // Enforce SSL
+    if not UseHttps then
+      raise Exception.Create('SSL is REQUIRED for this demo. Please set "UseHttps": "true" in appsettings.json.');
+
+    Writeln('🚀 Configuration Loaded (HTTPS Enforced):');
+    Writeln('   Port:     ', Port);
+    Writeln('   Provider: ', Config['SslProvider']);
+    Writeln('   Cert:     ', Config['SslCert']);
+    Writeln('   Key:      ', Config['SslKey']);
+
+    if not FileExists(Config['SslCert']) then
+      raise Exception.Create('Certificate file not found: ' + Config['SslCert']);
+    if not FileExists(Config['SslKey']) then
+      raise Exception.Create('Key file not found: ' + Config['SslKey']);
+
     Writeln('');
 
     App.Builder
@@ -157,15 +155,18 @@ begin
       begin
         Context.Response.SetStatusCode(200);
         Context.Response.SetContentType('text/html');
-        Context.Response.Write('<h1>Dext SSL Demo</h1>' +
-          '<p>If you see this, the server is running over a secure connection!</p>' +
-          '<p>Check the browser address bar for the lock icon.</p>');
+        Context.Response.Write('<h1>🔒 Dext SSL Demo</h1>' +
+          '<p>This server is strictly enforced to run over HTTPS.</p>' +
+          '<p>Address: <a href="https://localhost:' + Port.ToString + '">https://localhost:' + Port.ToString + '</a></p>');
       end);
-      
+
     App.Run(Port);
   except
     on E: Exception do
-      Writeln(E.ClassName, ': ', E.Message);
+    begin
+      Writeln('❌ Fatal Error: ', E.Message);
+      Sleep(3000);
+    end;
   end;
   ConsolePause;
 end.

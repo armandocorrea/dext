@@ -14,6 +14,7 @@ program Web.OrderAPI;
 uses
   Dext.MM,
   System.SysUtils,
+  Dext.Utils,
   Dext,
   Dext.Web,
   OrderAPI.Startup in 'OrderAPI.Startup.pas',
@@ -26,6 +27,7 @@ var
   App: IWebApplication;
 begin
   try
+    SetConsoleCharSet(65001);
     WriteLn('');
     WriteLn('==============================================');
     WriteLn('  ORDER API - Sistema de Comandas');

@@ -7,6 +7,7 @@ uses
   System.Threading,
   System.Diagnostics,
   System.Classes,
+  Dext.Utils,
   Dext.Logging,
   Dext.Logging.Global,
   Dext.Logging.Async,
@@ -88,6 +89,7 @@ end;
 
 begin
   try
+    SetConsoleCharSet(65001);
     RunExample;
   except
     on E: Exception do
