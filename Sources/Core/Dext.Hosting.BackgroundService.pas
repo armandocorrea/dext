@@ -59,6 +59,9 @@ type
 
   TBackgroundService = class;
 
+  /// <summary>
+  ///   Thread execution wrapper for background services.
+  /// </summary>
   TBackgroundServiceThread = class(TThread)
   private
     FService: TBackgroundService;

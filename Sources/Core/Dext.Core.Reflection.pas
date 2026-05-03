@@ -1,4 +1,4 @@
-﻿unit Dext.Core.Reflection;
+unit Dext.Core.Reflection;
 
 interface
 
@@ -17,6 +17,7 @@ uses
   Dext.Types.UUID;
 
 type
+  /// <summary>Metaclass for custom attributes.</summary>
   TCustomAttributeClass = class of TCustomAttribute;
   
   /// <summary>
@@ -161,6 +162,9 @@ type
     class property Context: TRttiContext read FContext;
   end;
 
+  /// <summary>
+  ///   Default implementation for IPropertyHandler.
+  /// </summary>
   TPropertyHandler = class(TInterfacedObject, IPropertyHandler)
   private
     FMember: TRttiMember;

@@ -69,6 +69,9 @@ type
     property HasPreviousPage: Boolean read GetHasPreviousPage;
   end;
 
+  /// <summary>
+  ///   Concrete implementation of a paginated query result.
+  /// </summary>
   TPagedResult<T> = class(TInterfacedObject, IPagedResult<T>)
   private
     FItems: IList<T>;
@@ -102,10 +105,6 @@ type
     property Current: T read GetCurrent;
   end;
 
-  /// <summary>
-  ///   Concrete type for fluent queries.
-  ///   Implemented as a record for automatic lifecycle management.
-  /// </summary>
   /// <summary>
   ///   Orchestrator for fluent queries (LINQ-like). 
   ///   Implemented as a record for automatic lifecycle management and low overhead.
@@ -268,6 +267,7 @@ type
     function MaxOrDefault(const AProp: IPropInfo; const ADefault: Double = 0): Double; overload;
 
     /// <summary>
+    ///   Paginates the query results.
     /// </summary>
     function Paginate(const APageNumber, APageSize: Integer): IPagedResult<T>;
   end;
@@ -292,6 +292,9 @@ type
     function GetList: IList<T>;
   end;
 
+  /// <summary>
+  ///   Iterator that projects elements into a new form.
+  /// </summary>
   TProjectingIterator<TSource, TResult> = class(TQueryIterator<TResult>)
   private
     FEnumerator: IEnumerator<TSource>;
@@ -361,6 +364,9 @@ type
     destructor Destroy; override;
   end;
 
+  /// <summary>
+  ///   Iterator that returns an empty sequence.
+  /// </summary>
   TEmptyIterator<T> = class(TQueryIterator<T>)
   protected
     function MoveNextCore: Boolean; override;

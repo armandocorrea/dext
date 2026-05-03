@@ -38,6 +38,9 @@ uses
   Dext.Configuration.Core;
 
 type
+  /// <summary>
+  ///   Configuration provider that reads from environment variables.
+  /// </summary>
   TEnvironmentVariablesConfigurationProvider = class(TConfigurationProvider)
   private
     FPrefix: string;
@@ -46,6 +49,9 @@ type
     procedure Load; override;
   end;
 
+  /// <summary>
+  ///   Configuration source for environment variables.
+  /// </summary>
   TEnvironmentVariablesConfigurationSource = class(TInterfacedObject, IConfigurationSource)
   private
     FPrefix: string;

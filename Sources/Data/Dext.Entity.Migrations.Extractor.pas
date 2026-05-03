@@ -41,6 +41,9 @@ uses
   Dext.Core.Reflection;
 
 type
+  /// <summary>
+  ///   Extracts a snapshot model representing the current state of a DbContext.
+  /// </summary>
   TDbContextModelExtractor = class
   public
     class function Extract(AContext: IDbContext): TSnapshotModel;

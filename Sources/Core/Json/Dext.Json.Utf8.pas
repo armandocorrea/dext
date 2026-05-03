@@ -36,6 +36,9 @@ uses
   Dext.Json.Types;
 
 type
+  /// <summary>
+  ///   Exception type for JSON parsing and processing errors.
+  /// </summary>
   EJsonException = class(Exception);
 
   /// <summary>

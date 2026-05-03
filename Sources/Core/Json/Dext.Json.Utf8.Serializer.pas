@@ -41,10 +41,19 @@ uses
   Dext.Core.Reflection;
 
 type
+  /// <summary>
+  ///   Exception type for UTF-8 JSON serialization errors.
+  /// </summary>
   EUtf8SerializationException = class(Exception);
 
+  /// <summary>
+  ///   Pointer to a TUUID record.
+  /// </summary>
   PTUUID = ^TUUID;
 
+  /// <summary>
+  ///   Holds reflection and offset information for a JSON serializable field.
+  /// </summary>
   TJsonFieldInfo = record
     NameBytes: TBytes;
     Offset: Integer;
@@ -52,16 +61,25 @@ type
     TypeInfo: PTypeInfo;
   end;
 
+  /// <summary>
+  ///   Holds the mapping of all fields for a JSON serializable record.
+  /// </summary>
   TJsonRecordInfo = record
     Fields: TArray<TJsonFieldInfo>;
   end;
 
+  /// <summary>
+  ///   Global cache for UTF-8 JSON serialization metadata.
+  /// </summary>
   TUtf8JsonSerializerCache = class
   public class var
     Cache: IDictionary<PTypeInfo, TJsonRecordInfo>;
     class constructor Create;
   end;
 
+  /// <summary>
+  ///   High-performance, zero-allocation UTF-8 JSON serializer for records.
+  /// </summary>
   TUtf8JsonSerializer = record
   private
     class function GetRecordInfo(AType: PTypeInfo): TJsonRecordInfo; static;

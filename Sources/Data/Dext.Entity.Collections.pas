@@ -54,6 +54,9 @@ type
     procedure Load(const AItems: IEnumerable<T>);
   end;
 
+  /// <summary>
+  ///   Factory for creating strongly-typed tracking lists dynamically via RTTI.
+  /// </summary>
   TTrackingListFactory = class
   public
     class function CreateList(AItemType: PTypeInfo; const AContext: IDbContext; const AOwner: TObject; const APropertyName: string): TObject; static;

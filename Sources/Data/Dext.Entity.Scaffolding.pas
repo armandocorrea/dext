@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -38,6 +38,9 @@ uses
   Dext.Utils;
 
 type
+  /// <summary>
+  ///   Metadata representing a database table column.
+  /// </summary>
   TMetaColumn = record
     Name: string;
     DataType: string; // SQL Type
@@ -50,6 +53,9 @@ type
     IsArray: Boolean; // Firebird array columns (e.g. VARCHAR[1:5]) — unsupported by standard SELECT
   end;
 
+  /// <summary>
+  ///   Metadata representing a database foreign key constraint.
+  /// </summary>
   TMetaForeignKey = record
     Name: string;
     ColumnName: string;
@@ -59,21 +65,36 @@ type
     OnUpdate: string;
   end;
 
+  /// <summary>
+  ///   Metadata representing a database table.
+  /// </summary>
   TMetaTable = record
     Name: string;
     Columns: TArray<TMetaColumn>;
     ForeignKeys: TArray<TMetaForeignKey>;
   end;
 
+  /// <summary>
+  ///   Interface for database schema extraction providers.
+  /// </summary>
   ISchemaProvider = interface
     ['{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}']
     function GetTables: TArray<string>;
     function GetTableMetadata(const ATableName: string): TMetaTable;
   end;
 
+  /// <summary>
+  ///   Defines the style of ORM mapping to generate (attributes or fluent).
+  /// </summary>
   TMappingStyle = (msAttributes, msFluent);
+  /// <summary>
+  ///   Defines the style of generated properties (POCO or smart types).
+  /// </summary>
   TPropertyStyle = (psPOCO, psSmart);
 
+  /// <summary>
+  ///   Interface for generating entity code from database metadata.
+  /// </summary>
   IEntityGenerator = interface
     ['{B1C2D3E4-F5A6-7890-1234-567890ABCDEF}']
     function GenerateUnit(const AUnitName: string; const ATables: TArray<TMetaTable>; 
@@ -83,6 +104,9 @@ type
   end;
 
   // FireDAC Implementation
+  /// <summary>
+  ///   FireDAC implementation of the schema provider for extracting database metadata.
+  /// </summary>
   TFireDACSchemaProvider = class(TInterfacedObject, ISchemaProvider)
   private
     FConnection: IDbConnection;
@@ -100,6 +124,9 @@ type
   end;
 
   // Delphi Generator Implementation
+  /// <summary>
+  ///   Generator that produces Delphi entity classes from database metadata.
+  /// </summary>
   TDelphiEntityGenerator = class(TInterfacedObject, IEntityGenerator)
   private
     function SQLTypeToDelphiType(const ASQLType: string; AScale: Integer; APropertyStyle: TPropertyStyle = psPOCO): string;

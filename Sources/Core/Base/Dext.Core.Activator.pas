@@ -37,6 +37,9 @@ uses
   Dext.DI.Interfaces,
   Dext.DI.Attributes;
 type
+  /// <summary>
+  /// Represents a cached constructor resolution entry, holding the method to invoke and its required parameter types.
+  /// </summary>
   TConstructorEntry = record
     Method: TRttiMethod;
     ParamTypes: TArray<PTypeInfo>;
@@ -61,12 +64,22 @@ type
     /// <summary>Instantiates a type (Class or Interface) based on PTypeInfo. Supports auto-instantiation of IList, IEnumerable, and IDictionary.</summary>
     class function CreateInstance(AProvider: IServiceProvider; AType: PTypeInfo): TValue; overload;
 
+    /// <summary>Instantiates a class using a generic type parameter, relying on the parameterless constructor or manual arguments.</summary>
     class function CreateInstance<T: class>(const AArgs: array of TValue): T; overload;
+    
+    /// <summary>Instantiates a class using a generic type parameter without any manual arguments.</summary>
     class function CreateInstance<T: class>: T; overload;
 
+    /// <summary>Registers a default implementation class for a specific base class.</summary>
     class procedure RegisterDefault(ABase: TClass; AImpl: TClass); overload;
+    
+    /// <summary>Registers a default implementation class for a specific interface type.</summary>
     class procedure RegisterDefault(AInterface: PTypeInfo; AImpl: TClass); overload;
+    
+    /// <summary>Registers a default implementation class for a generic service interface.</summary>
     class procedure RegisterDefault<TService: IInterface; TImplementation: class>; overload;
+    
+    /// <summary>Resolves the configured default implementation for a given class. Returns the original class if no default is registered.</summary>
     class function ResolveImplementation(AClass: TClass): TClass;
     /// <summary>Detects if a PTypeInfo represents a list type (IList, TList, IEnumerable, etc.).</summary>
     class function IsListType(AType: PTypeInfo): Boolean;

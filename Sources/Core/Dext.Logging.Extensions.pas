@@ -33,6 +33,9 @@ uses
   Dext.Logging;
 
 type
+  /// <summary>
+  ///   Builder interface for configuring logging services.
+  /// </summary>
   ILoggingBuilder = interface
     ['{D4E5F678-9012-3456-7890-ABCDEF123456}']
     function Services: IServiceCollection;
@@ -42,6 +45,9 @@ type
     function AddTelemetry: ILoggingBuilder;
   end;
 
+  /// <summary>
+  ///   Extension methods for IServiceCollection to add logging infrastructure.
+  /// </summary>
   TServiceCollectionLoggingExtensions = class
   public
     class function AddLogging(const AServices: IServiceCollection; const AConfigure: TProc<ILoggingBuilder> = nil): IServiceCollection;

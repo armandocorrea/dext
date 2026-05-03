@@ -14,6 +14,9 @@ uses
   DelphiAST.Writer;
 
 type
+  /// <summary>
+  ///   Contains information about a test method parsed from the AST.
+  /// </summary>
   TTestMethodInfo = class
   public
     Name: string;
@@ -21,6 +24,9 @@ type
     Attributes: TArray<string>;
   end;
 
+  /// <summary>
+  ///   Contains information about a test fixture class parsed from the AST.
+  /// </summary>
   TTestFixtureInfo = class
   public
     Name: string;
@@ -31,6 +37,9 @@ type
     destructor Destroy; override;
   end;
 
+  /// <summary>
+  ///   Contains information about a test project and its discovered fixtures.
+  /// </summary>
   TTestProjectInfo = class
   public
     ProjectFile: string;
@@ -39,6 +48,9 @@ type
     destructor Destroy; override;
   end;
 
+  /// <summary>
+  ///   Utility class for scanning Delphi project files and extracting DUnitX test metadata.
+  /// </summary>
   TTestScanner = class
   private
     class function ParseFile(const AFileName: string): TSyntaxNode;

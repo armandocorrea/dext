@@ -52,6 +52,9 @@ type
     constructor Create(const AKey: K; const AValue: V);
   end;
 
+  /// <summary>
+  ///   Interface for a specialized string-to-string dictionary.
+  /// </summary>
   IStringDictionary = interface
     ['{6AFA9C74-3A4B-4E38-AC36-9DC417C2DD53}']
     function GetItem(const AKey: string): string;
@@ -183,6 +186,9 @@ type
     property OwnsValues: Boolean read FOwnsValues write FOwnsValues;
   end;
 
+  /// <summary>
+  ///   Concrete implementation of a string-to-string dictionary.
+  /// </summary>
   TDextStringDictionary = class(TInterfacedObject, IStringDictionary)
   private
     FData: TDictionary<string, string>;

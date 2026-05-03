@@ -63,7 +63,8 @@ type
   TDbContext = class;
 
   /// <summary>
-  ///   Concrete implementation of DbContext.
+  ///   Represents the shadow state of an entity containing properties not mapped to the class structure.
+  /// </summary>
   TEntityShadowState = class
   private
     FShadowValues: IDictionary<string, TValue>;
@@ -75,7 +76,9 @@ type
     property ModifiedProperties: IDictionary<string, Boolean> read FModifiedProperties;
   end;
 
-  /// <summary>Manages the tracking of entity changes within the context.</summary>
+  /// <summary>
+  ///   Manages the tracking of entity changes within the context.
+  /// </summary>
   TChangeTracker = class(TInterfacedObject, IChangeTracker)
   private
     FTrackedEntities: IDictionary<TObject, TEntityState>;
@@ -83,25 +86,47 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    /// <summary>Starts tracking an entity with a specific state.</summary>
+    /// <summary>
+    ///   Starts tracking an entity with a specific state.
+    /// </summary>
     procedure Track(const AEntity: TObject; AState: TEntityState);
-    /// <summary>Removes the entity from tracking.</summary>
+    
+    /// <summary>
+    ///   Removes the entity from tracking.
+    /// </summary>
     procedure Remove(const AEntity: TObject);
-    /// <summary>Gets the current state (Added, Modified, Deleted, Unchanged) of the entity.</summary>
+    
+    /// <summary>
+    ///   Gets the current state (Added, Modified, Deleted, Unchanged) of the entity.
+    /// </summary>
     function GetState(const AEntity: TObject): TEntityState;
-    /// <summary>Checks if there are pending changes in the context.</summary>
+    
+    /// <summary>
+    ///   Checks if there are pending changes in the context.
+    /// </summary>
     function HasChanges: Boolean;
-    /// <summary>Accepts all pending changes and synchronizes the tracker with the database.</summary>
+    
+    /// <summary>
+    ///   Accepts all pending changes and synchronizes the tracker with the database.
+    /// </summary>
     procedure AcceptAllChanges;
-    /// <summary>Clears all tracked entities.</summary>
+    
+    /// <summary>
+    ///   Clears all tracked entities.
+    /// </summary>
     procedure Clear;
     function GetTrackedEntities: IDictionary<TObject, TEntityState>;
     
     // Shadow Property Methods
-    /// <summary>Gets the values of "Shadow Properties" (infrastructure properties that do not exist in the class).</summary>
+    /// <summary>
+    ///   Gets the values of "Shadow Properties" (infrastructure properties that do not exist in the class).
+    /// </summary>
     function GetShadowState(const AEntity: TObject): TEntityShadowState;
   end;
 
+  /// <summary>
+  ///   Provides tracking and state access for a single scalar property of an entity.
+  /// </summary>
   TPropertyEntry = class(TInterfacedObject, IPropertyEntry)
   private
     FContext: TDbContext;
@@ -116,6 +141,9 @@ type
     procedure SetIsModified(const AValue: Boolean);
   end;
 
+  /// <summary>
+  ///   Provides tracking and operations for a collection navigation property (One-to-Many / Many-to-Many).
+  /// </summary>
   TCollectionEntry = class(TInterfacedObject, ICollectionEntry)
   private
     FContext: TDbContext;
@@ -126,6 +154,9 @@ type
     procedure Load;
   end;
 
+  /// <summary>
+  ///   Provides tracking and operations for a reference navigation property (Many-to-One / One-to-One).
+  /// </summary>
   TReferenceEntry = class(TInterfacedObject, IReferenceEntry)
   private
     FContext: TDbContext;
@@ -136,6 +167,9 @@ type
     procedure Load;
   end;
 
+  /// <summary>
+  ///   Provides tracking metadata and member navigation for an entity.
+  /// </summary>
   TEntityEntry = class(TInterfacedObject, IEntityEntry)
   private
     FContext: TDbContext;
@@ -199,35 +233,57 @@ type
     class var FModelLock: TDextMREW; // For thread safety (D.1)
     
     constructor Create(const AConnection: IDbConnection; const ADialect: ISQLDialect = nil; const ANamingStrategy: INamingStrategy = nil; const ATenantProvider: ITenantProvider = nil); overload;
-    /// <summary>Initializes the context based on a configurable options object.</summary>
+    /// <summary>
+    ///   Initializes the context based on a configurable options object.
+    /// </summary>
     constructor Create(const AOptions: TDbContextOptions; const ATenantProvider: ITenantProvider = nil); overload;
     destructor Destroy; override;
     
     class constructor Create;
     class destructor Destroy;
     
-    /// <summary>Returns the current database connection.</summary>
+    /// <summary>
+    ///   Returns the current database connection.
+    /// </summary>
     function Connection: IDbConnection;
-    /// <summary>Returns the configured SQL dialect (PostgreSQL, SQL Server, etc.).</summary>
+    
+    /// <summary>
+    ///   Returns the configured SQL dialect (PostgreSQL, SQL Server, etc.).
+    /// </summary>
     function Dialect: ISQLDialect;
     function NamingStrategy: INamingStrategy;
     function ModelBuilder: TModelBuilder; // Expose ModelBuilder
     function GetTenantProvider: ITenantProvider;
     
-    /// <summary>Starts an explicit transaction on the current connection.</summary>
+    /// <summary>
+    ///   Starts an explicit transaction on the current connection.
+    /// </summary>
     procedure BeginTransaction;
-    /// <summary>Commits the changes of the current transaction.</summary>
+    
+    /// <summary>
+    ///   Commits the changes of the current transaction.
+    /// </summary>
     procedure Commit;
-    /// <summary>Discards the changes of the current transaction.</summary>
+    
+    /// <summary>
+    ///   Discards the changes of the current transaction.
+    /// </summary>
     procedure Rollback;
     function InTransaction: Boolean;
     
-    /// <summary>Gets the weakly typed interface of a DbSet for the provided entity type.</summary>
+    /// <summary>
+    ///   Gets the weakly typed interface of a DbSet for the provided entity type.
+    /// </summary>
     function DataSet(AEntityType: PTypeInfo): IDbSet;
 
-    /// <summary>Preloads the DbSet cache to optimize future resolutions.</summary>
+    /// <summary>
+    ///   Preloads the DbSet cache to optimize future resolutions.
+    /// </summary>
     procedure PreloadDbSets;
-    /// <summary>Ensures that the database and tables exist (Code-First Evolution).</summary>
+    
+    /// <summary>
+    ///   Ensures that the database and tables exist (Code-First Evolution).
+    /// </summary>
     function EnsureCreated: Boolean;
     procedure ExecuteSchemaSetup;
     
@@ -237,27 +293,43 @@ type
     /// </summary>
     /// <returns>The number of affected rows in the database.</returns>
     function SaveChanges: Integer;
-    /// <summary>Asynchronous version of SaveChanges for non-blocking operations.</summary>
+    /// <summary>
+    ///   Asynchronous version of SaveChanges for non-blocking operations.
+    /// </summary>
     function SaveChangesAsync: TAsyncBuilder<Integer>;
-    /// <summary>Clears the tracker and the context's local cache.</summary>
+    
+    /// <summary>
+    ///   Clears the tracker and the context's local cache.
+    /// </summary>
     procedure Clear;
-    /// <summary>Unbinds all entities from change tracking.</summary>
+    
+    /// <summary>
+    ///   Unbinds all entities from change tracking.
+    /// </summary>
     procedure DetachAll;
     procedure Detach(const AEntity: TObject);
     procedure ExecuteProcedure(const ADto: TObject);
-    /// <summary>Access to the context's Change Tracker.</summary>
+    /// <summary>
+    ///   Access to the context's Change Tracker.
+    /// </summary>
     function ChangeTracker: IChangeTracker;
     
     function GetMapping(AType: PTypeInfo): TObject;
     
-    /// <summary>Gets the typed repository (DbSet) for the entity class T.</summary>
+    /// <summary>
+    ///   Gets the typed repository (DbSet) for the entity class T.
+    /// </summary>
     function Entities<T: class>: IDbSet<T>;
     
-    /// <summary>Provides access to metadata and state control for a specific instance.</summary>
+    /// <summary>
+    ///   Provides access to metadata and state control for a specific instance.
+    /// </summary>
     function Entry(const AEntity: TObject): IEntityEntry;
     procedure TrackProxy(const AProxy: TObject);
     
-    /// <summary>Event to intercept and log SQL and internal commands (Observability).</summary>
+    /// <summary>
+    ///   Event to intercept and log SQL and internal commands (Observability).
+    /// </summary>
     property OnLog: TProc<string> read GetOnLog write SetOnLog;
   end;
 
@@ -271,7 +343,7 @@ uses
 { Helper Functions }
 
 /// <summary>
-///   Unwraps Nullable<T> values and validates if FK is valid (non-zero for integers, non-empty for strings)
+///   Unwraps Nullable&lt;T&gt; values and validates if FK is valid (non-zero for integers, non-empty for strings).
 /// </summary>
 function TryUnwrapAndValidateFK(var AValue: TValue): Boolean;
 var

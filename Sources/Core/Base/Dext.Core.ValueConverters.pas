@@ -41,8 +41,13 @@ uses
   Dext.Types.UUID;
 
 type
+  /// <summary>
+  ///   Interface for value converters, defining the contract for transforming a value to a target type.
+  /// </summary>
   IValueConverter = interface
     ['{D7E3C021-C021-4000-8000-000000000001}']
+    
+    /// <summary>Converts the provided value to the specified target type.</summary>
     function Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue;
   end;
 
@@ -82,9 +87,12 @@ type
     class procedure ConvertAndSetField(Instance: TObject; Field: TRttiField; const Value: TValue);
   end;
 
-  // Base Converter
+  /// <summary>
+  ///   Base abstract class for value converters, providing a default implementation of IValueConverter.
+  /// </summary>
   TBaseConverter = class(TInterfacedObject, IValueConverter)
   public
+    /// <summary>Converts the provided value to the specified target type.</summary>
     function Convert(const AValue: TValue; ATargetType: PTypeInfo): TValue; virtual; abstract;
   end;
 

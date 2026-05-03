@@ -74,6 +74,9 @@ type
     procedure Rollback;
   end;
 
+  /// <summary>
+  ///   Implementation of IDbReader using FireDAC components for reading data.
+  /// </summary>
   TFireDACReader = class(TInterfacedObject, IDbReader)
   private
     FQuery: TFDQuery;

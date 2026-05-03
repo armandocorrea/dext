@@ -39,6 +39,9 @@ uses
   Dext.Configuration.Interfaces;
 
 type
+  /// <summary>
+  ///   Callback function type for validating a configuration section.
+  /// </summary>
   TConfigurationValidator = reference to function(const Section: IConfigurationSection): string;
 
   /// <summary>
@@ -58,6 +61,9 @@ type
     function GetChildKeys(const EarlierKeys: TArray<string>; const ParentPath: string): TArray<string>; virtual;
   end;
 
+  /// <summary>
+  ///   Represents a section of application configuration values.
+  /// </summary>
   TConfigurationSection = class(TInterfacedObject, IConfigurationSection, IConfiguration)
   private
     FRoot: IConfigurationRoot;
@@ -138,12 +144,18 @@ type
     function Build: IConfigurationRoot;
   end;
 
+  /// <summary>
+  ///   An in-memory implementation of IConfigurationProvider.
+  /// </summary>
   TMemoryConfigurationProvider = class(TConfigurationProvider)
   public
     constructor Create(Data: IDictionary<string, string>);
     procedure Load; override;
   end;
 
+  /// <summary>
+  ///   Represents an in-memory configuration source.
+  /// </summary>
   TMemoryConfigurationSource = class(TInterfacedObject, IConfigurationSource)
   private
     FData: IDictionary<string, string>;

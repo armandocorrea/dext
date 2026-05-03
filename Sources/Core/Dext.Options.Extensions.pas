@@ -35,6 +35,9 @@ uses
   Dext.Options;
 
 type
+  /// <summary>
+  ///   Extension methods for IServiceCollection to register and configure strongly-typed options.
+  /// </summary>
   TOptionsServiceCollectionExtensions = class
   public
     class procedure AddOptions(Services: IServiceCollection);

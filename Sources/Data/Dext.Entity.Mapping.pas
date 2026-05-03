@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -47,6 +47,9 @@ uses
   Dext.Specifications.Interfaces;
 
 type
+  /// <summary>
+  ///   Defines the cardinality and type of an entity relationship.
+  /// </summary>
   TRelationshipType = (rtNone, rtOneToMany, rtManyToOne, rtOneToOne, rtManyToMany);
 
   // Forward declarations
@@ -138,6 +141,9 @@ type
   // Internal Model Representation (The result of the mapping)
   // ---------------------------------------------------------------------------
 
+  /// <summary>
+  ///   Holds the mapped configuration for a single entity property or column.
+  /// </summary>
   TPropertyMap = class
   public
     PropertyName: string;
@@ -246,6 +252,9 @@ type
   // Fluent API Records
   // ---------------------------------------------------------------------------
 
+  /// <summary>
+  ///   Lightweight, struct-based fluent builder for configuring an entity mapping.
+  /// </summary>
   TEntityBuilder<T: class> = record
   private
     FMap: TEntityMap;
@@ -308,6 +317,9 @@ type
   // Concrete Builders (Legacy / Interface based)
   // ---------------------------------------------------------------------------
 
+  /// <summary>
+  ///   Concrete implementation of IEntityTypeBuilder for configuring entity mappings.
+  /// </summary>
   TEntityTypeBuilder<T: class> = class(TInterfacedObject, IEntityTypeBuilder<T>)
   private
     FMap: TEntityMap;
@@ -332,6 +344,9 @@ type
     function HasQueryFilter(AFilter: IExpression): IEntityTypeBuilder<T>;
   end;
 
+  /// <summary>
+  ///   Concrete implementation of IPropertyBuilder for configuring property mappings.
+  /// </summary>
   TPropertyBuilder<T: class> = class(TInterfacedObject, IPropertyBuilder<T>)
   private
     FPropMap: TPropertyMap;
@@ -405,6 +420,9 @@ type
 
   end;
 
+  /// <summary>
+  ///   Concrete implementation of IRelationshipBuilder for configuring relationship mappings.
+  /// </summary>
   TRelationshipBuilder<T: class> = class(TInterfacedObject, IRelationshipBuilder<T>)
   private
     FMap: TEntityMap;

@@ -1,4 +1,4 @@
-﻿// ***************************************************************************
+// ***************************************************************************
 //
 //           Dext Framework
 //
@@ -48,6 +48,9 @@ uses
 type
   TDextTemplateEngine = class;
 
+  /// <summary>
+  ///   Defines the execution context for a template, managing variables, objects, and nested scopes.
+  /// </summary>
   ITemplateContext = interface
     ['{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}']
     procedure SetValue(const AKey: string; const AValue: string);
@@ -82,11 +85,17 @@ type
     property TemplateSnippet: string read FTemplateSnippet;
   end;
 
+  /// <summary>
+  ///   Interface for loading template content from a source (e.g., file system, memory).
+  /// </summary>
   ITemplateLoader = interface
     ['{5C6D7E8F-9A0B-1C2D-3E4F-5A6B7C8D9E0F}']
     function Load(const ATemplateName: string): string;
   end;
 
+  /// <summary>
+  ///   Core interface for the Dext templating engine.
+  /// </summary>
   ITemplateEngine = interface
     ['{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}']
     function GetIsHtmlMode: Boolean;
@@ -101,6 +110,9 @@ type
     property TemplateLoader: ITemplateLoader read GetTemplateLoader write SetTemplateLoader;
   end;
 
+  /// <summary>
+  ///   Registry for custom filters that can be applied within templates.
+  /// </summary>
   ITemplateFilterRegistry = interface
     ['{6D7E8F9A-0B1C-2D3E-4F5A-6B7C8D9E0F1A}']
     procedure RegisterFilter(const AName: string; const AFilter: System.SysUtils.TFunc<string, string>);
@@ -212,6 +224,9 @@ type
     function Load(const ATemplateName: string): string;
   end;
 
+  /// <summary>
+  ///   Factory record for creating standard template contexts and engines.
+  /// </summary>
   TTemplating = record
   public
     class function CreateContext: ITemplateContext; static;

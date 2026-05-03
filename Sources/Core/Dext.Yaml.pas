@@ -36,10 +36,19 @@ uses
   Dext.Collections.Dict;
 
 type
+  /// <summary>
+  ///   Exception type for YAML parsing and processing errors.
+  /// </summary>
   EYamlException = class(Exception);
 
+  /// <summary>
+  ///   Identifies the type of a YAML node (Scalar, Mapping, Sequence).
+  /// </summary>
   TYamlNodeType = (yntScalar, yntMapping, yntSequence);
 
+  /// <summary>
+  ///   Base abstract class for all YAML nodes in the document tree.
+  /// </summary>
   TYamlNode = class
   private
     FParent: TYamlNode;
@@ -49,6 +58,9 @@ type
     function ToYaml(Indent: Integer = 0): string; virtual; abstract;
   end;
 
+  /// <summary>
+  ///   Represents a scalar (primitive) value in a YAML document.
+  /// </summary>
   TYamlScalar = class(TYamlNode)
   private
     FValue: string;
@@ -59,6 +71,9 @@ type
     property Value: string read FValue write FValue;
   end;
 
+  /// <summary>
+  ///   Represents a YAML mapping (key-value collection / dictionary).
+  /// </summary>
   TYamlMapping = class(TYamlNode)
   private
     FChildren: IDictionary<string, TYamlNode>;
@@ -72,6 +87,9 @@ type
     property Children: IDictionary<string, TYamlNode> read FChildren;
   end;
 
+  /// <summary>
+  ///   Represents a YAML sequence (list/array of items).
+  /// </summary>
   TYamlSequence = class(TYamlNode)
   private
     FItems: IList<TYamlNode>;
@@ -84,6 +102,9 @@ type
     property Items: IList<TYamlNode> read FItems;
   end;
 
+  /// <summary>
+  ///   Represents a full YAML document, containing a root node.
+  /// </summary>
   TYamlDocument = class
   private
     FRoot: TYamlNode;
@@ -94,6 +115,9 @@ type
     procedure SaveToFile(const FileName: string);
   end;
 
+  /// <summary>
+  ///   Parser for reading YAML content and producing a TYamlDocument tree.
+  /// </summary>
   TYamlParser = class
   private
     FLines: TStringList;

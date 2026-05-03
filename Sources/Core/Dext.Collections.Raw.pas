@@ -30,9 +30,13 @@ uses
 type
   /// <summary>Callback for raw elements comparison</summary>
   TRawCompareFunc = reference to function(A, B: Pointer): Integer;
+  /// <summary>Callback for comparing raw elements with an explicit size</summary>
   TRawEqualFunc = function(A, B: Pointer; Size: Integer): Boolean;
+  /// <summary>Callback for determining equality between raw elements</summary>
   TRawEqualityFunc = reference to function(A, B: Pointer): Boolean;
+  /// <summary>Types of notifications triggered by raw collections</summary>
   TRawCollectionNotification = (rcnAdded, rcnRemoved, rcnExtracted);
+  /// <summary>Event type for raw collection notifications</summary>
   TRawNotifyEvent = procedure(Item: Pointer; Action: TRawCollectionNotification) of object;
 
   TRawIntArray = array[0..MaxInt div 4 - 1] of Integer;
@@ -52,6 +56,10 @@ type
   TRawDblArray = array[0..MaxInt div 8 - 1] of Double;
   PRawDblArray = ^TRawDblArray;
 
+  /// <summary>
+  ///   High-performance backend for non-generic lists.
+  ///   Manages untyped raw memory.
+  /// </summary>
   TRawList = class
   private
     FData: PByte;

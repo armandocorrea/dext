@@ -399,6 +399,9 @@ type
     function AddLogging(const AConfigure: TProc<ILoggingBuilder> = nil): TDextServices;
   end;
 
+  /// <summary>
+  ///   Helper class for DbContext dependency injection registration.
+  /// </summary>
   TPersistence = class
   public
     /// <summary>

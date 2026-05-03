@@ -46,7 +46,7 @@ uses
 
 type
   /// <summary>
-  ///   Injects Lazy<T> logic into entities.
+  ///   Injects Lazy&lt;T&gt; logic into entities.
   /// </summary>
   TLazyInjector = class
   private
@@ -90,7 +90,7 @@ uses
 { Helper Functions }
 
 /// <summary>
-///   Unwraps Nullable<T> values and validates if FK is valid (non-zero for integers, non-empty for strings)
+///   Unwraps Nullable&lt;T&gt; values and validates if FK is valid (non-zero for integers, non-empty for strings)
 /// </summary>
 function TryUnwrapAndValidateFK(var AValue: TValue): Boolean;
 var

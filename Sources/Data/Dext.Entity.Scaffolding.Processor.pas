@@ -32,6 +32,9 @@ uses
   Dext.Scaffolding.Models;
 
 type
+  /// <summary>
+  ///   Processes raw database metadata into scaffolding view models.
+  /// </summary>
   TScaffoldingMetadataProcessor = class
   private
     FModels: TScaffoldViewModel;

@@ -27,17 +27,26 @@ uses
   Dext.Entity.Drivers.FireDAC.Links; // Centralized driver linking
 
 type
+  /// <summary>
+  ///   Helper class for TComponent providing unique naming utilities.
+  /// </summary>
   TComponentHelper = class helper for TComponent
   public
     procedure SetUniqueName;
   end;
 
+  /// <summary>
+  ///   Optimization options for FireDAC connections to enhance performance and security.
+  /// </summary>
   TFireDACOptimization = (
     optDisableMacros,        // Sets MacroCreate/MacroExpand = False (Performance, SQL Injection safety)
     optDisableEscapes,       // Sets EscapeExpand = False (Performance, raw SQL fidelity)
     optDirectExecute         // Sets DirectExecute = True (Skip prepare step for simple queries)
   );
   
+  /// <summary>
+  ///   Set of optimization flags to apply on FireDAC connections.
+  /// </summary>
   TFireDACOptimizations = set of TFireDACOptimization;
 
 type

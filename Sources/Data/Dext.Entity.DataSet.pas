@@ -1,4 +1,4 @@
-﻿
+
 unit Dext.Entity.DataSet;
 
 interface
@@ -46,10 +46,16 @@ type
     DirtyMask: UInt64;
   end;
 
+  /// <summary>
+  ///   Event triggered when a field is being prepared or configured in the dataset.
+  /// </summary>
   TPrepareFieldEvent = procedure(Sender: TObject; AField: TField) of object;
 
   TEntityMasterDataLink = class;
 
+  /// <summary>
+  ///   Exception raised during Entity DataSet operations.
+  /// </summary>
   EEntityDataSetException = class(Exception);
 
   /// <summary>

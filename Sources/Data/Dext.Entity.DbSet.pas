@@ -113,11 +113,17 @@ type
     function GetEntityType: PTypeInfo;
     function FindObject(const AId: Variant): TObject; overload;
     function FindObject(const AId: Integer): TObject; overload;
-    /// <summary>Adds a new entity to the context for later insertion.</summary>
+    /// <summary>
+    ///   Adds a new entity to the context for later insertion.
+    /// </summary>
     function Add(const AEntity: TObject): IDbSet; overload;
-    /// <summary>Marks an existing entity as modified for later update.</summary>
+    /// <summary>
+    ///   Marks an existing entity as modified for later update.
+    /// </summary>
     procedure Update(const AEntity: TObject); overload;
-    /// <summary>Marks an entity for logical or physical deletion.</summary>
+    /// <summary>
+    ///   Marks an entity for logical or physical deletion.
+    /// </summary>
     procedure Remove(const AEntity: TObject); overload;
     function ListObjects(const AExpression: IExpression): IList<TObject>; overload;
     function ListObjects(const ASpec: ISpecification): IList<TObject>; overload;
@@ -132,17 +138,29 @@ type
     procedure LinkManyToMany(const AEntity: TObject; const APropertyName: string; const ARelatedEntity: TObject); overload;
     procedure UnlinkManyToMany(const AEntity: TObject; const APropertyName: string; const ARelatedEntity: TObject); overload;
     
-    /// <summary>Adds a typed entity to the context.</summary>
+    /// <summary>
+    ///   Adds a typed entity to the context.
+    /// </summary>
     function Add(const AEntity: T): IDbSet<T>; overload;
-    /// <summary>Adds an entity using a Fluent Builder for initialization.</summary>
+    /// <summary>
+    ///   Adds an entity using a Fluent Builder for initialization.
+    /// </summary>
     function Add(const ABuilder: TFunc<IEntityBuilder<T>, T>): IDbSet<T>; overload;
-    /// <summary>Marks the typed entity for update.</summary>
+    /// <summary>
+    ///   Marks the typed entity for update.
+    /// </summary>
     function Update(const AEntity: T): IDbSet<T>; overload;
-    /// <summary>Marks the typed entity for deletion.</summary>
+    /// <summary>
+    ///   Marks the typed entity for deletion.
+    /// </summary>
     function Remove(const AEntity: T): IDbSet<T>; overload;
-    /// <summary>Removes the entity from change tracking without affecting the database.</summary>
+    /// <summary>
+    ///   Removes the entity from change tracking without affecting the database.
+    /// </summary>
     function Detach(const AEntity: T): IDbSet<T>; overload;
-    /// <summary>Finds an entity by its primary key (ID), first in cache, then in the database.</summary>
+    /// <summary>
+    ///   Finds an entity by its primary key (ID), first in cache, then in the database.
+    /// </summary>
     function Find(const AId: Variant): T; overload;
     function Find(const AId: Integer): T; overload;
     function Find(const AId: array of Integer): T; overload;
@@ -157,7 +175,9 @@ type
     procedure RemoveRange(const AEntities: TArray<T>); overload;
     procedure RemoveRange(const AEntities: IEnumerable<T>); overload;
 
-    /// <summary>Executes the query and returns a list of entities.</summary>
+    /// <summary>
+    ///   Executes the query and returns a list of entities.
+    /// </summary>
     function ToList: IList<T>; overload;
     function ToList(const ASpec: ISpecification<T>): IList<T>; overload;
 
@@ -181,7 +201,9 @@ type
 
     function Query(const ASpec: ISpecification<T>): TFluentQuery<T>; overload;
     function Query(const AExpression: IExpression): TFluentQuery<T>; overload;
-    /// <summary>Starts a fluent query over all entities in the set.</summary>
+    /// <summary>
+    ///   Starts a fluent query over all entities in the set.
+    /// </summary>
     function QueryAll: TFluentQuery<T>;
     
     /// <summary>
@@ -191,13 +213,21 @@ type
     function AsNoTracking: TFluentQuery<T>;
 
     // Soft Delete Control
-    /// <summary>Ignores global filters (e.g. Soft Delete) in the current query.</summary>
+    /// <summary>
+    ///   Ignores global filters (e.g. Soft Delete) in the current query.
+    /// </summary>
     function IgnoreQueryFilters: IDbSet<T>;
-    /// <summary>Filters only records that suffered logical deletion (Soft Delete).</summary>
+    /// <summary>
+    ///   Filters only records that suffered logical deletion (Soft Delete).
+    /// </summary>
     function OnlyDeleted: IDbSet<T>;
-    /// <summary>Forces the physical deletion of a record, even if Soft Delete is active.</summary>
+    /// <summary>
+    ///   Forces the physical deletion of a record, even if Soft Delete is active.
+    /// </summary>
     function HardDelete(const AEntity: T): IDbSet<T>;
-    /// <summary>Restores a logically deleted entity (Soft Delete).</summary>
+    /// <summary>
+    ///   Restores a logically deleted entity (Soft Delete).
+    /// </summary>
     function Restore(const AEntity: T): IDbSet<T>;
 
     property Items[Index: Integer]: T read GetItem; default;
@@ -208,22 +238,34 @@ type
     /// </summary>
     function Prototype: T; overload;
     
-    /// <summary>Returns a prototype of any type for use in complex Joins.</summary>
+    /// <summary>
+    ///   Returns a prototype of any type for use in complex Joins.
+    /// </summary>
     function Prototype<TEntity: class>: TEntity; overload;
     
-    /// <summary>Links two entities in a Many-to-Many relationship (Intersection Table).</summary>
+    /// <summary>
+    ///   Links two entities in a Many-to-Many relationship (Intersection Table).
+    /// </summary>
     procedure LinkManyToMany(const AEntity: T; const APropertyName: string; const ARelatedEntity: TObject); overload;
     
-    /// <summary>Removes the link between two entities in a Many-to-Many relationship.</summary>
+    /// <summary>
+    ///   Removes the link between two entities in a Many-to-Many relationship.
+    /// </summary>
     procedure UnlinkManyToMany(const AEntity: T; const APropertyName: string; const ARelatedEntity: TObject); overload;
     
-    /// <summary>Synchronizes a Many-to-Many relationship, replacing existing links with the provided ones.</summary>
+    /// <summary>
+    ///   Synchronizes a Many-to-Many relationship, replacing existing links with the provided ones.
+    /// </summary>
     procedure SyncManyToMany(const AEntity: T; const APropertyName: string; const ARelatedEntities: TArray<TObject>);
     
     // New Methods Implementation
-    /// <summary>Executes the query asynchronously, returning results without blocking the UI thread.</summary>
+    /// <summary>
+    ///   Executes the query asynchronously, returning results without blocking the UI thread.
+    /// </summary>
     function ToListAsync: TAsyncBuilder<IList<T>>;
-    /// <summary>Creates a query based on raw SQL, allowing mapping to entities.</summary>
+    /// <summary>
+    ///   Creates a query based on raw SQL, allowing mapping to entities.
+    /// </summary>
     function FromSql(const ASql: string; const AParams: array of TValue): TFluentQuery<T>; overload;
     function FromSql(const ASql: string): TFluentQuery<T>; overload;
     function TryLock(const AEntity: T; const AToken: string; ADurationMinutes: Integer = 30): Boolean;
@@ -238,11 +280,17 @@ type
     class constructor Create;
   end;
 
+  /// <summary>
+  ///   Factory for dynamically creating DbSet instances based on RTTI contexts.
+  /// </summary>
   TDynamicDbSetFactory<T: class> = class(TInterfacedObject, IDynamicDbSetFactory)
   public
     function CreateDbSet(const AContext: IInterface): IInterface;
   end;
 
+  /// <summary>
+  ///   Iterator for traversing query results using raw SQL commands.
+  /// </summary>
   TSqlQueryIterator<T: class> = class(TQueryIterator<T>)
   private
     FDbSet: TDbSet<T>;

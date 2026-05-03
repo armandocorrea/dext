@@ -35,13 +35,19 @@ uses
   Dext.Configuration.Core;
 
 type
+  /// <summary>
+  ///   Binds configuration sections to object instances or values using RTTI.
+  /// </summary>
   TConfigurationBinder = class
   private
     class procedure BindInternal(Configuration: IConfiguration; Instance: TObject; RttiType: TRttiType);
     class function GetValue(Configuration: IConfiguration; RttiType: TRttiType; const Key: string): TValue;
   public
+    /// <summary>Creates a new instance of T and binds the configuration values to its properties.</summary>
     class function Bind<T: class, constructor>(Configuration: IConfiguration): T; overload;
+    /// <summary>Binds the configuration values to the properties of an existing object instance.</summary>
     class procedure Bind(Configuration: IConfiguration; Instance: TObject); overload;
+    /// <summary>Retrieves a strongly-typed value or object representation of the configuration.</summary>
     class function Get<T>(Configuration: IConfiguration): T; overload;
   end;
 

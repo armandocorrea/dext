@@ -19,9 +19,19 @@ uses
   Dext.Utils;
 
 type
+  /// <summary>
+  ///   Event triggered when a unit source file is refreshed by the data provider.
+  /// </summary>
   TRefreshUnitEvent = procedure(AProvider: TComponent; const AFileName: string) of object;
+  
+  /// <summary>
+  ///   Event to request source code content for a given filename during metadata synchronization.
+  /// </summary>
   TGetSourceContentEvent = function(const AFileName: string): string;
 
+  /// <summary>
+  ///   Provider component that discovers, parses, and provides runtime entity metadata and preview capabilities.
+  /// </summary>
   TEntityDataProvider = class(TComponent, IEntityDataProvider)
   private
     FModelUnits: TStrings;

@@ -39,6 +39,10 @@ const
 
 type
   PLogEntry = ^TLogEntry;
+
+  /// <summary>
+  ///   Represents a single log event entry within the ring buffer.
+  /// </summary>
   TLogEntry = record
     SequenceId: Int64;
     TimeStamp: TDateTime;
@@ -69,6 +73,9 @@ type
   end;
 
   // Alignment and padding to ensure cache line exclusivity
+  /// <summary>
+  ///   Aligned pointers for the ring buffer to avoid false sharing.
+  /// </summary>
   TRingBufferPointers = record
     Head: Int64; // Producer index
     padding1: array[0..55] of Byte; 

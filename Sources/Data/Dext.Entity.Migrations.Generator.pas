@@ -40,6 +40,9 @@ uses
   Dext.Json.Types;
 
 type
+  /// <summary>
+  ///   Generates migration code (Pascal units) or JSON representations from migration operations.
+  /// </summary>
   TMigrationGenerator = class
   private
     class function GenerateOperation(Op: TMigrationOperation): string;

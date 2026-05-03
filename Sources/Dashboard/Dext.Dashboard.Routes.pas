@@ -36,11 +36,17 @@ uses
   Dext.Http.Request;
 
 type
+  /// <summary>
+  ///   Configures routes and endpoints for the Dext Dashboard.
+  /// </summary>
   TDashboardRoutes = class
   public
     class procedure Configure(App: IApplicationBuilder);
   end;
 
+  /// <summary>
+  ///   Represents a recorded item in the HTTP client execution history.
+  /// </summary>
   THttpHistoryItem = class
   public
     Id: string;
