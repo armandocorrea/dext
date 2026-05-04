@@ -75,7 +75,7 @@ private
   FId: IntType;
   FStatus: Prop<TOrderStatus>;
   FNotes: StringType;
-  FTotal: CurrencyType;
+  FTotal: Nullable<CurrencyType>;
   FItems: Lazy<IList<TOrderItem>>;
 public
   [PK, AutoInc]
@@ -84,7 +84,7 @@ public
   property Notes: StringType read FNotes write FNotes;
   
   // Smart Types to natively handle nulls, validation, and Lazy Loading
-  property Total: CurrencyType read FTotal write FTotal;
+  property Total: Nullable<CurrencyType> read FTotal write FTotal;
   property Items: Lazy<IList<TOrderItem>> read FItems write FItems;
 end;
 ```
