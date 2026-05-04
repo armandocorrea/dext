@@ -18,7 +18,7 @@ type
   /// </summary>
   TDextLazyLoader = class(TInterfacedObject, ILazyLoader)
   private
-    [Weak] FContext: IDbContext;
+    {$IFDEF DEXT_HAS_WEAK}[Weak]{$ENDIF} FContext: IDbContext;
   public
     constructor Create(const AContext: IDbContext);
     procedure Load(AEntity: TObject; const APropertyName: string);
