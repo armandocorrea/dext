@@ -36,7 +36,6 @@ uses
   {$IFDEF DEXT_ENABLE_ENTITY}
   Dext.Entity,
   {$ENDIF}
-  Dext.Web.ResponseHelper,
   // {BEGIN_DEXT_USES}
   // Generated Uses
   Dext.Auth.Attributes,
@@ -139,6 +138,7 @@ type
   TClaimsIdentity = Dext.Auth.Identity.TClaimsIdentity;
   TClaimsPrincipal = Dext.Auth.Identity.TClaimsPrincipal;
   TClaimTypes = Dext.Auth.Identity.TClaimTypes;
+  HttpStatus = Dext.Http.StatusCodes.HttpStatus;
   IClaimsBuilder = Dext.Auth.Identity.IClaimsBuilder;
   TClaimsBuilder = Dext.Auth.Identity.TClaimsBuilder;
 
@@ -520,9 +520,6 @@ type
   TStaticFileOptions = Dext.Web.StaticFiles.TStaticFileOptions;
   TStaticFileMiddleware = Dext.Web.StaticFiles.TStaticFileMiddleware;
   TApplicationBuilderStaticFilesExtensions = Dext.Web.StaticFiles.TApplicationBuilderStaticFilesExtensions;
-
-  // Dext.Http.StatusCodes (moved to Core for shared use by Dext.Web and Dext.Net)
-  HttpStatus = Dext.Http.StatusCodes.HttpStatus;
 
   // Dext.Web.Versioning
   IApiVersionReader = Dext.Web.Versioning.IApiVersionReader;
@@ -977,13 +974,6 @@ function ViewOptions: TViewOptionsBuilder;
 function DataApiOptions: TDataApiOptions<TObject>;
 {$ENDIF}
 
-procedure RespondJson(const AContext: IHttpContext; AStatusCode: Integer; const AJson: string); overload;
-procedure RespondJson(const AContext: IHttpContext; AStatusCode: Integer; const AFormat: string; const AArgs: array of const); overload;
-procedure RespondError(const AContext: IHttpContext; AStatusCode: Integer; const AMessage: string);
-procedure RespondOk(const AContext: IHttpContext; const AJson: string);
-procedure RespondCreated(const AContext: IHttpContext; const AJson: string);
-procedure RespondNoContent(const AContext: IHttpContext);
-
 implementation
 
 uses
@@ -1026,36 +1016,6 @@ begin
   Result := Dext.Web.DataApi.DataApiOptions;
 end;
 {$ENDIF}
-
-procedure RespondJson(const AContext: IHttpContext; AStatusCode: Integer; const AJson: string);
-begin
-  Dext.Web.ResponseHelper.RespondJson(AContext, AStatusCode, AJson);
-end;
-
-procedure RespondJson(const AContext: IHttpContext; AStatusCode: Integer; const AFormat: string; const AArgs: array of const);
-begin
-  Dext.Web.ResponseHelper.RespondJson(AContext, AStatusCode, AFormat, AArgs);
-end;
-
-procedure RespondError(const AContext: IHttpContext; AStatusCode: Integer; const AMessage: string);
-begin
-  Dext.Web.ResponseHelper.RespondError(AContext, AStatusCode, AMessage);
-end;
-
-procedure RespondOk(const AContext: IHttpContext; const AJson: string);
-begin
-  Dext.Web.ResponseHelper.RespondOk(AContext, AJson);
-end;
-
-procedure RespondCreated(const AContext: IHttpContext; const AJson: string);
-begin
-  Dext.Web.ResponseHelper.RespondCreated(AContext, AJson);
-end;
-
-procedure RespondNoContent(const AContext: IHttpContext);
-begin
-  Dext.Web.ResponseHelper.RespondNoContent(AContext);
-end;
 
 { TWebServicesHelper }
 

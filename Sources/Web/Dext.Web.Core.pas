@@ -497,8 +497,7 @@ begin
   FinalPipeline :=
     procedure(AContext: IHttpContext)
     begin
-      AContext.Response.StatusCode := 404;
-      AContext.Response.Write('Not Found');
+      AContext.Response.NotFound('Not Found');
     end;
 
   // Create RouteMatcher (interface - self-managed)

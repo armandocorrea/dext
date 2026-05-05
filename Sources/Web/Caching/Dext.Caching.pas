@@ -30,6 +30,7 @@ interface
 uses
   System.SysUtils,
   System.Classes,
+  System.Math,
   System.Rtti,
   System.DateUtils,
   System.SyncObjs,
@@ -166,6 +167,11 @@ type
     procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
     procedure AppendCookie(const AName, AValue: string); overload;
     procedure DeleteCookie(const AName: string);
+    procedure Redirect(const AUrl: string; APermanent: Boolean = False);
+    procedure Unauthorized(const AMessage: string = '');
+    procedure Forbidden(const AMessage: string = '');
+    procedure BadRequest(const AMessage: string = '');
+    procedure NotFound(const AMessage: string = '');
     property StatusCode: Integer read GetStatusCode write SetStatusCode;
     property ContentType: string read GetContentType write SetContentType;
 
@@ -709,6 +715,40 @@ end;
 procedure TResponseCaptureWrapper.DeleteCookie(const AName: string);
 begin
   FOriginal.DeleteCookie(AName);
+end;
+
+procedure TResponseCaptureWrapper.Redirect(const AUrl: string; APermanent: Boolean);
+begin
+  FStatusCode := ifthen(APermanent, 301, 302);
+  FOriginal.Redirect(AUrl, APermanent);
+end;
+
+procedure TResponseCaptureWrapper.Unauthorized(const AMessage: string);
+begin
+  FStatusCode := 401;
+  if AMessage <> '' then FBodyBuffer.Append(AMessage);
+  FOriginal.Unauthorized(AMessage);
+end;
+
+procedure TResponseCaptureWrapper.Forbidden(const AMessage: string);
+begin
+  FStatusCode := 403;
+  if AMessage <> '' then FBodyBuffer.Append(AMessage);
+  FOriginal.Forbidden(AMessage);
+end;
+
+procedure TResponseCaptureWrapper.BadRequest(const AMessage: string);
+begin
+  FStatusCode := 400;
+  if AMessage <> '' then FBodyBuffer.Append(AMessage);
+  FOriginal.BadRequest(AMessage);
+end;
+
+procedure TResponseCaptureWrapper.NotFound(const AMessage: string);
+begin
+  FStatusCode := 404;
+  if AMessage <> '' then FBodyBuffer.Append(AMessage);
+  FOriginal.NotFound(AMessage);
 end;
 
 function TResponseCaptureWrapper.GetCapturedBody: string;

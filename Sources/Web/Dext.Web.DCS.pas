@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -176,6 +176,11 @@ type
     procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
     procedure AppendCookie(const AName, AValue: string); overload;
     procedure DeleteCookie(const AName: string);
+    procedure Redirect(const AUrl: string; APermanent: Boolean = False);
+    procedure Unauthorized(const AMessage: string = '');
+    procedure Forbidden(const AMessage: string = '');
+    procedure BadRequest(const AMessage: string = '');
+    procedure NotFound(const AMessage: string = '');
     property StatusCode: Integer read GetStatusCode write SetStatusCode;
     property ContentType: string read GetContentType write SetContentType;
   end;
@@ -643,6 +648,39 @@ begin
   Opts := TCookieOptions.Default;
   Opts.Expires := Now - 1; // yesterday → MaxAge < 0 → browser deletes
   AppendCookie(AName, '', Opts);
+end;
+
+procedure TDextDCSResponse.Redirect(const AUrl: string; APermanent: Boolean);
+begin
+  if APermanent then
+    FStatusCode := 301
+  else
+    FStatusCode := 302;
+  AddHeader('Location', AUrl);
+end;
+
+procedure TDextDCSResponse.Unauthorized(const AMessage: string);
+begin
+  FStatusCode := 401;
+  if AMessage <> '' then Write(AMessage);
+end;
+
+procedure TDextDCSResponse.Forbidden(const AMessage: string);
+begin
+  FStatusCode := 403;
+  if AMessage <> '' then Write(AMessage);
+end;
+
+procedure TDextDCSResponse.BadRequest(const AMessage: string);
+begin
+  FStatusCode := 400;
+  if AMessage <> '' then Write(AMessage);
+end;
+
+procedure TDextDCSResponse.NotFound(const AMessage: string);
+begin
+  FStatusCode := 404;
+  if AMessage <> '' then Write(AMessage);
 end;
 
 { TDextDCSContext }

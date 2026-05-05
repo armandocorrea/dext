@@ -178,7 +178,6 @@
         <DCCReference Include="Web\Dext.Web.MultiTenancy.pas"/>
         <DCCReference Include="Web\Dext.Web.pas"/>
         <DCCReference Include="Web\Dext.Web.Pipeline.pas"/>
-        <DCCReference Include="Web\Dext.Web.ResponseHelper.pas"/>
         <DCCReference Include="Web\Dext.Web.Results.pas"/>
         <DCCReference Include="Web\Dext.Web.Routing.pas"/>
         <DCCReference Include="Web\Dext.Web.RoutingMiddleware.pas"/>

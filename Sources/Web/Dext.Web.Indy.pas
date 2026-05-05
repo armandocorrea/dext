@@ -80,6 +80,11 @@ type
     procedure AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions); overload;
     procedure AppendCookie(const AName, AValue: string); overload;
     procedure DeleteCookie(const AName: string);
+    procedure Redirect(const AUrl: string; APermanent: Boolean = False);
+    procedure Unauthorized(const AMessage: string = '');
+    procedure Forbidden(const AMessage: string = '');
+    procedure BadRequest(const AMessage: string = '');
+    procedure NotFound(const AMessage: string = '');
     property StatusCode: Integer read GetStatusCode write SetStatusCode;
     property ContentType: string read GetContentType write SetContentType;
   end;
@@ -583,6 +588,40 @@ begin
   Opts := TCookieOptions.Default;
   Opts.Expires := Now - 1; // Expired yesterday
   AppendCookie(AName, '', Opts);
+end;
+
+procedure TDextIndyHttpResponse.Redirect(const AUrl: string; APermanent: Boolean);
+begin
+  if APermanent then
+    FResponseInfo.ResponseNo := 301
+  else
+    FResponseInfo.ResponseNo := 302;
+    
+  FResponseInfo.CustomHeaders.Values['Location'] := AUrl;
+end;
+
+procedure TDextIndyHttpResponse.Unauthorized(const AMessage: string);
+begin
+  FResponseInfo.ResponseNo := 401;
+  if AMessage <> '' then Write(AMessage);
+end;
+
+procedure TDextIndyHttpResponse.Forbidden(const AMessage: string);
+begin
+  FResponseInfo.ResponseNo := 403;
+  if AMessage <> '' then Write(AMessage);
+end;
+
+procedure TDextIndyHttpResponse.BadRequest(const AMessage: string);
+begin
+  FResponseInfo.ResponseNo := 400;
+  if AMessage <> '' then Write(AMessage);
+end;
+
+procedure TDextIndyHttpResponse.NotFound(const AMessage: string);
+begin
+  FResponseInfo.ResponseNo := 404;
+  if AMessage <> '' then Write(AMessage);
 end;
 
 function TDextIndyHttpResponse.GetStatusCode: Integer;
