@@ -6,16 +6,13 @@ uses
   System.SysUtils,
   System.Classes,
   System.IOUtils,
-  Dext,
-  Dext.DI.Interfaces,
+  Dext.Collections,      // IList<T>
   Dext.Configuration.Interfaces,
-  Dext.Entity,           // Entity Facade
+  Dext.Core.SmartTypes,
+  Dext.DI.Interfaces,
   Dext.Entity.Core,      // IDbSet<T>
   Dext.Entity.Query,
-  Dext.Core.SmartTypes,
   Dext.Specifications.Types,
-  Dext.Collections,      // IList<T>
-  Customer,
   Dext.Web.Interfaces,   // IResult, IWebApplication
   Dext.Web.Results,
   Dext.Web.View,
@@ -23,7 +20,10 @@ uses
   Web.Stencils,
   {$ENDIF}
   Dext.Web.View.WebStencils,
-  Dext.Web;              // Web HELPERS LAST
+  Dext,
+  Dext.Entity,           // Entity Facade
+  Dext.Web,              // Web HELPERS LAST
+  Customer;
 
 type
   TAppDbContext = class(TDbContext)
