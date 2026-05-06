@@ -29,6 +29,7 @@ O Dext foi desenhado para alavancar recursos modernos da linguagem Object Pascal
 
 ### 1.2 Dependency Injection (`Dext.DI.Core`, `Dext.DI.Interfaces`, `Dext.DI.Attributes`)
 - **TDextServices** — Fachada fluente para registro de serviços. Métodos: `AddSingleton<T>`, `AddTransient<T>`, `AddScoped<T>`, `AddSingletonInstance<T>`, `AddSingletonFactory<T>`.
+- **Mapeamento Interface/Implementação** — Desacoplamento total entre definições e lógica concreta.
 - **TServiceCollection** — Repositório interno de `TServiceDescriptor` com busca reversa (LIFO) para permitir override de registros.
 - **TDextServiceProvider** — Container IoC com armazenamento híbrido: `FSingletonInstances` (ARC/Interfaces) + `FSingletonObjects` (Non-ARC/Classes manuais) + `FScopedInstances`/`FScopedObjects` para escopo.
 - **Ciclos de Vida** — `Singleton` (instância única global), `Transient` (nova instância por resolução), `Scoped` (instância única por escopo DI via `CreateScope`).
@@ -57,6 +58,9 @@ O Dext foi desenhado para alavancar recursos modernos da linguagem Object Pascal
 - **DOM Abstraction** — `IDextJsonNode`, `IDextJsonObject`, `IDextJsonArray` com tipagem forte (6 node types: Null, String, Number, Boolean, Object, Array).
 - **TJsonBuilder** — Builder fluente para construção programática de JSON sem strings.
 - **Atributos** — `[JsonName]` (renomear campo), `[JsonIgnore]` (excluir campo), `[JsonCaseStyle]` (override por classe).
+- **Perfis Arquiteturais**:
+  - **Dext DOM (IDextJsonNode)** — Otimizado para 99% dos casos (APIs REST, Configurações). Alta velocidade de acesso aleatório e manipulação de objetos via árvore em memória (engine DataObjects).
+  - **Dext UTF-8 (Low-Level Streaming)** — Ferramenta cirúrgica para Big Data. Processamento sequencial zero-allocation de volumes massivos (GBs) com footprint de memória constante.
 - **TUtf8JsonSerializer** (`Dext.Json.Utf8.Serializer`) — Serializador zero-allocation para records. Opera diretamente sobre `TByteSpan` (UTF-8 raw) sem conversão intermediária para `string`. Cache de `TJsonRecordInfo` por `PTypeInfo` para eliminar overhead RTTI em hot-paths. `ToUtf8JSON` no driver `DextJsonDataObjects` para output UTF-8 nativo.
 
 ### 1.5 Configuration System (`Dext.Configuration.Core`)
@@ -95,6 +99,7 @@ O Dext foi desenhado para alavancar recursos modernos da linguagem Object Pascal
 
 ### 1.8 Memory & Span (`Dext.Core.Span`, `Dext.Core.Memory`)
 - **TSpan\<T\>** — Referência zero-allocation a região contígua de memória. `Slice`, `ToArray`, `Clear`, `GetEnumerator` (for-in). Bounds checking em todos os acessos.
+- **TVector\<T\>** — Vetores dinâmicos e eficientes alocados na stack/heap para alta performance.
 - **TReadOnlySpan\<T\>** — Versão imutável de `TSpan<T>`. Operador implícito `TSpan<T>→TReadOnlySpan<T>` e `TArray<T>→TReadOnlySpan<T>`.
 - **TByteSpan** — Span especializado para bytes. `Equals` via `TDextSimd.EqualsBytes` (SIMD-accelerated). `EqualsString` compara com UTF-8 sem alocação. `IndexOf`, `ToString` (UTF-8→string), `ToBytes`. Otimizado para parsers JSON/REST e protocolos de rede.
 - **ILifetime\<T\>** (`Dext.Core.Memory`) — Wrapper ARC para gerenciamento de lifecycle de objetos Non-ARC. `TLifetime<T>` encapsula objeto e o libera automaticamente quando a interface sai de escopo.
@@ -102,6 +107,7 @@ O Dext foi desenhado para alavancar recursos modernos da linguagem Object Pascal
 
 ### 1.9 Threading & Async (`Dext.Threading.*`)
 - **TAsyncTask** — Implementação fluente de Async/Await para operações assíncronas.
+- **Escalonador Work-Stealing** — Distribuição eficiente de tarefas entre os núcleos da CPU para máxima performance paralela.
 - **ICancellationToken** — Cancelamento cooperativo com `WaitForCancellation(timeout)` e `IsCancellationRequested`. Integrado com Event Bus Lifecycle e Background Services.
 
 ### 1.10 Logging Pipeline (`Dext.Logging`)
@@ -119,25 +125,23 @@ O Dext foi desenhado para alavancar recursos modernos da linguagem Object Pascal
 - **SQL Logging Hooks** — Interceptação automática de comandos SQL, parâmetros e tempo de execução, integrados ao logger do framework.
 - **Activity Tracking** — Suporte a rastreamento de atividades (CorrelationId) para depuração de fluxos complexos e distribuídos.
 
-### 1.11 Collections & Concurrency (`Dext.Collections.*`)
+### 1.13 Collections & Concurrency (`Dext.Collections.*`)
 - **Binary Code Folding** (`TRawList`) — Motor base invisível que consolida centenas de especializações genéricas em uma única implementação manipulando fatias de memória bruta, reduzindo o tempo de compilação em até 60% e eliminando o *Code Bloat* das RTL Generics.
 - **CPU-Friendly Dictionaries** (`TRawDictionary`) — Utiliza Open Addressing com Linear Probing em memória contígua (Hash Metadata), eliminando cache misses causados por ponteiros encadeados (linked-lists) tradicionais. Lookup de até 6.6x mais rápido que a RTL.
 - **SIMD Acceleration** (`Dext.Collections.Simd`) — Varreduras e comparações (AVX2/SSE2) em blocos de 16 a 32 bytes por ciclo de clock. Desempenho extremo (até 6.8x mais veloz) em listas nativas.
 - **Zero-Allocation Vectors** (`Dext.Collections.Vector`) — Integração nativa com `Span<T>` para fatiamento (slicing) e processamento massivo de buffers sem alocação ou cópia no Memory Manager.
 - **TFrozenDictionary\<K,V\> / TFrozenSet\<T\>** (`Dext.Collections.Frozen`) — Coleções imutáveis ("Write Once, Freeze") desenhadas para concorrência agressiva de threads sem contenção (*Lock-Free Read*). O bypass das instâncias `TCriticalSection` otimiza radicalmente a escala.
 - **TChannel\<T\>** (`Dext.Collections.Channel`) — Inspirado na concorrência do Go (Golang). Canais de comunicação assíncrona entre produtores e consumidores (*Lock-Free*), com suporte nativo a **Backpressure** (Bounded Channels) para evitar estrangulamento por consumo descompassado de CPU/memória.
-- **Log Scopes** — `BeginScope(state)` para contexto hierárquico (ex: RequestId, CorrelationId).
-- **Níveis** — `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None`.
 
-### 1.11 I/O Writers (`Dext.Core.Writers`)
+### 1.14 I/O Writers (`Dext.Core.Writers`)
 - **IDextWriter** — Abstração thread-safe para output do framework. Implementações: `TConsoleWriter` (stdout), `TWindowsDebugWriter` (OutputDebugString com buffering), `TStringsWriter` (TStringList/TMemo), `TNullWriter` (silent).
 - **SafeWrite / SafeWriteLn** (`Dext.Utils`) — Funções globais que roteiam output via `IDextWriter` ativo. Detecção automática de console disponível. Escrita Unicode nativa via `WriteConsoleW` (Windows) com fallback UTF-8 para pipes.
 - **SafeAttachConsole** — Attach ao console do processo pai (CMD/PowerShell) ou `AllocConsole` para aplicações GUI executadas via F5.
 
-### 1.12 Text Escaping (`Dext.Text.Escaping`)
+### 1.15 Text Escaping (`Dext.Text.Escaping`)
 - **TDextEscaping** — Utilitários centralizados para escaping de texto: `Html`, `Xml`, `Json` (manual character-by-character com suporte a `\uXXXX`), `Url`. Usado por Reporters, Serializers e RestClient.
 
-### 1.13 Date Utilities (`Dext.Core.DateUtils`)
+### 1.16 Date Utilities (`Dext.Core.DateUtils`)
 - **TryParseISODateTime** — Parser robusto de ISO 8601 (`YYYY-MM-DDTHH:NN:SS.ZZZ`) com suporte a variações (separador `T` ou espaço, milissegundos opcionais).
 - **TryParseCommonDate** — Parser multi-formato: ISO 8601 → `dd/mm/yyyy` → `mm/dd/yyyy` → `yyyy/mm/dd` com detecção automática de formato.
 
@@ -324,7 +328,7 @@ Uma das features mais poderosas do Dext: **geração automática de APIs REST co
 - **INSERT com Cast** — `::jsonb` automático no PostgreSQL para `[JsonColumn(True)]`.
 
 ### 4.9 EntityDataSet (`Dext.Data.EntityDataSet`)
-- **Ponte ORM ↔ VCL/FMX** — Conecta componentes legados (DBGrid, FastReport) a coleções `TList<T>` de POCOs preservando a arquitetura limpa.
+- **Ponte ORM ↔ VCL/FMX** — Conecta componentes (DBGrid, FastReport) a coleções `TList<T>` de POCOs preservando a arquitetura limpa.
 - **Zero-Allocation Memory** — Acesso via offsets de memória mapeados pelo `TEntityMap` elimina a necessidade de RTTI ou cópias de string a cada leitura de registro.
 - **`LoadFromUtf8Json`** — Carregamento direto de streams/buffers JSON via `TByteSpan` sem conversão prévia de encoding.
 - **Setup Automático (Parse AST)** — Em design-time, as *Verbs* "Sync Fields" e "Refresh Entity" fazem o parse direto das units `.pas` e criam os `TFields` dinamicamente **sem precisar compilar o projeto**.
