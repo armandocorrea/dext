@@ -85,14 +85,67 @@ This index provides a comprehensive and exhaustive technical map of the Dext Fra
 
 ## 🧪 5. Dext Testing & Quality (`Sources\Testing`)
 
-### 5.1 Unit Testing Tools
-- **TAutoMocker<T>** — Automated DI-aware mocking.
-- **Snapshot Assertions** — `Should.MatchSnapshot('expected.json')`.
-- **Fluent Assertions** — `Should(Value).BeGreaterThan(10)`.
+### 5.1 Test Runner & Dashboard
+- **CLI Runner** — High-performance command-line executor (`dext test`) with support for category and priority filtering.
+- **Live Dashboard** — Built-in visual host for real-time test monitoring with failure history and stack trace analysis.
+- **Fluent Runner API** (`Dext.Testing.Fluent`) — Programmatic configuration: `TTest.Configure.Verbose.RegisterFixtures([...]).Run`.
+
+### 5.2 Attribute-Based Runner (`Dext.Testing.Attributes`)
+Write tests without base class inheritance using RTTI metadata.
+- **Core Attributes** — `[Fixture]`, `[Test]`, `[Fact]`, `[TestClass]`.
+- **Lifecycle Management** — `[Setup]`, `[TearDown]`, `[BeforeAll]`, `[AfterAll]`, `[AssemblyInitialize]`, `[AssemblyCleanup]`.
+- **Data-Driven Testing** —
+  - `[TestCase(A, B, Expected)]` — Inline parameterized tests.
+  - `[TestCaseSource('MethodName')]` — Dynamic data providers via methods.
+  - `[Values(V1, V2)]`, `[Range(Start, Stop, Step)]`, `[Random(Min, Max, Count)]` — Automatic case generation.
+  - `[Combinatorial]` — Execute all possible parameter combinations.
+- **Execution Filters & Control** —
+  - `[Ignore('Reason')]`, `[Skip('Reason')]` — Skip tests.
+  - `[Explicit]` — Tests run only when explicitly selected.
+  - `[Category('Tag')]`, `[Trait('Name', 'Value')]` — Categorization and filtering.
+  - `[Timeout(ms)]`, `[MaxTime(ms)]`, `[Repeat(n)]`, `[Priority(n)]` — Execution and performance control.
+  - `[Platform('Windows, Linux')]` — OS-specific restrictions.
+
+### 5.3 Fluent Assertions (`Dext.Assertions`)
+Fluent API based on the `Should(Value)` pattern.
+- **Typed Assertions** — Specific methods for `ShouldString`, `ShouldInteger`, `ShouldDouble` (approximation), `ShouldBoolean`, `ShouldDateTime`, `ShouldGuid`, `ShouldUUID`, `ShouldObject`.
+- **List/Collection Assertions** — `Should(List).HaveCount(5).Contain(X).OnlyContain(Predicate).AllSatisfy(Predicate)`.
+- **Structural Comparison** — `BeEquivalentTo` for deep object and collection comparison (order-independent).
+- **Soft Asserts** — `Assert.Multiple(procedure ... end)` to collect multiple failures in a block before failing the test.
+- **Action Assertions** — `Should(Proc).Throw<EException>().WithMessageContaining('...')`.
+
+### 5.4 Snapshot Testing
+- **`MatchSnapshot('name')`** — Verify complex objects and JSON payloads via disk-based baseline comparison.
+- **Structural JSON Compare** — Smart comparison that ignores formatting and property order in JSON.
+- **Update Mode** — `SNAPSHOT_UPDATE=1` environment variable for automatic baseline updates.
+
+### 5.5 Mocking & Interception (`Dext.Mocks`, `Dext.Interception`)
+- **Dynamic Proxies** — `TProxy` (Interfaces) and `TClassProxy` (Classes with virtual methods) via `TVirtualInterface` and `TVirtualMethodInterceptor`.
+- **Fluent Mocking** — `Mock<T>.Setup.Returns(Val).When.Method(Args)`.
+- **Argument Matchers** — `Arg.Any<T>`, `Arg.Is<T>`, `Arg.IsNotNull<T>`.
+- **Verification** — `Received(Times.Once)`, `Received(Times.AtLeast(n))`.
+- **Auto-Mocking** — `TAutoMocker` for automated mock injection into the DI container during unit tests.
+
+### 5.6 Reporting & CI/CD (`Dext.Testing.Report`)
+- **Multi-Format Export** — JUnit XML, xUnit XML, TRX (Azure DevOps), HTML (Dark Theme), JSON.
+- **SonarQube Integration** — Generate code coverage and failure reports compatible with Quality Gates.
+- **TestInsight Integration** — Native support for direct visualization in the Delphi IDE.
+- **Test Context Injection** — `ITestContext` injectable via parameter for `WriteLine`, `AttachFile` (screenshots), and execution metadata.
 
 ---
 
-## 📊 6. Scaling & Production Readiness
-- **200,000+ Lines** of high-quality Pascal code.
-- **500+ Automated Tests** across 5 database engines.
-- **Validated** for Delphi 10.3 (Rio) through 12.x (Athens).
+## 🧪 6. Quality & Testing (Scale and Rigor)
+
+Dext is continuously validated by a massive testing infrastructure to ensure integrity across its subsystems:
+
+- **Engineering Statistics** — The project exceeds **200,000 lines of pure Pascal code** (excluding templates and documentation), reflecting a massive investment in stability and high-level abstractions.
+- **Massive Coverage** — Hundreds of test suites with thousands of individual assertions validating everything from the Core (Memory, Collections) to complex Web and ORM integrations.
+- **Multi-DB Matrix (ORM)** — The persistence engine is exhaustively tested across a real matrix of 5 databases: PostgreSQL, SQL Server, MySQL, SQLite, and Firebird.
+- **Stress & Concurrency Testing** — Validation of concurrent collections, channels, and async tasks under high load to ensure no Race Conditions.
+- **Anti-Leak Policies** — Rigorous memory monitoring in every suite; test failures are triggered if object leaks are detected.
+- **Field Evidence** — Framework validated in real-world projects deployed on **AWS and Azure**, with fiscal management systems processing peaks of **~800,000 daily requests**.
+- **CI/CD Quality Gates** — Native integration with Azure DevOps and GitHub Actions, enforcing coverage thresholds and snapshot approval.
+
+---
+
+*Dext Framework — Exhaustive Technical Map & Features Index. (Revision: April 23, 2026).*

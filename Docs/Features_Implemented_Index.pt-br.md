@@ -279,7 +279,7 @@ Uma das features mais poderosas do Dext: **geração automática de APIs REST co
 ## 📊 4. Dext ORM & Entity Framework (`Sources\Data`)
 
 ### 4.1 Core Persistence
-- **TDbContext** — Unit of Work com **Change Tracking** automático (estados: Added, Modified, Deleted, Unchanged). **Identity Map** para unicidade de instâncias por chave primária.
+- **TDbContext** — Unit of Work with **Change Tracking** automático (estados: Added, Modified, Deleted, Unchanged). **Identity Map** para unicidade de instâncias por chave primária.
 - **DbSet\<T\>** — Repository genérico. Operações: `Add`, `Update`, `Remove`, `Find`, `FirstOrDefault`, `Where`, `Include`, `ToList`.
 - **SaveChanges** — Persiste todas as mudanças rastreadas em uma transação.
 
@@ -408,25 +408,51 @@ Uma das features mais poderosas do Dext: **geração automática de APIs REST co
 ## 🧪 7. Dext Testing Framework (`Sources\Testing`)
 
 ### 7.1 Test Runner & Dashboard
-- Executor CLI de alta velocidade e host visual interno para monitoramento em tempo real com histórico de falhas.
+- **CLI Runner** — Executor de linha de comando de alta performance (`dext test`) com suporte a filtros por categoria e prioridade.
+- **Live Dashboard** — Host visual embutido para monitoramento em tempo real da execução dos testes com histórico de falhas e análise de stack trace.
+- **Fluent Runner API** (`Dext.Testing.Fluent`) — Configuração programática: `TTest.Configure.Verbose.RegisterFixtures([...]).Run`.
 
-### 7.2 Attribute-Based Runner
-- Escrita de testes baseada em atributos: `[Fixture]`, `[Test]`, `[Setup]`, `[TearDown]`, `[TestCase]` — sem necessidade de herança de classes base.
+### 7.2 Attribute-Based Runner (`Dext.Testing.Attributes`)
+Permite a escrita de testes sem herança de classes base, usando metadados RTTI.
+- **Core Attributes** — `[Fixture]`, `[Test]`, `[Fact]`, `[TestClass]`.
+- **Lifecycle Management** — `[Setup]`, `[TearDown]`, `[BeforeAll]`, `[AfterAll]`, `[AssemblyInitialize]`, `[AssemblyCleanup]`.
+- **Data-Driven Testing** —
+  - `[TestCase(A, B, Expected)]` — Testes parametrizados inline.
+  - `[TestCaseSource('MethodName')]` — Provedores de dados dinâmicos via método.
+  - `[Values(V1, V2)]`, `[Range(Start, Stop, Step)]`, `[Random(Min, Max, Count)]` — Geração automática de casos.
+  - `[Combinatorial]` — Execução de todas as combinações possíveis de parâmetros.
+- **Execution Filters & Control** —
+  - `[Ignore('Reason')]`, `[Skip('Reason')]` — Pular testes.
+  - `[Explicit]` — Testes executados apenas se selecionados nominalmente.
+  - `[Category('Tag')]`, `[Trait('Name', 'Value')]` — Categorização e filtragem.
+  - `[Timeout(ms)]`, `[MaxTime(ms)]`, `[Repeat(n)]`, `[Priority(n)]` — Controle de execução e performance.
+  - `[Platform('Windows, Linux')]` — Restrição por sistema operacional.
 
-### 7.3 Assertions & Mocking
-- API fluente de asserções rica. Framework de **Mocking dinâmico** via Proxies.
-- **Soft Asserts** — `Assert.Multiple` para coletar múltiplas falhas antes de reportar.
-- **Auto-Mocking Container** — `TAutoMocker` para injeção automática de mocks em testes unitários e de integração.
+### 7.3 Fluent Assertions (`Dext.Assertions`)
+API fluente baseada no padrão `Should(Value)`.
+- **Typed Assertions** — Métodos específicos para `ShouldString`, `ShouldInteger`, `ShouldDouble` (aproximação), `ShouldBoolean`, `ShouldDateTime`, `ShouldGuid`, `ShouldUUID`, `ShouldObject`.
+- **List/Collection Assertions** — `Should(List).HaveCount(5).Contain(X).OnlyContain(Predicate).AllSatisfy(Predicate)`.
+- **Structural Comparison** — `BeEquivalentTo` for deep object and collection comparison (order-independent).
+- **Soft Asserts** — `Assert.Multiple(procedure ... end)` to collect multiple failures in a block before interrupting the test.
+- **Action Assertions** — `Should(Proc).Throw<EException>().WithMessageContaining('...')`.
 
 ### 7.4 Snapshot Testing
-- `MatchSnapshot` — Verificação de objetos complexos e payloads via comparação de baselines JSON.
+- **`MatchSnapshot('name')`** — Verificação de objetos complexos e payloads JSON via comparação de baselines em disco.
+- **Structural JSON Compare** — Comparação inteligente que ignora formatação e ordem de propriedades em JSON.
+- **Update Mode** — Variável de ambiente `SNAPSHOT_UPDATE=1` para atualização automática de baselines.
 
-### 7.5 IDE Integration & CI/CD
-- Suporte nativo ao **TestInsight**. Geração de relatórios em HTML, JSON, XML (JUnit), xUnit, TRX (Azure DevOps) e SonarQube.
+### 7.5 Mocking & Interception (`Dext.Mocks`, `Dext.Interception`)
+- **Dynamic Proxies** — `TProxy` (Interfaces) e `TClassProxy` (Classes com métodos virtuais) via `TVirtualInterface` e `TVirtualMethodInterceptor`.
+- **Fluent Mocking** — `Mock<T>.Setup.Returns(Val).When.Method(Args)`.
+- **Argument Matchers** — `Arg.Any<T>`, `Arg.Is<T>`, `Arg.IsNotNull<T>`.
+- **Verification** — `Received(Times.Once)`, `Received(Times.AtLeast(n))`.
+- **Auto-Mocking** — `TAutoMocker` for automated mock injection into the DI container during unit tests.
 
-### 7.6 Code Coverage
-- **`dext test --coverage`** — Geração de relatórios de cobertura de código prontos para integração com SonarQube.
-- **Quality Gates** — Thresholds configuráveis de cobertura mínima para CI/CD pipelines.
+### 7.6 Reporting & CI/CD (`Dext.Testing.Report`)
+- **Multi-Format Export** — JUnit XML, xUnit XML, TRX (Azure DevOps), HTML (Dark Theme), JSON.
+- **SonarQube Integration** — Geração de relatórios de cobertura de código e falhas compatíveis com Quality Gates.
+- **TestInsight Integration** — Suporte nativo para visualização direta na IDE Delphi.
+- **Test Context Injection** — `ITestContext` injetável via parâmetro para `WriteLine`, `AttachFile` (screenshots) e metadados de execução.
 
 ---
 
@@ -565,12 +591,13 @@ Uma das features mais poderosas do Dext: **geração automática de APIs REST co
 
 O Dext é validado continuamente por uma infraestrutura de testes massiva para garantir a integridade entre seus subsistemas:
 
-- **Centenas de Testes Automatizados** — Milhares de asserções cobrindo desde o core do framework até integrações de alto nível.
-- **Escala de Engenharia** — O projeto ultrapassa **200.000 linhas de código Pascal puro** (excluindo templates e documentação), refletindo um investimento massivo em estabilidade e abstrações de alto nível.
-- **Cross-Database Validation (ORM)** — O motor de persistência é testado exaustivamente em uma matriz real de 5 bancos de dados (PostgreSQL, SQL Server, MySQL, SQLite e Firebird).
-- **Zero Memory Leaks** — Monitoramento rigoroso em cada suíte para garantir estabilidade em ambientes de produção 24/7.
+- **Estatísticas de Engenharia** — O projeto ultrapassa **200.000 linhas de código Pascal puro** (excluindo templates e documentação), refletindo um investimento massivo em estabilidade e abstrações de alto nível.
+- **Cobertura Massiva** — Centenas de suítes de testes com milhares de asserções individuais validando desde o Core (Memory, Collections) até integrações complexas de Web e ORM.
+- **Matriz Multi-DB (ORM)** — O motor de persistência é testado exaustivamente em uma matriz real de 5 bancos de dados: PostgreSQL, SQL Server, MySQL, SQLite e Firebird.
+- **Stress & Concurrency Testing** — Validação de coleções concorrentes, canais e async tasks sob alta carga para garantir ausência de Race Conditions.
+- **Políticas Anti-Leak** — Monitoramento rigoroso de memória em cada suíte; falhas de teste são emitidas se houver vazamento de objetos.
 - **Evidências de Campo** — Framework validado em projetos reais com deploy em **AWS e Azure**, e sistemas de gestão fiscal processando picos de **~800.000 requisições diárias**.
-- **Relatórios & CI/CD** — Integração nativa com SonarQube e Azure DevOps via `dext test`.
+- **CI/CD Quality Gates** — Integração nativa com Azure DevOps e GitHub Actions, forçando thresholds de cobertura e aprovação de snapshots.
 
 ---
 
