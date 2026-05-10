@@ -134,10 +134,4 @@ begin
     Result := '';
 end;
 
-initialization
-  TActivator.RegisterDefault<IList<TGeminiPart>,        TList<TGeminiPart>>;
-  TActivator.RegisterDefault<IList<TGeminiContent>,     TList<TGeminiContent>>;
-  TActivator.RegisterDefault<IList<TGeminiCandidate>,   TList<TGeminiCandidate>>;
-  TActivator.RegisterDefault<IList<TGeminiTokenDetail>, TList<TGeminiTokenDetail>>;
-
 end.

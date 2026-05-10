@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -1778,7 +1778,13 @@ begin
 
     InstObj := nil;
     if Result.Kind = tkInterface then
-      InstObj := Result.AsInterface as TObject
+    begin
+      try
+        InstObj := Result.AsInterface as TObject;
+      except
+        InstObj := nil;
+      end;
+    end
     else if Result.Kind = tkClass then
       InstObj := Result.AsObject;
 
@@ -1920,7 +1926,13 @@ begin
 
     InstObj := nil;
     if Result.Kind = tkInterface then
-      InstObj := Result.AsInterface as TObject
+    begin
+      try
+        InstObj := Result.AsInterface as TObject;
+      except
+        InstObj := nil;
+      end;
+    end
     else if Result.Kind = tkClass then
       InstObj := Result.AsObject;
 

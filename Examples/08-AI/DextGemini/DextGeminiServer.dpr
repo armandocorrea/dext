@@ -6,12 +6,12 @@ uses
   Dext.MM,
   System.Classes,
   System.SysUtils,
+  Dext.Collections,
   Dext.Net.RestClient,
   Dext,
   Dext.Web,
   Dext.Utils,
   Gemini.Models in 'Gemini.Models.pas';
-
 
 const
   ApiKey = 'GEMINI-API-KEY';
@@ -23,12 +23,13 @@ begin
   var App : IWebApplication := WebApplication;
   var Services := App.Services;
 
-  //Services.AddTransient<IList<TGeminiPart>, TList<TGeminiPart>>;
+  Services
+    .AddTransient<IList<TGeminiPart>, TList<TGeminiPart>>
+    .AddTransient<IList<TGeminiContent>, TList<TGeminiContent>>
+    .AddTransient<IList<TGeminiCandidate>, TList<TGeminiCandidate>>
+    .AddTransient<IList<TGeminiTokenDetail>, TList<TGeminiTokenDetail>>;
 
-  App.Builder
-    .UseDeveloperExceptionPage
-    .UseHttpLogging
-    .UseStaticFiles('wwwroot')
+  App.Builder.UseDeveloperExceptionPage.UseHttpLogging.UseStaticFiles('wwwroot')
 
     // Rota da API: Integração com Gemini
     .MapPost<TChatRequest, IResult>('/ia/ask',
@@ -37,9 +38,7 @@ begin
         var GeminiRequest := TGeminiRequest.Create(Req.pergunta);
         var Payload := TDextJson.Serialize(GeminiRequest);
 
-        var Response := RestClient(AgentModelUrl)
-          .PostJson(Payload)
-          .Await;
+        var Response := RestClient(AgentModelUrl).PostJson(Payload).Await;
 
         if Response.StatusCode = HttpStatus.OK then
         begin
@@ -55,7 +54,7 @@ begin
               Result := Results.Problem('A IA não retornou uma estrutura de resposta válida.');
           except
             on E: Exception do
-              Result := Results.Problem('Erro ao processar a resposta da IA: ' + E.Message);
+              Result := Results.Problem('Erro ao processar a resposta da IA: ' + E.ClassName + ': ' + E.Message);
           end;
         end
         else
