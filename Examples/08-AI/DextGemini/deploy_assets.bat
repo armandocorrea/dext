@@ -27,12 +27,12 @@ if exist "%SOURCE_DIR%wwwroot" (
     echo Error: wwwroot directory not found in %SOURCE_DIR%
 )
 
-:: Copiar config.yml (Configurações da API)
-if exist "%SOURCE_DIR%config.yml" (
-    echo Copying config.yml...
-    copy /Y "%SOURCE_DIR%config.yml" "%DEST%\"
+:: Copiar appsettings.yml (Configurações da API)
+if exist "%SOURCE_DIR%appsettings.yml" (
+    echo Copying appsettings.yml...
+    copy /Y "%SOURCE_DIR%appsettings.yml" "%DEST%\"
 ) else (
-    echo Error: config.yml not found in %SOURCE_DIR%
+    echo Error: appsettings.yml not found in %SOURCE_DIR%
 )
 
 echo.

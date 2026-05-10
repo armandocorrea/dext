@@ -9,6 +9,15 @@ uses
   Dext.Validation;
 
 type
+  TGeminiOptions = class
+  private
+    FApiKey: string;
+    FModel: string;
+  published
+    property ApiKey: string read FApiKey write FApiKey;
+    property Model: string read FModel write FModel;
+  end;
+
   // ---------------------------------------------------------------------------
   // Request models
   // ---------------------------------------------------------------------------
