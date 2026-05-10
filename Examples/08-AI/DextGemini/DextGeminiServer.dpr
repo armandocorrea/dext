@@ -20,12 +20,11 @@ begin
   var Services := App.Services;
 
   Services.Configure<TGeminiOptions>(App.Configuration.GetSection('Gemini'));
-  var Provider := App.BuildServices;
-  var StartupGeminiOptions := Provider.GetServiceAsInterface(
-    TServiceType.FromInterface(TypeInfo(IOptions<TGeminiOptions>))
-  ) as IOptions<TGeminiOptions>;
+  var StartupGeminiOptions := TOptionsFactory.Create<TGeminiOptions>(
+    App.Configuration.GetSection('Gemini')
+  );
 
-  if (StartupGeminiOptions = nil) or (StartupGeminiOptions.Value = nil) then
+  if (StartupGeminiOptions.Value = nil) then
     SafeWriteLn('[WARN] Gemini options não carregadas (seção Gemini).')
   else
   begin
@@ -63,7 +62,9 @@ begin
         var GeminiRequest := TGeminiRequest.Create(Req.pergunta);
         var Payload := TDextJson.Serialize(GeminiRequest);
 
-        var Response := RestClient(AgentModelUrl).PostJson(Payload).Await;
+        var Response := RestClient(AgentModelUrl)
+          .PostJson(Payload)
+          .Await;
 
         if Response.StatusCode = HttpStatus.OK then
         begin
