@@ -143,6 +143,23 @@ end;
 
 You can handle responses as raw strings, streams, or typed objects.
 
+### Success Verification
+
+The `IRestResponse` provides the `IsSuccess` property to quickly check if the status code is within the success range (200-299).
+
+```pascal
+Client.Get('/users/1')
+  .OnComplete(
+    procedure(Res: IRestResponse)
+    begin
+      if Res.IsSuccess then
+        Writeln('Operation successful!')
+      else
+        Writeln('Failed: ', Res.StatusCode);
+    end)
+  .Start;
+```
+
 ### Typed Responses (Deserialization)
 
 Use `Get<T>`, `Post<T>`, etc., or `.Execute<T>` to automatically deserialize the JSON response into a Delphi object or record.

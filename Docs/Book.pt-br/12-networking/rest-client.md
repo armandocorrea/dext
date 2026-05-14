@@ -141,7 +141,24 @@ end;
 
 ## Manipulando Respostas
 
-Você pode manipular respostas como strings brutas, streams ou objetos tipados.
+Você pode manipular respostas como strings brutas, streams ou objetos tipados. 
+
+### Verificação de Sucesso
+
+O `IRestResponse` fornece a propriedade `IsSuccess` para verificar rapidamente se o status code está na faixa de sucesso (200-299).
+
+```pascal
+Client.Get('/users/1')
+  .OnComplete(
+    procedure(Res: IRestResponse)
+    begin
+      if Res.IsSuccess then
+        Writeln('Operação realizada com sucesso!')
+      else
+        Writeln('Falha: ', Res.StatusCode);
+    end)
+  .Start;
+```
 
 ### Respostas Tipadas (Deserialização)
 

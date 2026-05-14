@@ -196,7 +196,10 @@ begin
     .OnCompleteAsync(
       procedure(LResp: IRestResponse)
       begin
-        Writeln('Direct Request Status: ', LResp.StatusCode);
+        if LResp.IsSuccess then
+          Writeln('Direct Request Success! Status: ', LResp.StatusCode)
+        else
+          Writeln('Direct Request Failed! Status: ', LResp.StatusCode);
         Countdown.Signal;
       end)
     .Start;

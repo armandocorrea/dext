@@ -93,6 +93,15 @@ var Users := Client.Request.Get('/users')
   .Await;
 ```
 
+### 3.4. Ergonomic Response Helpers
+To simplify status code validation, `IRestResponse` will include a helper property for success range checking.
+
+```pascal
+// Returns true if StatusCode is 200..299
+if Response.IsSuccess then
+  HandleData(Response.Data);
+```
+
 ## 4. Design Principles & Constraints
 
 ### Clean API (No "With" Prefixes)
@@ -109,8 +118,9 @@ The new methods will be implemented as additive changes in `Dext.Net.RestClient.
 - `Sources\Net\Dext.Net.Authentication.pas` (if new auth-specific fluent methods are added)
 
 ## 6. Acceptance Criteria
-- [ ] `Client.Request.Post('/path')` returns a valid `TRestRequest` builder.
-- [ ] `Request.Body<TRecord>(MyRecord)` serializes correctly without compiler errors.
-- [ ] `Request.Body<TArray<TRecord>>(MyArray)` serializes correctly.
-- [ ] Existing `Client.Get('/path').Await` calls continue to work without modification.
-- [ ] `Execute<TArray<T>>` correctly deserializes JSON arrays into Delphi arrays.
+- [x] `Client.Request.Post('/path')` returns a valid `TRestRequest` builder.
+- [x] `Request.Body<TRecord>(MyRecord)` serializes correctly without compiler errors.
+- [x] `Request.Body<TArray<TRecord>>(MyArray)` serializes correctly.
+- [x] Existing `Client.Get('/path').Await` calls continue to work without modification.
+- [x] `Execute<TArray<T>>` correctly deserializes JSON arrays into Delphi arrays.
+- [x] `IRestResponse.IsSuccess` correctly identifies 2xx status codes.

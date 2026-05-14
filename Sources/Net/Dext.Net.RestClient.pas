@@ -67,10 +67,15 @@ uses
     /// <summary>Returns all response headers as a TNetHeaders array.</summary>
     function GetHeaders: TNetHeaders;
     
+    /// <summary>Returns true if the status code is in the 2xx range (200-299).</summary>
+    function GetIsSuccess: Boolean;
+    
     property StatusCode: Integer read GetStatusCode;
     property StatusText: string read GetStatusText;
     property ContentStream: TStream read GetContentStream;
     property ContentString: string read GetContentString;
+    /// <summary>Returns true if the status code is in the 2xx range (200-299).</summary>
+    property IsSuccess: Boolean read GetIsSuccess;
   end;
 
   /// <summary>Represents an HTTP response whose content is automatically deserialized to type T.</summary>
@@ -96,6 +101,7 @@ uses
     function GetContentString: string;
     function GetHeader(const AName: string): string;
     function GetHeaders: TNetHeaders;
+    function GetIsSuccess: Boolean;
   public
     constructor Create(AStatusCode: Integer; const AStatusText: string; AStream: TStream;
       const AHeaders: TNetHeaders = nil);
@@ -410,6 +416,11 @@ end;
 function TRestResponse.GetStatusText: string;
 begin
   Result := FStatusText;
+end;
+
+function TRestResponse.GetIsSuccess: Boolean;
+begin
+  Result := (FStatusCode >= 200) and (FStatusCode < 300);
 end;
 
 { TRestResponse<T> }
