@@ -38,10 +38,45 @@ Os seguintes níveis estão disponíveis (em ordem de severidade):
 O Dext inclui um provedor nativo para gravação em arquivos. Os arquivos são gravados no formato **JSON Lines** por padrão, facilitando o consumo por ferramentas de análise.
 
 ```pascal
-Builder.AddFile('logs/app.log');
+Builder.AddFile('logs/app.log', 10, True); // Nome, Tamanho Max (MB), Rotação Diária
 ```
 
-O provedor gerencia automaticamente a criação dos diretórios necessários.
+### Rotação de Arquivos (Rolling Files)
+
+O provedor de arquivo do Dext suporta dois mecanismos de rotação automática para evitar que os arquivos de log cresçam indefinidamente:
+
+1.  **Rotação Diária (`ARollDaily`)**: Quando ativado, ao mudar o dia, o arquivo atual (ex: `app.log`) é renomeado para incluir a data (ex: `app-2026-05-14.log`) e um novo arquivo de log é iniciado.
+2.  **Rotação por Tamanho (`AMaxFileSizeMB`)**: Se o arquivo atingir o limite definido em Megabytes, ele é rotacionado com um sufixo numérico (ex: `app.001.log`, `app.002.log`) e um novo arquivo limpo é criado.
+
+Você pode combinar ambos os mecanismos para garantir uma política de retenção robusta.
+
+### Segurança e Concorrência (Thread-Safety)
+
+O sistema de logging do Dext é **totalmente thread-safe**. 
+- O `TFileSink` utiliza um sistema de trava (`TMonitor`) interna para garantir que múltiplas threads (como requisições HTTP simultâneas) possam logar sem corromper o arquivo ou o buffer.
+- As mensagens são acumuladas em um buffer de memória (4KB) antes de serem escritas no disco, reduzindo drasticamente o número de operações de I/O.
+
+### Alta Performance com RingBuffer (Async Logging)
+
+Para aplicações de altíssimo desempenho, onde o tempo de resposta é crítico, o Dext oferece o modo **Async Logging**. Ele utiliza o `RingBuffer` nativo (lock-free) para que a thread da sua aplicação nunca fique bloqueada aguardando o disco ou o console.
+
+```pascal
+Services.AddLogging(
+  procedure(Builder: ILoggingBuilder)
+  begin
+    Builder
+      .AddAsync // Ativa o modo de alta performance
+      .SetMinimumLevel(TLogLevel.Information)
+      .AddConsole
+      .AddFile('logs/app.log', 10, True);
+  end);
+```
+
+> [!IMPORTANT]
+> Ao ativar o `.AddAsync`, o Dext gerencia automaticamente um pool de buffers e uma thread dedicada para o despacho dos logs, garantindo que o impacto no "Hot Path" da sua aplicação seja praticamente nulo.
+
+> [!TIP]
+> O modo síncrono padrão já é extremamente eficiente devido ao buffering interno de 4KB. O modo Async é recomendado para cenários de throughput massivo ou onde latências de microsegundos são importantes.
 
 ## Utilizando o ILogger
 

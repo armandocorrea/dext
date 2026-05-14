@@ -30,11 +30,16 @@ type
   TFileSink = class(TInterfacedObject, ILogSink)
   private
     FFileName: string;
+    FMaxFileSize: Int64;
+    FRollDaily: Boolean;
+    FCurrentDate: TDateTime;
     FBuffer: TStringBuilder;
     FLock: TObject;
     procedure FlushInternal;
+    procedure CheckRolling;
+    function GetActualFileName: string;
   public
-    constructor Create(const AFileName: string);
+    constructor Create(const AFileName: string; AMaxFileSizeMB: Integer = 0; ARollDaily: Boolean = False);
     destructor Destroy; override;
     procedure Emit(const Entry: TLogEntry);
     procedure Flush;
@@ -64,7 +69,7 @@ type
   private
     FSink: ILogSink;
   public
-    constructor Create(const AFileName: string);
+    constructor Create(const AFileName: string; AMaxFileSizeMB: Integer = 0; ARollDaily: Boolean = False);
     function CreateLogger(const ACategoryName: string): ILogger;
     procedure Dispose;
   end;
@@ -112,10 +117,13 @@ end;
 
 { TFileSink }
 
-constructor TFileSink.Create(const AFileName: string);
+constructor TFileSink.Create(const AFileName: string; AMaxFileSizeMB: Integer; ARollDaily: Boolean);
 begin
   inherited Create;
   FFileName := AFileName;
+  FMaxFileSize := Int64(AMaxFileSizeMB) * 1024 * 1024;
+  FRollDaily := ARollDaily;
+  FCurrentDate := Int(Now);
   FBuffer := TStringBuilder.Create;
   FLock := TObject.Create;
   
@@ -129,6 +137,80 @@ begin
   FBuffer.Free;
   FLock.Free;
   inherited;
+end;
+
+function TFileSink.GetActualFileName: string;
+begin
+  Result := FFileName;
+end;
+
+procedure TFileSink.CheckRolling;
+var
+  LBaseDir, LBaseName, LExt, LNewName: string;
+  LDate: TDateTime;
+  LSize: Int64;
+  I: Integer;
+begin
+  if not TFile.Exists(FFileName) then Exit;
+
+  // 1. Daily Rolling
+  if FRollDaily then
+  begin
+    LDate := Int(Now);
+    if LDate <> FCurrentDate then
+    begin
+      LBaseDir := TPath.GetDirectoryName(FFileName);
+      LBaseName := TPath.GetFileNameWithoutExtension(FFileName);
+      LExt := TPath.GetExtension(FFileName);
+      LNewName := TPath.Combine(LBaseDir, Format('%s-%s%s', [LBaseName, FormatDateTime('yyyy-mm-dd', FCurrentDate), LExt]));
+      
+      try
+        if not TFile.Exists(LNewName) then
+          TFile.Move(FFileName, LNewName);
+        FCurrentDate := LDate;
+      except
+        // ignore move errors
+      end;
+    end;
+  end;
+
+  // 2. Size Rolling
+  if (FMaxFileSize > 0) then
+  begin
+    LSize := 0;
+    try
+      // Simple way to get size
+      var LFileStream := TFileStream.Create(FFileName, fmOpenRead or fmShareDenyNone);
+      try
+        LSize := LFileStream.Size;
+      finally
+        LFileStream.Free;
+      end;
+    except
+      LSize := 0;
+    end;
+
+    if LSize >= FMaxFileSize then
+    begin
+      LBaseDir := TPath.GetDirectoryName(FFileName);
+      LBaseName := TPath.GetFileNameWithoutExtension(FFileName);
+      LExt := TPath.GetExtension(FFileName);
+      
+      for I := 1 to 999 do
+      begin
+        LNewName := TPath.Combine(LBaseDir, Format('%s.%3.3d%s', [LBaseName, I, LExt]));
+        if not TFile.Exists(LNewName) then
+        begin
+          try
+            TFile.Move(FFileName, LNewName);
+            Break;
+          except
+            // next try
+          end;
+        end;
+      end;
+    end;
+  end;
 end;
 
 procedure TFileSink.Emit(const Entry: TLogEntry);
@@ -172,6 +254,7 @@ begin
   if FBuffer.Length = 0 then Exit;
   
   try
+    CheckRolling;
     TFile.AppendAllText(FFileName, FBuffer.ToString, TEncoding.UTF8);
     FBuffer.Clear;
   except
@@ -228,10 +311,10 @@ end;
 
 { TFileLoggerProvider }
 
-constructor TFileLoggerProvider.Create(const AFileName: string);
+constructor TFileLoggerProvider.Create(const AFileName: string; AMaxFileSizeMB: Integer; ARollDaily: Boolean);
 begin
   inherited Create;
-  FSink := TFileSink.Create(AFileName);
+  FSink := TFileSink.Create(AFileName, AMaxFileSizeMB, ARollDaily);
 end;
 
 function TFileLoggerProvider.CreateLogger(const ACategoryName: string): ILogger;
