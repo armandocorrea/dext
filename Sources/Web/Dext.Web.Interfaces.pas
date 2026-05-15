@@ -297,7 +297,19 @@ type
   end;
 
   /// <summary>
+  ///   High-level abstraction for broadcasting events to active streamable sessions.
+  /// </summary>
+  IEventStreamer = interface
+    ['{E1F2A3B4-C5D6-4E7F-8901-234567890ABC}']
+    /// <summary>Broadcasts an event to all active sessions.</summary>
+    procedure PushEvent(const AEventName, AData: string);
+    /// <summary>Sends an event to a specific session.</summary>
+    procedure PushEventTo(const ASessionId, AEventName, AData: string);
+  end;
+
+  /// <summary>
   ///   Manages the lifecycle of streamable sessions independently of the HTTP connection.
+
   /// </summary>
   IStreamableSessionManager = interface
     ['{E7B8D2C3-A4F5-4678-9012-34567890BCDE}']

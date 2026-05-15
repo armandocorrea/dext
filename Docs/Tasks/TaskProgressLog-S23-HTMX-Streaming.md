@@ -331,5 +331,42 @@ Refactoring finalized and validated. The `Dext.AI` package is now stable, and th
 
 The environment is now ready to proceed with **Phase 2 (View Engine validation)** and the **Garbage Collector** implementation for sessions.
 
+---
 
+Finalizada a migração completa do Sidecar Dashboard para a infraestrutura **S23/S24**. O Dashboard agora opera de forma reativa e centralizada sobre o sistema de **Streamable Sessions**.
 
+### Resumo da Migração (Fases 1, 2 e 3):
+
+1.  **Ingestão de Telemetria Centralizada**:
+    *   Implementado o `IEventStreamer` que unifica a distribuição de logs e eventos de teste.
+    *   A rota `/api/telemetry/logs` agora faz o bridge automático para as sessões S23 ativas.
+
+2.  **Live Logging Reativo**:
+    *   O `index.html` foi atualizado com a abstração `DextSSE` para conexão via S23 (`/sidecar/session` + `/sidecar/events`).
+    *   O terminal de logs no Dashboard agora recebe eventos estruturados, reduzindo o processamento no cliente.
+
+3.  **Test Runner S23**:
+    *   O runner de testes foi integrado ao canal de eventos S23.
+    *   Refatorado o `updateTestState` no `main.js` para processar eventos JSON (`run_start`, `test_complete`, etc.) em vez de parsing manual de logs brutos.
+    *   Inserido o componente `tr-status` fixo na UI para feedback visual de progresso e resultados de teste.
+
+4.  **Estabilização da UI**:
+    *   Desativado o `connectSSE` legado no `main.js` para evitar conexões duplicadas.
+    *   Garantida a persistência do `handleSseEvent` como ponte entre o canal de streaming e a lógica interna do Dashboard.
+
+### Próximos Passos Sugeridos:
+*   **Cleanup de Código**: Remover o SignalR (`signalr.min.js`) e as rotas legadas (`/events`, `/hubs/dashboard`) após validação final em produção.
+*   **HTMX Fragments**: Expandir o uso de `Results.Html` para renderizar linhas da árvore de testes diretamente no servidor se a complexidade do `main.js` aumentar.
+
+### 🧹 Limpeza e Estabilização do Build (15/05/2026)
+
+1.  **DextTool CLI (dext.exe)**:
+    *   Removidas todas as dependências e comandos relacionados ao Dashboard (`TUICommand`).
+    *   O `DextTool` agora está focado exclusivamente em Scaffolding, Migrations, Documentação e Code Coverage.
+    *   Build validado com sucesso (**Build Successful**).
+
+2.  **Correção de Dependências Fantasmas**:
+    *   Removida a unit inexistente `Dext.Sidecar.LogStreamer` de `Dext.Dashboard.Routes.pas`.
+    *   Isolada a lógica de Dashboard para o namespace `Sources/Dashboard`, preparando para a migração total para o Sidecar.
+
+O projeto agora está com o build verde em todos os módulos críticos.

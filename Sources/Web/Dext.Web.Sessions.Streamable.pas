@@ -1,4 +1,4 @@
-﻿unit Dext.Web.Sessions.Streamable;
+unit Dext.Web.Sessions.Streamable;
 
 interface
 
@@ -51,7 +51,8 @@ type
     property LastAccessed: TDateTime read FLastAccessed;
   end;
 
-  TInMemoryStreamableSessionManager = class(TInterfacedObject, IStreamableSessionManager)
+  TInMemoryStreamableSessionManager = class(TInterfacedObject, IStreamableSessionManager, IEventStreamer)
+
   private
     FSessions: IDictionary<string, IStreamableSession>;
     FLock: TDextMREW;
@@ -72,6 +73,11 @@ type
     procedure StartScavenger(AIntervalSeconds: Integer = 60; ATimeoutMinutes: Integer = 30;
       const AStoppingToken: ICancellationToken = nil);
     procedure StopScavenger;
+
+    // IEventStreamer
+    procedure PushEvent(const AEventName, AData: string);
+    procedure PushEventTo(const ASessionId, AEventName, AData: string);
+
   private
     FScavengerThread: TThread;
     FScavengerInterval: Integer;
@@ -375,5 +381,33 @@ begin
     FreeAndNil(FScavengerThread);
   end;
 end;
+
+procedure TInMemoryStreamableSessionManager.PushEvent(const AEventName, AData: string);
+var
+  LPair: TPair<string, IStreamableSession>;
+begin
+  FLock.BeginRead;
+  try
+    for LPair in FSessions do
+      LPair.Value.SendSseEvent(AEventName, AData);
+  finally
+    FLock.EndRead;
+  end;
+end;
+
+procedure TInMemoryStreamableSessionManager.PushEventTo(const ASessionId, AEventName,
+  AData: string);
+var
+  LSession: IStreamableSession;
+begin
+  FLock.BeginRead;
+  try
+    if FSessions.TryGetValue(ASessionId, LSession) then
+      LSession.SendSseEvent(AEventName, AData);
+  finally
+    FLock.EndRead;
+  end;
+end;
+
 
 end.

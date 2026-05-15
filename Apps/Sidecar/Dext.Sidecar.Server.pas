@@ -21,7 +21,9 @@ uses
   Dext.Web.Interfaces,
   Dext.Web.Hubs.Extensions,
   Dext.WebHost,
-  Dext.Dashboard.Routes;
+  Dext.Dashboard.Routes,
+  Dext.Sidecar.LogStreamer;
+
 
 type
   TSidecarServer = class
@@ -92,7 +94,19 @@ begin
 
         // S23: Register Streamable Session Manager (IStreamableSessionManager)
         TDextServices.Create(Services).AddStreamableSessions;
+
+        // Register Event Streamer
+        Services.AddSingleton(TServiceType.FromInterface(TypeInfo(IEventStreamer)), TClass(nil),
+          function(Provider: IServiceProvider): TObject
+          var
+            Mgr: IStreamableSessionManager;
+          begin
+            Mgr := TDextServices.GetService<IStreamableSessionManager>(Provider);
+            Result := TEventStreamer.Create(Mgr) as TObject;
+          end);
       end)
+
+
     .Configure(procedure(App: IApplicationBuilder)
       begin
         // S23: Start the Scavenger GC (checks every 60s, evicts after 30min idle)

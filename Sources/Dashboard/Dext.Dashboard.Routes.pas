@@ -35,6 +35,8 @@ uses
   Dext.Http.Executor,
   Dext.Http.Request;
 
+
+
 type
   /// <summary>
   ///   Configures routes and endpoints for the Dext Dashboard.
@@ -886,12 +888,44 @@ begin
     procedure(Ctx: IHttpContext)
     var
       Body: string;
-      EventType: string;
-      JO: IDextJsonObject;
       Node: IDextJsonNode;
+      JA: IDextJsonArray;
       SR: TStreamReader;
-      SseEvent: string;
+      Streamer: IEventStreamer;
+      I: Integer;
+      ItemNode: IDextJsonNode;
+
+      procedure ProcessItem(AItem: IDextJsonObject);
+      var
+        EType, SEvent: string;
+      begin
+        EType := '';
+        if AItem.Contains('event') then EType := AItem.GetString('event');
+
+        SEvent := '';
+        if EType = 'RunStart' then SEvent := 'run_start'
+        else if EType = 'TestStart' then SEvent := 'test_start'
+        else if EType = 'TestComplete' then SEvent := 'test_complete'
+        else if EType = 'RunComplete' then SEvent := 'run_complete';
+
+        // If it's a specific dashboard event, broadcast legacy + push to S23
+        if SEvent <> '' then
+        begin
+          BroadcastSSE(SEvent, AItem.ToJson);
+          if Streamer <> nil then
+            Streamer.PushEvent(SEvent, AItem.ToJson);
+        end
+        else
+        begin
+          // Assume it's a standard log entry
+          if Streamer <> nil then
+            Streamer.PushEvent('log', AItem.ToJson);
+        end;
+      end;
+
     begin
+      Streamer := TDextServices.GetService<IEventStreamer>(Ctx.Services);
+
       // Read logs
       SR := TStreamReader.Create(Ctx.Request.Body);
       try
@@ -905,30 +939,31 @@ begin
         // ADAPTER: Telemetry to Dashboard
         try
           Node := TDextJson.Provider.Parse(Body);
-          if (Node <> nil) and (Node.GetNodeType = jntObject) then
+          if Node <> nil then
           begin
-            JO := Node as IDextJsonObject;
-            EventType := '';
-            if JO.Contains('event') then EventType := JO.GetString('event');
-                 
-            SseEvent := '';
-            if EventType = 'RunStart' then SseEvent := 'run_start'
-            else if EventType = 'TestStart' then SseEvent := 'test_start'
-            else if EventType = 'TestComplete' then SseEvent := 'test_complete'
-            else if EventType = 'RunComplete' then SseEvent := 'run_complete';
-            
-            if SseEvent <> '' then
-                 BroadcastSSE(SseEvent, JO.ToJson);
+            if Node.GetNodeType = jntObject then
+              ProcessItem(Node as IDextJsonObject)
+            else if Node.GetNodeType = jntArray then
+            begin
+              JA := Node as IDextJsonArray;
+              for I := 0 to JA.GetCount - 1 do
+              begin
+                ItemNode := JA.GetNode(I);
+                if (ItemNode <> nil) and (ItemNode.GetNodeType = jntObject) then
+                  ProcessItem(ItemNode as IDextJsonObject);
+              end;
+            end;
           end;
         except
-          // Log parsing error but don't fail the request (telemetry ingestion often just accepts)
+          // Log parsing error but don't fail the request
         end;
-        
+
         Ctx.Response.StatusCode := 202; // Accepted
       finally
         SR.Free;
       end;
     end);
+
 
   // API: Run Tests
   App.MapPost('/api/tests/run',

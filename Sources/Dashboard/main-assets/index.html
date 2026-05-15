@@ -145,7 +145,19 @@
         <!-- PAGE: Dashboard -->
         <div id="page-dashboard" class="page active">
             <div class="cg">
+                <!-- Test Runner Status (S23 Ready) -->
+                <div id="tr-status" class="cd" style="display:none">
+                    <div class="cd-hd"><span class="cd-tt">Test Runner</span>
+                        <div class="cd-ic"><span class="ms material-symbols-outlined">play_circle</span></div>
+                    </div>
+                    <div class="cd-val" id="tr-main">Ready</div>
+                    <div class="cd-sub" id="tr-sub">Waiting for execution...</div>
+                    <div class="cd-bar" style="margin-top:10px;height:4px;background:#333;border-radius:2px;overflow:hidden">
+                        <div id="tr-bar" style="width:0%;height:100%;background:var(--primary);transition:width 0.3s"></div>
+                    </div>
+                </div>
                 <div class="cd">
+
                     <div class="cd-hd"><span class="cd-tt" data-i18n="environments">Environments</span>
                         <div class="cd-ic"><span class="ms material-symbols-outlined">cloud</span></div>
                     </div>
@@ -466,25 +478,37 @@ Content-Type: application/json
     const DextSSE = {
       _source: null,
       _sessionId: null,
+      _onEvent: null,
 
       async connect(onEvent) {
-        if (DEXT_SSE_MODE === 's23') {
-          // S23: Create session first, then open SSE stream
-          const res = await fetch('/sidecar/session', { method: 'POST' });
-          const { sessionId } = await res.json();
-          this._sessionId = sessionId;
-          this._source = new EventSource('/sidecar/events?sessionId=' + sessionId);
-        } else {
-          // Legacy: Connect directly to the old SSE endpoint
-          this._source = new EventSource('/events');
+        this._onEvent = onEvent;
+        try {
+          if (DEXT_SSE_MODE === 's23') {
+            const res = await fetch('/sidecar/session', { method: 'POST' });
+            const { sessionId } = await res.json();
+            this._sessionId = sessionId;
+            this._source = new EventSource('/sidecar/events?sessionId=' + sessionId);
+          } else {
+            this._source = new EventSource('/events');
+          }
+
+          this._source.addEventListener('connected', e => console.log('[DextSSE] connected:', e.data));
+          
+          ["run_start", "test_start", "test_complete", "run_complete", "log"].forEach(evt => {
+             this._source.addEventListener(evt, e => this._onEvent(evt, e.data));
+          });
+
+          this._source.onmessage = e => this._onEvent('message', e.data);
+          
+          this._source.onerror = () => {
+            console.warn('[DextSSE] connection error — retrying in 5s...');
+            this.disconnect();
+            setTimeout(() => this.connect(this._onEvent), 5000);
+          };
+        } catch(e) {
+          console.error('[DextSSE] critical error:', e);
+          setTimeout(() => this.connect(this._onEvent), 5000);
         }
-        this._source.addEventListener('connected', e => console.log('[DextSSE] connected:', e.data));
-        this._source.onmessage = e => onEvent('message', e.data);
-        this._source.addEventListener('run_start',      e => onEvent('run_start', e.data));
-        this._source.addEventListener('test_start',     e => onEvent('test_start', e.data));
-        this._source.addEventListener('test_complete',  e => onEvent('test_complete', e.data));
-        this._source.addEventListener('run_complete',   e => onEvent('run_complete', e.data));
-        this._source.onerror = () => console.warn('[DextSSE] connection error — will retry');
       },
 
       disconnect() {
@@ -492,6 +516,7 @@ Content-Type: application/json
         this._sessionId = null;
       }
     };
+
 
     // Auto-connect on page load
     document.addEventListener('DOMContentLoaded', () => {
