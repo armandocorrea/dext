@@ -22,6 +22,8 @@ ID | Title | Status | Goal
 **S15** | [Dext Studio & Visual Scaffolding](S15-Dext-Studio-IDE-Expert.md) | 📝 Draft | Visual IDE Expert for schema mapping, GitOps (YAML), and continuous DB syncing.
 **S19** | [FluentQuery Join Evolution](S19-FluentQuery-Join-Evolution.md) | ✅ Finalized | Unified DSL for complex SQL Joins via Managed Records.
 **S20** | [Fluent REST Evolution](S20-Fluent-Rest-Evolution.md) | 📝 Draft | Enhanced TRestClient factories and native record/array payload support.
+**S28** | [Conditional Query Parameters](S28-Conditional-Query-Parameters.md) | ✅ Finalized | Fluent chaining of dynamic/optional query parameters in TRestRequest builder.
+**S29** | [SIMD and Fast Integer-to-String Conversion](S29-Simd-Fast-Itoa.md) | 📝 Proposed | Zero-allocation division-free integer formatting for high-speed JSON APIs.
 ---
 
 ## 🔍 Project Status & Roadmap
