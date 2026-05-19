@@ -87,8 +87,11 @@ Como o Delphi não possui classes parciais (`partial class` como o C#), a regene
 
 ## 6. Arquitetura OTA (Delphi Open Tools API)
 - **Menu Integração:** `Tools -> Dext Framework -> Dext Studio`.
-- **Project Manager Context Menu:** Clique direito em um projeto -> `Dext: Reverse Engineer Database...`
-- **Comunicação:** O Expert (BPL) chamará internamente o `dext.exe` passando o arquivo `dext-schema.yaml` como argumento silencioso para realizar o trabalho pesado, mantendo a IDE leve e livre de travamentos.
+- **Project Manager Context Menu (Menu de Contexto do Projeto):** Clique direito em um projeto no Project Manager -> expande para atalhos rápidos:
+  - `Dext: Open Visual Mapper (Reverse Engineer)...` (Abre a interface visual do Scaffolding).
+  - `Dext: Generate API Documentation...` (Executa silenciosamente o comando `dext.exe doc` para gerar a documentação HTML viva do projeto).
+  - `Dext: Run Active Unit Tests...` (Executa a suíte de testes em background e exibe o resultado diretamente na aba "Messages" da IDE).
+- **Comunicação:** O Expert (BPL) chamará internamente o `dext.exe` passando o arquivo `dext-schema.yaml` ou argumentos de linha de comando como um processo silencioso em segundo plano para realizar o trabalho pesado, mantendo a IDE leve, responsiva e livre de travamentos.
 
 ---
 *Especificação elaborada para transformar o Dext Framework na experiência ORM mais moderna e produtiva do ecossistema Delphi.*

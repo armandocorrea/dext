@@ -13,7 +13,6 @@ uses
   System.Classes;
 
 type
-
   TSuppliers = class;
   TOrders = class;
   TOrderDetails = class;
@@ -27,47 +26,6 @@ type
   TShippers = class;
   TEmployees = class;
   TRegion = class;
-
-  [Table('Suppliers')]
-  TSuppliers = class
-  private
-    FSupplierId: IntType;
-    FCompanyName: StringType;
-    FContactName: StringType;
-    FContactTitle: StringType;
-    FAddress: StringType;
-    FCity: StringType;
-    FRegion: StringType;
-    FPostalCode: StringType;
-    FCountry: StringType;
-    FPhone: StringType;
-    FFax: StringType;
-    FHomePage: StringType;
-  public
-    [PK, Column('SupplierID')]
-    property SupplierId: IntType read FSupplierId write FSupplierId;
-    [MaxLength(40)]
-    property CompanyName: StringType read FCompanyName write FCompanyName;
-    [MaxLength(30)]
-    property ContactName: StringType read FContactName write FContactName;
-    [MaxLength(30)]
-    property ContactTitle: StringType read FContactTitle write FContactTitle;
-    [MaxLength(60)]
-    property Address: StringType read FAddress write FAddress;
-    [MaxLength(15)]
-    property City: StringType read FCity write FCity;
-    [MaxLength(15)]
-    property Region: StringType read FRegion write FRegion;
-    [MaxLength(10)]
-    property PostalCode: StringType read FPostalCode write FPostalCode;
-    [MaxLength(15)]
-    property Country: StringType read FCountry write FCountry;
-    [MaxLength(24)]
-    property Phone: StringType read FPhone write FPhone;
-    [MaxLength(24)]
-    property Fax: StringType read FFax write FFax;
-    property HomePage: StringType read FHomePage write FHomePage;
-  end;
 
   [Table('Orders')]
   TOrders = class
@@ -139,12 +97,52 @@ type
     property ProductId: IntType read FProductId write FProductId;
     property UnitPrice: CurrencyType read FUnitPrice write FUnitPrice;
     property Quantity: IntType read FQuantity write FQuantity;
-    [DisplayFormat('#0.00')]
     property Discount: FloatType read FDiscount write FDiscount;
 
     // Regra de Domínio Rico (Desconto Progressivo)
     function CalcularDescontoProgressivo: Double;
     function ObterTotalComDesconto: Double;
+  end;
+
+  [Table('Suppliers')]
+  TSuppliers = class
+  private
+    FSupplierId: IntType;
+    FCompanyName: StringType;
+    FContactName: StringType;
+    FContactTitle: StringType;
+    FAddress: StringType;
+    FCity: StringType;
+    FRegion: StringType;
+    FPostalCode: StringType;
+    FCountry: StringType;
+    FPhone: StringType;
+    FFax: StringType;
+    FHomePage: StringType;
+  public
+    [PK, Column('SupplierID')]
+    property SupplierId: IntType read FSupplierId write FSupplierId;
+    [MaxLength(40)]
+    property CompanyName: StringType read FCompanyName write FCompanyName;
+    [MaxLength(30)]
+    property ContactName: StringType read FContactName write FContactName;
+    [MaxLength(30)]
+    property ContactTitle: StringType read FContactTitle write FContactTitle;
+    [MaxLength(60)]
+    property Address: StringType read FAddress write FAddress;
+    [MaxLength(15)]
+    property City: StringType read FCity write FCity;
+    [MaxLength(15)]
+    property Region: StringType read FRegion write FRegion;
+    [MaxLength(10)]
+    property PostalCode: StringType read FPostalCode write FPostalCode;
+    [MaxLength(15)]
+    property Country: StringType read FCountry write FCountry;
+    [MaxLength(24)]
+    property Phone: StringType read FPhone write FPhone;
+    [MaxLength(24)]
+    property Fax: StringType read FFax write FFax;
+    property HomePage: StringType read FHomePage write FHomePage;
   end;
 
   [Table('Territories')]
