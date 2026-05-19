@@ -1,0 +1,153 @@
+unit Dext.ActiveArchitecture.ViewModels;
+
+interface
+
+uses
+  System.SysUtils,
+  System.Classes,
+  Dext.Threading.Async,
+  Dext.ActiveArchitecture.Entities,
+  Dext.ActiveArchitecture.Domain;
+
+type
+  /// <summary>
+  /// ViewModel que orquestra a lógica de tela e estado da UI para Pedidos (MVVM).
+  /// Recebe a injeção do serviço IShippingService, promovendo desacoplamento e testabilidade.
+  /// No Clean Architecture + RAD com TEntityDataSet, a ViewModel não duplica os campos da entidade.
+  /// Os campos persistentes são vinculados diretamente do TEntityDataSet para os controles visuais,
+  /// mantendo a produtividade do RAD, enquanto a ViewModel gerencia o estado da UI e Use Cases.
+  /// </summary>
+  TOrderViewModel = class
+  private
+    FOrder: TOrders;
+    FShippingService: IShippingService;
+    FIsCalculating: Boolean;
+    FCalculatedFreight: Double;
+    FErrors: TStrings;
+    FDirty: Boolean;
+    
+    function GetTotalWeight: Double;
+  public
+    constructor Create(AShippingService: IShippingService);
+    destructor Destroy; override;
+    
+    procedure Load(AOrder: TOrders);
+    procedure Clear;
+    procedure CalcularFreteExterno(OnCompleteProc: TProc);
+    
+    // Opcional: expõe o objeto de domínio ativo se a View precisar de alguma validação direta
+    property Order: TOrders read FOrder;
+    
+    // Propriedades exclusivamente de controle de estado e UI (não persistentes no banco)
+    property IsCalculating: Boolean read FIsCalculating;
+    property CalculatedFreight: Double read FCalculatedFreight;
+    property TotalWeight: Double read GetTotalWeight;
+    property Errors: TStrings read FErrors;
+  end;
+
+implementation
+
+uses
+  Dext.Logging,
+  Dext.Logging.Global;
+
+{ TOrderViewModel }
+
+constructor TOrderViewModel.Create(AShippingService: IShippingService);
+begin
+  inherited Create;
+  FShippingService := AShippingService;
+  FErrors := TStringList.Create;
+  Clear;
+end;
+
+destructor TOrderViewModel.Destroy;
+begin
+  FErrors.Free;
+  inherited;
+end;
+
+procedure TOrderViewModel.Clear;
+begin
+  FOrder := nil;
+  FIsCalculating := False;
+  FCalculatedFreight := 0.0;
+  FErrors.Clear;
+  FDirty := False;
+end;
+
+procedure TOrderViewModel.Load(AOrder: TOrders);
+begin
+  FOrder := AOrder;
+  FIsCalculating := False;
+  FCalculatedFreight := 0.0;
+  FErrors.Clear;
+  FDirty := False;
+end;
+
+procedure TOrderViewModel.CalcularFreteExterno(OnCompleteProc: TProc);
+var
+  OrderId: Integer;
+  Country: string;
+  Weight: Double;
+begin
+  if not Assigned(FOrder) then
+  begin
+    FErrors.Add('Nenhum pedido foi selecionado');
+    Log.Warn('Tentativa de calcular frete sem nenhum pedido selecionado.');
+    Exit;
+  end;
+
+  FIsCalculating := True;
+  FErrors.Clear;
+  OrderId := FOrder.OrderId.Value;
+  Country := FOrder.ShipCountry.Value;
+  Weight := GetTotalWeight;
+
+  Log.Info('Iniciando cálculo assíncrono de frete para o Pedido #{OrderId} (Destino: {Country}, Peso: {Weight}kg)...', [OrderId, Country, FormatFloat('0.00', Weight)]);
+
+  // Executa o consumo da API externa em uma thread de background usando TAsyncTask.Run do Dext Core.
+  // Evita congelamento de tela em ERPs (Zero UI Blocking).
+  TAsyncTask.Run<Double>(
+    function: Double
+    begin
+      Result := FShippingService.CalcularCotacaoFrete(Country, Weight);
+    end)
+    .OnComplete(
+      procedure(Res: Double)
+      begin
+        FCalculatedFreight := Res;
+        FOrder.Freight := Res; // Atualiza o frete diretamente no domínio rico
+        FIsCalculating := False;
+        
+        Log.Info('Cálculo de frete finalizado para o Pedido #{OrderId}. Valor calculado: {Freight}', [OrderId, FormatFloat('R$ #,##0.00', Res)]);
+        
+        if Assigned(OnCompleteProc) then
+          OnCompleteProc();
+      end)
+    .OnException(
+      procedure(E: Exception)
+      begin
+        FErrors.Add('Erro ao obter cotação: ' + E.Message);
+        FIsCalculating := False;
+        
+        Log.Error('Erro ao calcular frete para o Pedido #{OrderId}: {Error}', [OrderId, E.Message]);
+        
+        if Assigned(OnCompleteProc) then
+          OnCompleteProc();
+      end)
+    .Start;
+end;
+
+function TOrderViewModel.GetTotalWeight: Double;
+begin
+  if Assigned(FOrder) then
+  begin
+    // Peso dinâmico e coerente baseado no ID do Pedido para tornar a demonstração viva
+    Result := 5.0 + (FOrder.OrderId.Value mod 10) * 3.5;
+  end
+  else
+    Result := 12.5;
+end;
+
+end.

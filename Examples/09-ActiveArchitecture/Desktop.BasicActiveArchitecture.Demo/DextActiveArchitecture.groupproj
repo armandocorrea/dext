@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{4204BE37-CDBD-4155-8E91-C379B48DB78E}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Dext.ActiveArchitecture.Demo.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Dext.ActiveArchitecture.Tests.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="Dext_ActiveArchitecture_Demo">
+        <MSBuild Projects="Dext.ActiveArchitecture.Demo.dproj"/>
+    </Target>
+    <Target Name="Dext_ActiveArchitecture_Demo:Clean">
+        <MSBuild Projects="Dext.ActiveArchitecture.Demo.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Dext_ActiveArchitecture_Demo:Make">
+        <MSBuild Projects="Dext.ActiveArchitecture.Demo.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Dext_ActiveArchitecture_Tests">
+        <MSBuild Projects="Dext.ActiveArchitecture.Tests.dproj"/>
+    </Target>
+    <Target Name="Dext_ActiveArchitecture_Tests:Clean">
+        <MSBuild Projects="Dext.ActiveArchitecture.Tests.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Dext_ActiveArchitecture_Tests:Make">
+        <MSBuild Projects="Dext.ActiveArchitecture.Tests.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="Dext_ActiveArchitecture_Demo;Dext_ActiveArchitecture_Tests"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="Dext_ActiveArchitecture_Demo:Clean;Dext_ActiveArchitecture_Tests:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="Dext_ActiveArchitecture_Demo:Make;Dext_ActiveArchitecture_Tests:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
