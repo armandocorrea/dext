@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -813,7 +813,12 @@ begin
         end;
 
         if not Val.IsEmpty then
-          Handler.SetValue(Instance, Val);
+        begin
+          if Handler <> nil then
+            Handler.SetValue(Instance, Val)
+          else
+            Prop.SetValue(Instance, Val);
+        end;
       end;
     end;
   except
@@ -1347,7 +1352,10 @@ begin
       end;
 
     Handler := TReflection.GetHandler(Obj.ClassInfo, Prop.Name);
-    PropValue := Handler.GetValue(Pointer(Obj));
+    if Handler <> nil then
+      PropValue := Handler.GetValue(Pointer(Obj))
+    else
+      PropValue := Prop.GetValue(Pointer(Obj));
 
     LTypeKind := PropValue.Kind;
     LTypeInfo := PropValue.TypeInfo;
