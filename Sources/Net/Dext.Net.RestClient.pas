@@ -584,6 +584,9 @@ var
   Auth: IAuthenticationProvider;
   LHeadList: TList<TNetHeader>;
   LPair: TPair<string, string>;
+  I: Integer;
+  HasContentType: Boolean;
+  ContentTypeStr: string;
 begin
   Url := GetFullUrl(AEndpoint);
   Retries := FMaxRetries;
@@ -613,6 +616,31 @@ begin
     begin
       for LPair in AHeaders do
         LHeadList.Add(TNetHeader.Create(LPair.Key, LPair.Value));
+    end;
+
+    HasContentType := False;
+    for I := 0 to LHeadList.Count - 1 do
+    begin
+      if SameText(LHeadList[I].Name, 'Content-Type') then
+      begin
+        HasContentType := True;
+        Break;
+      end;
+    end;
+
+    if not HasContentType and Assigned(ABody) then
+    begin
+      case FContentType of
+        ctJson: ContentTypeStr := 'application/json';
+        ctXml: ContentTypeStr := 'application/xml';
+        ctFormUrlEncoded: ContentTypeStr := 'application/x-www-form-urlencoded';
+        ctMultipartFormData: ContentTypeStr := 'multipart/form-data';
+        ctBinary: ContentTypeStr := 'application/octet-stream';
+        ctText: ContentTypeStr := 'text/plain';
+        else ContentTypeStr := '';
+      end;
+      if ContentTypeStr <> '' then
+        LHeadList.Add(TNetHeader.Create('Content-Type', ContentTypeStr));
     end;
     
     Headers := LHeadList.ToArray;

@@ -154,6 +154,33 @@ Client.Post('/upload')
   .Start;
 ```
 
+#### Configuring Content-Type
+
+By default, when you submit a request with a body, the client automatically defaults to JSON (`application/json`). You can customize the `Content-Type` header using either the fluent `ContentType` method with the `TDextContentType` enum, or one of the built-in shorthand methods:
+
+```pascal
+// Using the enum
+Client.Post('/data', BodyStream)
+  .ContentType(TDextContentType.ctFormUrlEncoded)
+  .Start;
+
+// Using shorthand methods
+Client.Post('/data', BodyStream)
+  .ContentTypeForm // application/x-www-form-urlencoded
+  .Start;
+```
+
+The supported content types and their shorthand equivalents are:
+
+| Enum Value | Shorthand Method | Header Value |
+| :--- | :--- | :--- |
+| `ctJson` | `ContentTypeJson` | `application/json` |
+| `ctXml` | `ContentTypeXml` | `application/xml` |
+| `ctFormUrlEncoded` | `ContentTypeForm` | `application/x-www-form-urlencoded` |
+| `ctMultipartFormData` | `ContentTypeMultipart` | `multipart/form-data` |
+| `ctBinary` | `ContentTypeBinary` | `application/octet-stream` |
+| `ctText` | `ContentTypePlainText` | `text/plain` |
+
 #### Record and Collection Support
 
 Dext REST Client natively supports **records** and **arrays of records** as DTOs, eliminating the need to manually manage memory for simple objects.
@@ -278,13 +305,13 @@ The client supports pluggable authentication providers via `IAuthenticationProvi
 
 ```pascal
 // Bearer Token
-Client.Authenticator(TBearerAuthProvider.Create('my-jwt-token'));
+Client.Auth(TBearerAuthProvider.Create('my-jwt-token'));
 
 // Basic Auth
-Client.Authenticator(TBasicAuthProvider.Create('user', 'password'));
+Client.Auth(TBasicAuthProvider.Create('user', 'password'));
 
 // API Key
-Client.Authenticator(TApiKeyAuthProvider.Create('X-API-Key', '12345'));
+Client.Auth(TApiKeyAuthProvider.Create('X-API-Key', '12345'));
 ```
 
 ## Thread Safety

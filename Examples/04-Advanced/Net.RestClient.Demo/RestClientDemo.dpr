@@ -331,6 +331,27 @@ begin
   Writeln;
 end;
 
+procedure DemoContentType;
+var
+  BodyStream: TStringStream;
+  Res: IRestResponse;
+begin
+  Writeln('--- Demo: ContentType and Request Body ---');
+  
+  BodyStream := TStringStream.Create('title=foo&body=bar&userId=1', TEncoding.UTF8);
+  try
+    Res := RestClient('https://jsonplaceholder.typicode.com')
+      .ContentType(TDextContentType.ctFormUrlEncoded)
+      .Post('/posts', BodyStream)
+      .Await;
+      
+    Writeln('Status with FormUrlEncoded: ', Res.StatusCode);
+    Writeln('Response: ', Res.ContentString);
+  finally
+    BodyStream.Free;
+  end;
+end;
+
 begin
   try
     Countdown := TCountdownEvent.Create(1);
@@ -345,6 +366,7 @@ begin
       DemoSynchronous;
       DemoSynchronousList;
       DemoSynchronousObjectList;
+      DemoContentType;
       
       Writeln('Waiting for tasks...');
       Countdown.Signal; // Finish setup
