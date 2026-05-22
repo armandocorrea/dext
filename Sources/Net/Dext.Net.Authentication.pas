@@ -108,6 +108,15 @@ type
 
 implementation
 
+uses
+  Dext.Json;
+
+type
+  TOAuth2TokenResponse = record
+    access_token: string;
+    expires_in: Integer;
+  end;
+
 { TBearerAuthProvider }
 
 constructor TBearerAuthProvider.Create(const AToken: string);
@@ -178,11 +187,8 @@ var
   HttpClient: THTTPClient;
   Response: IHTTPResponse;
   Body: TStringStream;
-  JsonStr: string;
-  TokenStart, TokenEnd: Integer;
-  ExpiresStart, ExpiresEnd: Integer;
-  ExpiresIn: Integer;
   BodyContent: string;
+  TokenResponse: TOAuth2TokenResponse;
 begin
   HttpClient := THTTPClient.Create;
   try
@@ -204,35 +210,19 @@ begin
           'OAuth2 token request failed (HTTP %d): %s',
           [Response.StatusCode, Response.ContentAsString]);
 
-      // Lightweight JSON parsing (avoids dependency on Dext.Json for this low-level unit)
-      JsonStr := Response.ContentAsString;
+      TokenResponse := TDextJson.Deserialize<TOAuth2TokenResponse>(
+        Response.ContentAsString,
+        TJsonSettings.Default.CaseInsensitive
+      );
 
-      // Extract access_token
-      TokenStart := Pos('"access_token"', JsonStr);
-      if TokenStart = 0 then
+      FCachedToken := TokenResponse.access_token;
+      if FCachedToken = '' then
         raise Exception.Create('OAuth2 response missing access_token');
-      TokenStart := Pos('"', JsonStr, TokenStart + Length('"access_token"'));
-      TokenStart := Pos('"', JsonStr, TokenStart + 1) + 1;
-      TokenEnd := Pos('"', JsonStr, TokenStart);
-      FCachedToken := Copy(JsonStr, TokenStart, TokenEnd - TokenStart);
-
-      // Extract expires_in (default 3600 if not present)
-      ExpiresIn := 3600;
-      ExpiresStart := Pos('"expires_in"', JsonStr);
-      if ExpiresStart > 0 then
-      begin
-        ExpiresStart := Pos(':', JsonStr, ExpiresStart) + 1;
-        // Skip whitespace
-        while (ExpiresStart <= Length(JsonStr)) and (JsonStr[ExpiresStart] = ' ') do
-          Inc(ExpiresStart);
-        ExpiresEnd := ExpiresStart;
-        while (ExpiresEnd <= Length(JsonStr)) and CharInSet(JsonStr[ExpiresEnd], ['0'..'9']) do
-          Inc(ExpiresEnd);
-        ExpiresIn := StrToIntDef(Copy(JsonStr, ExpiresStart, ExpiresEnd - ExpiresStart), 3600);
-      end;
 
       // Set expiration with 30-second safety margin
-      FExpiresAt := IncSecond(Now, ExpiresIn - 30);
+      if TokenResponse.expires_in = 0 then
+        TokenResponse.expires_in := 3600;
+      FExpiresAt := IncSecond(Now, TokenResponse.expires_in - 30);
     finally
       Body.Free;
     end;

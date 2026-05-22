@@ -9,7 +9,10 @@ uses
   Dext.Assertions,
   Dext.Auth.JWT,
   Dext.Net.RestClient,
-  Dext.Net.RestRequest;
+  Dext.Net.RestRequest,
+  Dext.Net.Authentication,
+  Dext.Web.Interfaces,
+  Dext.WebHost;
 
 type
   [TestFixture('Web Extension Features Tests (Phase 3)')]
@@ -23,6 +26,9 @@ type
 
     [Test('Should validate conditional query parameters in TRestRequest')]
     procedure TestConditionalQueryParams;
+
+    [Test('Should retrieve and parse OAuth2 Client Credentials token using local mock server')]
+    procedure TestOAuth2ClientCredentialsProvider;
   end;
 
 implementation
@@ -132,6 +138,50 @@ begin
     .QueryParam('flagged', 'true', True)
     .QueryParam('deleted', 'true', False);
   Should(Req.GetFullUrl).Be('/api/users?flagged=true');
+end;
+
+procedure TWebFeaturesTests.TestOAuth2ClientCredentialsProvider;
+var
+  Builder: IWebHostBuilder;
+  Host: IWebHost;
+  Provider: TOAuth2ClientCredentialsProvider;
+  HeaderVal: string;
+begin
+  // 1. Create and configure a local ephemeral HTTP server
+  Builder := TWebHost.CreateDefaultBuilder
+    .UseUrls('http://localhost:0'); // Dynamic port selection
+
+  Builder.Configure(procedure(App: IApplicationBuilder)
+    begin
+      App.MapPost('/oauth/token',
+        procedure(Ctx: IHttpContext)
+        begin
+          Ctx.Response.ContentType := 'application/json';
+          Ctx.Response.Write('{"access_token":"mock-token-abc-123","expires_in":3600}');
+        end
+      );
+    end);
+
+  Host := Builder.Build;
+  Host.Start;
+  try
+    // 2. Act: Instantiating provider targeting the local server
+    Provider := TOAuth2ClientCredentialsProvider.Create(
+      'http://localhost:' + Host.Port.ToString + '/oauth/token',
+      'test-client-id',
+      'test-client-secret'
+    );
+    try
+      HeaderVal := Provider.GetHeaderValue;
+
+      // 3. Assert
+      Should(HeaderVal).Be('Bearer mock-token-abc-123');
+    finally
+      Provider.Free;
+    end;
+  finally
+    Host.Stop;
+  end;
 end;
 
 end.
