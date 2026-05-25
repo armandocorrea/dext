@@ -112,7 +112,7 @@ type
     constructor Create(const ATemplate, AOutputDir: string; const ATitle: string = 'Dext Framework');
     destructor Destroy; override;
 
-    procedure Generate(const InputDir: string);
+    procedure Generate(const InputDir: string; const AFilesToParse: TStrings = nil);
   end;
 
 implementation
@@ -739,7 +739,7 @@ begin
   Result := UInfo;
 end;
 
-procedure TDextDocGenerator.Generate(const InputDir: string);
+procedure TDextDocGenerator.Generate(const InputDir: string; const AFilesToParse: TStrings = nil);
 var
   AllUnits: IList<TUnitInfo>;
   FileName: string;
@@ -753,8 +753,22 @@ var
   UnitInfo: TUnitInfo;
   UnitName: string;
   UnitNodes: IDictionary<string, TSyntaxNode>; // Keyed by FullPath
+  I: Integer;
 begin
-  Files := TDirectory.GetFiles(InputDir, '*.pas', TSearchOption.SoAllDirectories);
+  if AFilesToParse <> nil then
+  begin
+    SetLength(Files, AFilesToParse.Count);
+    for I := 0 to AFilesToParse.Count - 1 do
+    begin
+      if TPath.IsPathRooted(AFilesToParse[I]) then
+        Files[I] := AFilesToParse[I]
+      else
+        Files[I] := TPath.Combine(InputDir, AFilesToParse[I]);
+    end;
+  end
+  else
+    Files := TDirectory.GetFiles(InputDir, '*.pas', TSearchOption.SoAllDirectories);
+  
   UnitNodes := TCollections.CreateDictionary<string, TSyntaxNode>;
   try
      // 1. Pass: Build Registry

@@ -6,6 +6,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.IOUtils,
+  System.JSON,
   Dext.Hosting.CLI.Args,
   Dext.Hosting.CLI.Tools.DocGen,
   Dext.Utils;
@@ -399,6 +400,143 @@ type
 
 implementation
 
+// YAML Helper Functions
+function UnescapeYamlString(const S: string): string;
+var
+  Trimmed: string;
+begin
+  Trimmed := S.Trim;
+  if Trimmed.StartsWith('"') and Trimmed.EndsWith('"') then
+  begin
+    Trimmed := Trimmed.Substring(1, Trimmed.Length - 2);
+    Result := Trimmed.Replace('\"', '"').Replace('\\', '\');
+  end
+  else if Trimmed.StartsWith('''') and Trimmed.EndsWith('''') then
+  begin
+    Trimmed := Trimmed.Substring(1, Trimmed.Length - 2);
+    Result := Trimmed.Replace('''''', '''');
+  end
+  else
+    Result := Trimmed;
+end;
+
+procedure LoadYamlConfig(const AFileName: string; out ATitle, ASearchPath, AOutputPath, ALastRun: string;
+  out AOnlyProjectFiles: Boolean; const ASelectedFiles: TStrings);
+var
+  Lines: TStringList;
+  I: Integer;
+  Line: string;
+  Key, Val: string;
+  ColonPos: Integer;
+  InSelectedFiles: Boolean;
+  Content: string;
+  JSON: TJSONObject;
+  FilesArr: TJSONArray;
+begin
+  ATitle := '';
+  ASearchPath := '';
+  AOutputPath := '';
+  AOnlyProjectFiles := True;
+  ALastRun := '';
+  if ASelectedFiles <> nil then
+    ASelectedFiles.Clear;
+
+  if not TFile.Exists(AFileName) then Exit;
+
+  Content := TFile.ReadAllText(AFileName, TEncoding.UTF8).Trim;
+  if Content.StartsWith('{') then
+  begin
+    try
+      JSON := TJSONObject.ParseJSONValue(Content) as TJSONObject;
+      if JSON <> nil then
+      begin
+        try
+          if JSON.GetValue('title') <> nil then
+            ATitle := JSON.GetValue('title').Value;
+          if JSON.GetValue('search_path') <> nil then
+            ASearchPath := JSON.GetValue('search_path').Value;
+          if JSON.GetValue('output_path') <> nil then
+            AOutputPath := JSON.GetValue('output_path').Value;
+          if JSON.GetValue('only_project_files') <> nil then
+            AOnlyProjectFiles := JSON.GetValue('only_project_files').Value.ToBoolean;
+          if JSON.GetValue('last_run') <> nil then
+            ALastRun := JSON.GetValue('last_run').Value;
+            
+          if JSON.GetValue('selected_files') <> nil then
+            FilesArr := JSON.GetValue('selected_files') as TJSONArray
+          else
+            FilesArr := nil;
+            
+          if (FilesArr <> nil) and (ASelectedFiles <> nil) then
+          begin
+            for I := 0 to FilesArr.Count - 1 do
+              ASelectedFiles.Add(FilesArr.Items[I].Value);
+          end;
+        finally
+          JSON.Free;
+        end;
+      end;
+    except
+      // Ignore JSON parsing errors in fallback
+    end;
+    Exit;
+  end;
+
+  Lines := TStringList.Create;
+  try
+    Lines.Text := Content;
+    InSelectedFiles := False;
+    
+    for I := 0 to Lines.Count - 1 do
+    begin
+      Line := Lines[I];
+      
+      if Line.Trim.IsEmpty or Line.Trim.StartsWith('#') then
+        Continue;
+        
+      if InSelectedFiles then
+      begin
+        if not Line.StartsWith('  - ') and not Line.StartsWith('    - ') and (Line.Contains(':') or not Line.StartsWith(' ')) then
+          InSelectedFiles := False;
+      end;
+
+      if InSelectedFiles then
+      begin
+        Val := Line.Trim;
+        if Val.StartsWith('- ') then
+        begin
+          Val := Val.Substring(2);
+          if ASelectedFiles <> nil then
+            ASelectedFiles.Add(UnescapeYamlString(Val));
+          Continue;
+        end;
+      end;
+      
+      ColonPos := Line.IndexOf(':');
+      if ColonPos > 0 then
+      begin
+        Key := Line.Substring(0, ColonPos).Trim.ToLower;
+        Val := Line.Substring(ColonPos + 1).Trim;
+        
+        if Key = 'title' then
+          ATitle := UnescapeYamlString(Val)
+        else if Key = 'search_path' then
+          ASearchPath := UnescapeYamlString(Val)
+        else if Key = 'output_path' then
+          AOutputPath := UnescapeYamlString(Val)
+        else if Key = 'only_project_files' then
+          AOnlyProjectFiles := Val.ToLower = 'true'
+        else if Key = 'last_run' then
+          ALastRun := UnescapeYamlString(Val)
+        else if Key = 'selected_files' then
+          InSelectedFiles := True;
+      end;
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
+
 { TDocCommand }
 
 function TDocCommand.GetName: string;
@@ -415,8 +553,12 @@ procedure TDocCommand.Execute(const Args: TCommandLineArgs);
 var
   InputDir, OutputDir, Title: string;
   Generator: TDextDocGenerator;
+  ConfigPath: string;
+  FilesToParse: TStringList;
+  LoadedLastRun: string;
+  LoadedOnlyProject: Boolean;
 begin
-  // 1. Parse Arguments
+  // 1. Parse Default Arguments
   if Args.HasOption('input') then
     InputDir := Args.GetOption('input')
   else if Args.Values.Count > 0 then
@@ -433,27 +575,57 @@ begin
     Title := Args.GetOption('title')
   else
     Title := 'Dext Framework';
+
+  // 2. Parse Config file if provided
+  FilesToParse := nil;
+  if Args.HasOption('config') then
+  begin
+    ConfigPath := Args.GetOption('config');
+    if TFile.Exists(ConfigPath) then
+    begin
+      try
+        FilesToParse := TStringList.Create;
+        LoadYamlConfig(ConfigPath, Title, InputDir, OutputDir, LoadedLastRun, LoadedOnlyProject, FilesToParse);
+        
+        // If files list is empty in the config, we free the list so it parses all files
+        if FilesToParse.Count = 0 then
+        begin
+          FreeAndNil(FilesToParse);
+        end;
+      except
+        on E: Exception do
+          SafeWriteLn('Error parsing config file: ' + E.Message);
+      end;
+    end
+    else
+      SafeWriteLn('Warning: Config file not found: ' + ConfigPath);
+  end;
     
   SafeWriteLn('Generating Documentation...');
   SafeWriteLn('Input: ' + InputDir);
   SafeWriteLn('Output: ' + OutputDir);
   SafeWriteLn('Title: ' + Title);
+  if FilesToParse <> nil then
+    SafeWriteLn('Selected Files: ' + IntToStr(FilesToParse.Count))
+  else
+    SafeWriteLn('Selected Files: All in Input directory');
   
   ForceDirectories(OutputDir);
 
-  // 2. Write Static Assets
+  // 3. Write Static Assets
   SafeWriteLn('Writing static assets...');
   TFile.WriteAllText(TPath.Combine(OutputDir, 'theme.css'), THEME_CSS);
   TFile.WriteAllText(TPath.Combine(OutputDir, 'layout.css'), LAYOUT_CSS);
   TFile.WriteAllText(TPath.Combine(OutputDir, 'viewer.js'), VIEWER_JS);
   
-  // 3. Generate Documentation
+  // 4. Generate Documentation
   SafeWriteLn('Parsing source and generating HTML...');
   Generator := TDextDocGenerator.Create(TEMPLATE_HTML, OutputDir, Title);
   try
-    Generator.Generate(InputDir);
+    Generator.Generate(InputDir, FilesToParse);
   finally
     Generator.Free;
+    FilesToParse.Free;
   end;
   
   SafeWriteLn('Success! Open ' + TPath.Combine(OutputDir, 'index.html'));

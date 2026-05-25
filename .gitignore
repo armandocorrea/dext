@@ -31,3 +31,4 @@ node_modules/
 /Sources/*.bpi
 *.dsv
 test-results.xml
+/Sources/*.dext
