@@ -155,16 +155,16 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="Infra\Dext.ActiveArchitecture.Startup.pas"/>
+        <DCCReference Include="Domain\Dext.ActiveArchitecture.Domain.pas"/>
+        <DCCReference Include="Domain\Dext.ActiveArchitecture.Entities.pas"/>
         <DCCReference Include="Presentation\Dext.ActiveArchitecture.Main.Form.pas">
             <Form>MainForm</Form>
         </DCCReference>
-        <DCCReference Include="Domain\Dext.ActiveArchitecture.Entities.pas"/>
-        <DCCReference Include="Domain\Dext.ActiveArchitecture.Specifications.pas"/>
-        <DCCReference Include="Infra\Dext.Logging.Sinks.VCL.pas"/>
-        <DCCReference Include="Domain\Dext.ActiveArchitecture.Domain.pas"/>
         <DCCReference Include="Infra\Dext.ActiveArchitecture.Services.pas"/>
+        <DCCReference Include="Domain\Dext.ActiveArchitecture.Specifications.pas"/>
+        <DCCReference Include="Infra\Dext.ActiveArchitecture.Startup.pas"/>
         <DCCReference Include="Presentation\Dext.ActiveArchitecture.ViewModels.pas"/>
+        <DCCReference Include="Infra\Dext.Logging.Sinks.VCL.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

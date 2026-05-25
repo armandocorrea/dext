@@ -3,14 +3,14 @@
 uses
   Dext.MM,
   Vcl.Forms,
-  Dext.ActiveArchitecture.Startup in 'Infra\Dext.ActiveArchitecture.Startup.pas',
-  Dext.ActiveArchitecture.Main.Form in 'Presentation\Dext.ActiveArchitecture.Main.Form.pas' {MainForm},
-  Dext.ActiveArchitecture.Entities in 'Domain\Dext.ActiveArchitecture.Entities.pas',
-  Dext.ActiveArchitecture.Specifications in 'Domain\Dext.ActiveArchitecture.Specifications.pas',
-  Dext.Logging.Sinks.VCL in 'Infra\Dext.Logging.Sinks.VCL.pas',
   Dext.ActiveArchitecture.Domain in 'Domain\Dext.ActiveArchitecture.Domain.pas',
+  Dext.ActiveArchitecture.Entities in 'Domain\Dext.ActiveArchitecture.Entities.pas',
+  Dext.ActiveArchitecture.Main.Form in 'Presentation\Dext.ActiveArchitecture.Main.Form.pas' {MainForm},
   Dext.ActiveArchitecture.Services in 'Infra\Dext.ActiveArchitecture.Services.pas',
-  Dext.ActiveArchitecture.ViewModels in 'Presentation\Dext.ActiveArchitecture.ViewModels.pas';
+  Dext.ActiveArchitecture.Specifications in 'Domain\Dext.ActiveArchitecture.Specifications.pas',
+  Dext.ActiveArchitecture.Startup in 'Infra\Dext.ActiveArchitecture.Startup.pas',
+  Dext.ActiveArchitecture.ViewModels in 'Presentation\Dext.ActiveArchitecture.ViewModels.pas',
+  Dext.Logging.Sinks.VCL in 'Infra\Dext.Logging.Sinks.VCL.pas';
 
 {$R *.res}
 
