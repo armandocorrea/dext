@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dext.Net.RestClient - Dext Framework 1.0</title>
+    <title>Dext.Net.RestClient - Dext Framework</title>
     
     <!-- Blocking script to avoid theme flicker --> 
     <script>
@@ -23,7 +23,7 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
-            <h3>Dext Framework 1.0</h3>
+            <h3>Dext Framework</h3>
             <small>Documentation</small>
         </div>
         <div class="search-box">
@@ -32,6 +32,13 @@
         <div class="nav-list" id="navList">
             <!-- Sidebar Content Injected Here -->
             <a href="Dext.html" class="nav-item">Dext</a>
+<a href="Dext.AI.MCP.Attributes.html" class="nav-item">Dext.AI.MCP.Attributes</a>
+<a href="Dext.AI.MCP.Prompts.html" class="nav-item">Dext.AI.MCP.Prompts</a>
+<a href="Dext.AI.MCP.Protocol.html" class="nav-item">Dext.AI.MCP.Protocol</a>
+<a href="Dext.AI.MCP.Resources.html" class="nav-item">Dext.AI.MCP.Resources</a>
+<a href="Dext.AI.MCP.Server.html" class="nav-item">Dext.AI.MCP.Server</a>
+<a href="Dext.AI.MCP.Tools.html" class="nav-item">Dext.AI.MCP.Tools</a>
+<a href="Dext.AI.MCP.Types.html" class="nav-item">Dext.AI.MCP.Types</a>
 <a href="Dext.Assertions.html" class="nav-item">Dext.Assertions</a>
 <a href="Dext.Auth.Attributes.html" class="nav-item">Dext.Auth.Attributes</a>
 <a href="Dext.Auth.BasicAuth.html" class="nav-item">Dext.Auth.BasicAuth</a>
@@ -85,12 +92,15 @@
 <a href="Dext.DI.Interfaces.html" class="nav-item">Dext.DI.Interfaces</a>
 <a href="Dext.DI.Middleware.html" class="nav-item">Dext.DI.Middleware</a>
 <a href="Dext.EF.Design.DataProvider.html" class="nav-item">Dext.EF.Design.DataProvider</a>
+<a href="Dext.EF.Design.DocExpert.html" class="nav-item">Dext.EF.Design.DocExpert</a>
 <a href="Dext.EF.Design.Editors.html" class="nav-item">Dext.EF.Design.Editors</a>
 <a href="Dext.EF.Design.EntitySelection.html" class="nav-item">Dext.EF.Design.EntitySelection</a>
 <a href="Dext.EF.Design.Expert.html" class="nav-item">Dext.EF.Design.Expert</a>
 <a href="Dext.EF.Design.Metadata.html" class="nav-item">Dext.EF.Design.Metadata</a>
 <a href="Dext.EF.Design.Preview.html" class="nav-item">Dext.EF.Design.Preview</a>
 <a href="Dext.EF.Design.Registration.html" class="nav-item">Dext.EF.Design.Registration</a>
+<a href="Dext.EF.Design.Scaffolding.Helpers.html" class="nav-item">Dext.EF.Design.Scaffolding.Helpers</a>
+<a href="Dext.EF.Design.Scaffolding.Preview.html" class="nav-item">Dext.EF.Design.Scaffolding.Preview</a>
 <a href="Dext.Entity.html" class="nav-item">Dext.Entity</a>
 <a href="Dext.Entity.Attributes.html" class="nav-item">Dext.Entity.Attributes</a>
 <a href="Dext.Entity.Cache.html" class="nav-item">Dext.Entity.Cache</a>
@@ -290,14 +300,15 @@
 <a href="Dext.Web.ModelBinding.Extensions.html" class="nav-item">Dext.Web.ModelBinding.Extensions</a>
 <a href="Dext.Web.MultiTenancy.html" class="nav-item">Dext.Web.MultiTenancy</a>
 <a href="Dext.Web.Pipeline.html" class="nav-item">Dext.Web.Pipeline</a>
-<a href="Dext.Web.ResponseHelper.html" class="nav-item">Dext.Web.ResponseHelper</a>
 <a href="Dext.Web.Results.html" class="nav-item">Dext.Web.Results</a>
 <a href="Dext.Web.Routing.html" class="nav-item">Dext.Web.Routing</a>
 <a href="Dext.Web.Routing.Attributes.html" class="nav-item">Dext.Web.Routing.Attributes</a>
 <a href="Dext.Web.RoutingMiddleware.html" class="nav-item">Dext.Web.RoutingMiddleware</a>
+<a href="Dext.Web.Sessions.Streamable.html" class="nav-item">Dext.Web.Sessions.Streamable</a>
 <a href="Dext.Web.StaticFiles.html" class="nav-item">Dext.Web.StaticFiles</a>
 <a href="Dext.Web.Versioning.html" class="nav-item">Dext.Web.Versioning</a>
 <a href="Dext.Web.View.html" class="nav-item">Dext.Web.View</a>
+<a href="Dext.Web.View.Native.html" class="nav-item">Dext.Web.View.Native</a>
 <a href="Dext.Web.View.WebStencils.html" class="nav-item">Dext.Web.View.WebStencils</a>
 <a href="Dext.Web.WebApplication.html" class="nav-item">Dext.Web.WebApplication</a>
 <a href="Dext.Web.WebBroker.html" class="nav-item">Dext.Web.WebBroker</a>
@@ -327,10 +338,12 @@ class IRestResponse {    +GetStatusCode()
     +GetContentString()
     +GetHeader()
     +GetHeaders()
+    +GetIsSuccess()
     +StatusCode
     +StatusText
     +ContentStream
     +ContentString
+    +IsSuccess
 }
 class IRestResponse~T~ {    +GetData()
     +Data
@@ -342,6 +355,7 @@ class TRestResponse {    +GetStatusCode()
     +GetContentString()
     +GetHeader()
     +GetHeaders()
+    +GetIsSuccess()
     +Create()
     +Destroy()
 }
@@ -359,6 +373,14 @@ class IRestClient {    +BaseUrl()
     +Auth()
     +Header()
     +ContentType()
+    +ContentTypeJson()
+    +ContentTypeXml()
+    +ContentTypeForm()
+    +ContentTypeMultipart()
+    +ContentTypeBinary()
+    +ContentTypePlainText()
+    +PostJson()
+    +PutJson()
     +ExecuteAsync()
 }
 class TRestClientImpl {    +GetFullUrl()
@@ -370,6 +392,14 @@ class TRestClientImpl {    +GetFullUrl()
     +Auth()
     +Header()
     +ContentType()
+    +ContentTypeJson()
+    +ContentTypeXml()
+    +ContentTypeForm()
+    +ContentTypeMultipart()
+    +ContentTypeBinary()
+    +ContentTypePlainText()
+    +PostJson()
+    +PutJson()
     +ExecuteAsync()
 }
 TInterfacedObject <|-- TRestClientImpl
@@ -386,13 +416,21 @@ class TRestClient {    +Destroy()
     +Auth()
     +Header()
     +ContentType()
+    +ContentTypeJson()
+    +ContentTypeXml()
+    +ContentTypeForm()
+    +ContentTypeMultipart()
+    +ContentTypeBinary()
+    +ContentTypePlainText()
     +Get()
     +Get~T~()
     +Post()
     +Post~TRes~()
+    +PostJson()
     +Put()
     +Put~TRes~()
     +Put~T~()
+    +PutJson()
     +Delete()
     +Delete~T~()
     +ExecuteAsync()
@@ -420,6 +458,8 @@ Exception <|-- EDextRestException
 <div class="api-item">
 <div class="api-signature">function GetHeaders: TNetHeaders</div><div class="description">Returns all response headers as a TNetHeaders array.</div></div>
 <div class="api-item">
+<div class="api-signature">function GetIsSuccess: Boolean</div><div class="description">Returns true if the status code is in the 2xx range (200-299).</div></div>
+<div class="api-item">
 <div class="api-signature">property StatusCode: </div></div>
 <div class="api-item">
 <div class="api-signature">property StatusText: </div></div>
@@ -427,6 +467,8 @@ Exception <|-- EDextRestException
 <div class="api-signature">property ContentStream: </div></div>
 <div class="api-item">
 <div class="api-signature">property ContentString: </div></div>
+<div class="api-item">
+<div class="api-signature">property IsSuccess: </div><div class="description">Returns true if the status code is in the 2xx range (200-299).</div></div>
 </div>
 <hr>
 <div class="class-header">
@@ -456,6 +498,8 @@ Exception <|-- EDextRestException
 <div class="api-signature">function GetHeader(const const: string): string</div></div>
 <div class="api-item">
 <div class="api-signature">function GetHeaders: TNetHeaders</div></div>
+<div class="api-item">
+<div class="api-signature">function GetIsSuccess: Boolean</div></div>
 </div>
 <hr>
 <div class="class-header">
@@ -484,6 +528,26 @@ Exception <|-- EDextRestException
 <div class="api-item">
 <div class="api-signature">function ContentType(AValue: TDextContentType): IRestClient</div><div class="description">Defines the default Content-Type for requests.</div></div>
 <div class="api-item">
+<div class="api-signature">function ContentTypeJson: IRestClient</div><div class="description">Sets Content-Type to application/json.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeXml: IRestClient</div><div class="description">Sets Content-Type to application/xml.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeForm: IRestClient</div><div class="description">Sets Content-Type to application/x-www-form-urlencoded.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeMultipart: IRestClient</div><div class="description">Sets Content-Type to multipart/form-data.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeBinary: IRestClient</div><div class="description">Sets Content-Type to application/octet-stream.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypePlainText: IRestClient</div><div class="description">Sets Content-Type to text/plain.</div></div>
+<div class="api-item">
+<div class="api-signature">function PostJson(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous POST sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
+<div class="api-item">
+<div class="api-signature">function PostJson(const const: string; const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous POST to AEndpoint sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
+<div class="api-item">
+<div class="api-signature">function PutJson(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
+<div class="api-item">
+<div class="api-signature">function PutJson(const const: string; const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT to AEndpoint sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
+<div class="api-item">
 <div class="api-signature">function ExecuteAsync(AMethod: TDextHttpMethod; const const: string; const const: TStream; AOwnsBody: Boolean; AHeaders: IDictionary): TAsyncBuilder</div><div class="description">Executes an asynchronous HTTP request.</div></div>
 </div>
 <hr>
@@ -506,6 +570,26 @@ Exception <|-- EDextRestException
 <div class="api-item">
 <div class="api-signature">function ContentType(AValue: TDextContentType): IRestClient</div></div>
 <div class="api-item">
+<div class="api-signature">function ContentTypeJson: IRestClient</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeXml: IRestClient</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeForm: IRestClient</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeMultipart: IRestClient</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeBinary: IRestClient</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypePlainText: IRestClient</div></div>
+<div class="api-item">
+<div class="api-signature">function PostJson(const const: string): TAsyncBuilder</div></div>
+<div class="api-item">
+<div class="api-signature">function PostJson(const const: string; const const: string): TAsyncBuilder</div></div>
+<div class="api-item">
+<div class="api-signature">function PutJson(const const: string): TAsyncBuilder</div></div>
+<div class="api-item">
+<div class="api-signature">function PutJson(const const: string; const const: string): TAsyncBuilder</div></div>
+<div class="api-item">
 <div class="api-signature">function ExecuteAsync(AMethod: TDextHttpMethod; const const: string; const const: TStream; AOwnsBody: Boolean; AHeaders: IDictionary): TAsyncBuilder</div></div>
 </div>
 <div class="visibility-group"><h5>PRIVATE</h5><div class="api-item">
@@ -517,11 +601,11 @@ Exception <|-- EDextRestException
 <div class="visibility-group"><h5>PUBLIC</h5><div class="api-item">
 <div class="api-signature">function Create(const const: string): TRestClient</div><div class="description">Starts configuring a new REST Client.</div></div>
 <div class="api-item">
-<div class="api-signature">function BaseUrl(const const: string): TRestClient</div></div>
+<div class="api-signature">function BaseUrl(const const: string): TRestClient</div><div class="description">Sets the base URL for all subsequent requests.</div></div>
 <div class="api-item">
-<div class="api-signature">function Timeout(AValue: Integer): TRestClient</div></div>
+<div class="api-signature">function Timeout(AValue: Integer): TRestClient</div><div class="description">Sets the connection/request timeout in milliseconds.</div></div>
 <div class="api-item">
-<div class="api-signature">function Retry(AValue: Integer): TRestClient</div></div>
+<div class="api-signature">function Retry(AValue: Integer): TRestClient</div><div class="description">Sets the maximum number of retry attempts for failed requests.</div></div>
 <div class="api-item">
 <div class="api-signature">function BearerToken(const const: string): TRestClient</div><div class="description">Configures Bearer (JWT) authentication for requests.</div></div>
 <div class="api-item">
@@ -531,33 +615,53 @@ Exception <|-- EDextRestException
 <div class="api-item">
 <div class="api-signature">function OAuth2ClientCredentials(const const: string; const const: string; const const: string; const const: string): TRestClient</div><div class="description">Configures OAuth 2.0 Client Credentials (M2M) authentication. The token is automatically fetched and cached, refreshing when expired.</div></div>
 <div class="api-item">
-<div class="api-signature">function Auth(AProvider: IAuthenticationProvider): TRestClient</div></div>
+<div class="api-signature">function Auth(AProvider: IAuthenticationProvider): TRestClient</div><div class="description">Configures a custom authentication provider.</div></div>
 <div class="api-item">
-<div class="api-signature">function Header(const const: string; const const: string): TRestClient</div></div>
+<div class="api-signature">function Header(const const: string; const const: string): TRestClient</div><div class="description">Adds a default header that will be sent with every request from this client.</div></div>
 <div class="api-item">
-<div class="api-signature">function ContentType(AValue: TDextContentType): TRestClient</div></div>
+<div class="api-signature">function ContentType(AValue: TDextContentType): TRestClient</div><div class="description">Sets the default Content-Type for this client.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeJson: TRestClient</div><div class="description">Sets Content-Type to application/json.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeXml: TRestClient</div><div class="description">Sets Content-Type to application/xml.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeForm: TRestClient</div><div class="description">Sets Content-Type to application/x-www-form-urlencoded.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeMultipart: TRestClient</div><div class="description">Sets Content-Type to multipart/form-data.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypeBinary: TRestClient</div><div class="description">Sets Content-Type to application/octet-stream.</div></div>
+<div class="api-item">
+<div class="api-signature">function ContentTypePlainText: TRestClient</div><div class="description">Sets Content-Type to text/plain.</div></div>
 <div class="api-item">
 <div class="api-signature">function Get(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous GET and returns the raw response.</div></div>
 <div class="api-item">
 <div class="api-signature">function Get&lt;T&gt;(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous GET and automatically deserializes the JSON to type T.</div></div>
 <div class="api-item">
-<div class="api-signature">function Post(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous POST.</div></div>
+<div class="api-signature">function Post(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous POST to the base URL.</div></div>
 <div class="api-item">
-<div class="api-signature">function Post(const const: string; const const: TStream): TAsyncBuilder</div></div>
+<div class="api-signature">function Post(const const: string; const const: TStream): TAsyncBuilder</div><div class="description">Executes an asynchronous POST with a raw stream body.</div></div>
 <div class="api-item">
-<div class="api-signature">function Post&lt;TRes&gt;(const const: string; const const: TRes): TAsyncBuilder</div><div class="description">Executes a POST sending an object serialized as JSON and awaits a typed response.</div></div>
+<div class="api-signature">function Post&lt;TRes&gt;(const const: string; const const: TRes): TAsyncBuilder</div><div class="description">Executes a POST sending a payload (class or record) serialized as JSON and awaits a typed response.</div></div>
 <div class="api-item">
-<div class="api-signature">function Put(const const: string): TAsyncBuilder</div></div>
+<div class="api-signature">function PostJson(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous POST sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
 <div class="api-item">
-<div class="api-signature">function Put(const const: string; const const: TStream): TAsyncBuilder</div></div>
+<div class="api-signature">function PostJson(const const: string; const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous POST to AEndpoint sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
 <div class="api-item">
-<div class="api-signature">function Put&lt;TRes&gt;(const const: string; const const: TRes): TAsyncBuilder</div></div>
+<div class="api-signature">function Put(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT to the base URL.</div></div>
 <div class="api-item">
-<div class="api-signature">function Put&lt;T&gt;(const const: string): TAsyncBuilder</div></div>
+<div class="api-signature">function Put(const const: string; const const: TStream): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT with a raw stream body.</div></div>
 <div class="api-item">
-<div class="api-signature">function Delete(const const: string): TAsyncBuilder</div></div>
+<div class="api-signature">function Put&lt;TRes&gt;(const const: string; const const: TRes): TAsyncBuilder</div><div class="description">Executes a PUT sending a payload (class or record) serialized as JSON and awaits a typed response.</div></div>
 <div class="api-item">
-<div class="api-signature">function Delete&lt;T&gt;(const const: string): TAsyncBuilder</div></div>
+<div class="api-signature">function Put&lt;T&gt;(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT and automatically deserializes the JSON response to type T.</div></div>
+<div class="api-item">
+<div class="api-signature">function PutJson(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
+<div class="api-item">
+<div class="api-signature">function PutJson(const const: string; const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous PUT to AEndpoint sending a raw JSON string. Encapsulates stream creation and UTF-8 encoding internally.</div></div>
+<div class="api-item">
+<div class="api-signature">function Delete(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous DELETE request.</div></div>
+<div class="api-item">
+<div class="api-signature">function Delete&lt;T&gt;(const const: string): TAsyncBuilder</div><div class="description">Executes an asynchronous DELETE and automatically deserializes the JSON response to type T.</div></div>
 <div class="api-item">
 <div class="api-signature">function ExecuteAsync(AMethod: TDextHttpMethod; const const: string; const const: TStream; AOwnsBody: Boolean; AHeaders: IDictionary): TAsyncBuilder</div></div>
 <div class="api-item">
