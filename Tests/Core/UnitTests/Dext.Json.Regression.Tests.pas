@@ -16,6 +16,25 @@ type
     Descricao: string;
   end;
 
+  TCarItem = record
+    name: string;
+  end;
+
+  TCarLista = record
+    id: integer;
+    cars: array of TCarItem;
+  end;
+
+  TFooRec = record
+    id: integer;
+    fools: TArray<string>;
+  end;
+
+  TFooListRec = record
+    id: integer;
+    fooList: TArray<string>;
+  end;
+
   // -------------------------------------------------------------------------
   // Types for issue #108 regression:
   // Dext.Json should NOT serialize internal 'refCount' / 'FRefCount' fields
@@ -89,6 +108,19 @@ type
 
     [Test('#108 - Serialize<T> result must contain only declared business properties')]
     procedure TestSerializeGeneric_OnlyContainsDeclaredProperties;
+  end;
+
+  [TestFixture('JSON Regression - Issue #127: Array deserialization issues')]
+  TJsonIssue127RegressionTests = class
+  public
+    [Test('#127 - Deserialize array of records and read elements without invalid pointer operation')]
+    procedure TestCarRecord;
+
+    [Test('#127 - Deserialize array of strings to record')]
+    procedure TestFooRec;
+
+    [Test('#127 - Deserialize array of strings with field name ending in List')]
+    procedure TestFooList;
   end;
 
 implementation
@@ -254,6 +286,71 @@ begin
   finally
     LData.Free;
   end;
+end;
+
+{ TJsonIssue127RegressionTests }
+
+procedure TJsonIssue127RegressionTests.TestCarRecord;
+var
+  JsonStr: string;
+  CarLista: TCarLista;
+begin
+  JsonStr := '{ "id": 800, "cars": [ {"name":"A1"}, {"name":"B2"}, {"name":"C3"} ] }';
+  CarLista := TDextJson.Deserialize<TCarLista>(JsonStr);
+
+  Should(CarLista.id).Be(800);
+  Should(Length(CarLista.cars)).Be(3);
+
+  for var car in CarLista.cars do
+  begin
+    Should(car.name).NotBeEmpty;
+  end;
+
+  Should(CarLista.cars[0].name).Be('A1');
+  Should(CarLista.cars[1].name).Be('B2');
+  Should(CarLista.cars[2].name).Be('C3');
+end;
+
+procedure TJsonIssue127RegressionTests.TestFooRec;
+var
+  JsonStr: string;
+  FooRec: TFooRec;
+begin
+  JsonStr := '{"id": 800, "fools": [ "a", "b", "c" ] }';
+  FooRec := TDextJson.Deserialize<TFooRec>(JsonStr);
+
+  Should(FooRec.id).Be(800);
+  Should(Length(FooRec.fools)).Be(3);
+
+  for var f in FooRec.fools do
+  begin
+    Should(f).NotBeEmpty;
+  end;
+
+  Should(FooRec.fools[0]).Be('a');
+  Should(FooRec.fools[1]).Be('b');
+  Should(FooRec.fools[2]).Be('c');
+end;
+
+procedure TJsonIssue127RegressionTests.TestFooList;
+var
+  JsonStr: string;
+  FooRec: TFooListRec;
+begin
+  JsonStr := '{"id": 800, "fooList": [ "a", "b", "c" ] }';
+  FooRec := TDextJson.Deserialize<TFooListRec>(JsonStr);
+
+  Should(FooRec.id).Be(800);
+  Should(Length(FooRec.fooList)).Be(3);
+
+  for var f in FooRec.fooList do
+  begin
+    Should(f).NotBeEmpty;
+  end;
+
+  Should(FooRec.fooList[0]).Be('a');
+  Should(FooRec.fooList[1]).Be('b');
+  Should(FooRec.fooList[2]).Be('c');
 end;
 
 end.

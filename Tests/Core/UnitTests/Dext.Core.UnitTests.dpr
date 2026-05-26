@@ -1,4 +1,4 @@
-program Dext.Core.UnitTests;
+﻿program Dext.Core.UnitTests;
 
 {$IFNDEF TESTINSIGHT}
   {$APPTYPE CONSOLE}
@@ -41,11 +41,12 @@ begin
         TConfigFeaturesTests,
         TConfigurationHashingTests,
         TJsonInterfaceListTests,
-        TTelemetryTests,
-        TUtf8SerializerCurrencyTests,
-        TJsonRegressionTests,
         TJsonIssue108RegressionTests,
-        TJsonRecordPropertiesTests
+        TJsonIssue127RegressionTests,
+        TJsonRecordPropertiesTests,
+        TJsonRegressionTests,
+        TTelemetryTests,
+        TUtf8SerializerCurrencyTests
       ]));
   except
     on E: Exception do

@@ -1661,11 +1661,13 @@ var
   I: Integer;
   Node: IDextJsonNode;
   P: PByte;
+  ElSize: Integer;
 begin
   ElementType := GetArrayElementType(AType);
   DynArray := nil;
   Count := AJson.GetCount;
   DynArraySetLength(DynArray, AType, 1, @Count); // AJson.Count -> GetCount
+  ElSize := TReflection.GetMetadata(ElementType).RttiType.TypeSize;
 
   try
     for I := 0 to AJson.GetCount - 1 do
@@ -1722,8 +1724,8 @@ begin
 
       if not ElementValue.IsEmpty then
       begin
-        P := PByte(DynArray) + (I * ElementType.TypeData^.elSize);
-        Move(ElementValue.GetReferenceToRawData^, P^, ElementType.TypeData^.elSize);
+        P := PByte(DynArray) + (I * ElSize);
+        System.CopyArray(P, ElementValue.GetReferenceToRawData, ElementType, 1);
       end;
     end;
 

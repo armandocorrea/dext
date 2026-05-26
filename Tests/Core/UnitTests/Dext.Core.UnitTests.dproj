@@ -133,7 +133,6 @@
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <Manifest_File>(None)</Manifest_File>
         <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
-        <DCC_DebugDCUs>false</DCC_DebugDCUs>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <DCC_MapFile>3</DCC_MapFile>
         <DCC_ExeOutput>..\..\Output</DCC_ExeOutput>
@@ -148,6 +147,7 @@
         <DCCReference Include="Dext.Logging.Telemetry.Tests.pas"/>
         <DCCReference Include="Dext.Json.Utf8.Serializer.Tests.pas"/>
         <DCCReference Include="Dext.Json.Regression.Tests.pas"/>
+        <DCCReference Include="Dext.Json.RecordProperties.Tests.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
