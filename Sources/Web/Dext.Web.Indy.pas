@@ -191,13 +191,6 @@ uses
   IdIOHandlerSocket,
   IdSocketHandle;
 
-procedure BytesToIdBytes(const ASource: TBytes; out ADest: TIdBytes);
-begin
-  SetLength(ADest, Length(ASource));
-  if Length(ASource) > 0 then
-    Move(ASource[0], ADest[0], Length(ASource));
-end;
-
 { TDextIndyHttpRequest }
 
 constructor TDextIndyHttpRequest.Create(ARequestInfo: TIdHTTPRequestInfo);
@@ -609,21 +602,15 @@ end;
 
 procedure TDextIndyHttpResponse.WriteChunkUtf8(const AText: string);
 var
-  Bytes: TBytes;
-  IdChunk: TIdBytes;
-  HexLine: string;
+  LBytes: TIdBytes;
 begin
-  Bytes := TEncoding.UTF8.GetBytes(AText);
-  HexLine := LowerCase(IntToHex(Length(Bytes), 1)) + #13#10;
-  FContext.Connection.IOHandler.Write(HexLine, IndyTextEncoding_UTF8);
-  if Length(Bytes) > 0 then
-  begin
-    BytesToIdBytes(Bytes, IdChunk);
-    FContext.Connection.IOHandler.Write(IdChunk);
-  end;
+  if AText.IsEmpty then
+    Exit;
 
+  LBytes := ToBytes(AText, IndyTextEncoding_UTF8);
+  FContext.Connection.IOHandler.Write(IntToHex(Length(LBytes), 1) + #13#10, IndyTextEncoding_UTF8);
+  FContext.Connection.IOHandler.Write(LBytes);
   FContext.Connection.IOHandler.Write(#13#10, IndyTextEncoding_UTF8);
-
 end;
 
 procedure TDextIndyHttpResponse.Flush;

@@ -36,9 +36,15 @@ type
 
     [Test('Should catch RestClient connection exception using fluent OnException (Issue #129)')]
     procedure TestRestClientFluentExceptionHandling;
+
+    [Test('Should stream response using chunked transfer encoding and SSE pattern')]
+    procedure TestChunkedResponseAndSSE;
   end;
 
 implementation
+
+uses
+  Dext.Web.Indy;
 
 type
   TTRestRequestHack = record
@@ -249,6 +255,56 @@ begin
   Should(Caught).BeTrue;
   Should(ErrorMsg).NotBeEmpty;
   Should(ErrorClass).NotBeEmpty;
+end;
+
+procedure TWebFeaturesTests.TestChunkedResponseAndSSE;
+var
+  Builder: IWebHostBuilder;
+  Host: IWebHost;
+  Resp: IRestResponse;
+begin
+  Builder := TWebHost.CreateDefaultBuilder
+    .UseUrls('http://localhost:0');
+
+  Builder.Configure(procedure(App: IApplicationBuilder)
+    begin
+      App.MapGet('/sse-test',
+        procedure(Ctx: IHttpContext)
+        var
+          IndyResp: TDextIndyHttpResponse;
+        begin
+          Ctx.Response.SetContentType('text/event-stream');
+          Ctx.Response.AddHeader('Cache-Control', 'no-cache');
+          Ctx.Response.AddHeader('Connection', 'keep-alive');
+          
+          if Ctx.Response is TDextIndyHttpResponse then
+          begin
+            IndyResp := TDextIndyHttpResponse(Ctx.Response);
+            IndyResp.BeginStreamingResponse;
+            
+            Ctx.Response.Write('event: test'#10'data: hello'#10#10);
+            IndyResp.Flush;
+            
+            Ctx.Response.Write('event: test'#10'data: world'#10#10);
+            IndyResp.EndStreamingResponse;
+          end;
+        end
+      );
+    end);
+
+  Host := Builder.Build;
+  Host.Start;
+  try
+    Resp := RestClient('http://localhost:' + Host.Port.ToString)
+      .Get('/sse-test')
+      .Await;
+      
+    Should(Resp.StatusCode).Be(200);
+    Should(Resp.ContentString).Be('event: test'#10'data: hello'#10#10'event: test'#10'data: world'#10#10);
+    Should(Resp.GetHeader('Transfer-Encoding')).Be('chunked');
+  finally
+    Host.Stop;
+  end;
 end;
 
 end.

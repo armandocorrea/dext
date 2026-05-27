@@ -246,8 +246,7 @@ end;
 procedure WriteSSEEvent(const Response: IHttpResponse;
   const EventType, Data: string);
 begin
-  Response.Write('event: ' + EventType + #10);
-  Response.Write('data: ' + Data + #10#10);
+  Response.Write('event: ' + EventType + #10 + 'data: ' + Data + #10#10);
 end;
 
 procedure WriteSSEComment(const Response: IHttpResponse;
