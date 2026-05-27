@@ -48,6 +48,7 @@ uses
   System.RTTI,
   Dext.Collections,
   Dext.Collections.Dict,
+  Dext.Core.Reflection,
   Dext.AI.MCP.Types,
   Dext.AI.MCP.Attributes;
 
@@ -108,7 +109,7 @@ type
     /// Scans AProvider for [MCPResource]-annotated methods and registers each.
     /// Does NOT take ownership of AProvider (caller or tool registry owns it).
     /// </summary>
-    procedure ScanProvider(AProvider: TObject; const ARttiCtx: TRttiContext);
+    procedure ScanProvider(AProvider: TObject);
 
     /// <summary>Internal: commits a fully configured resource def.</summary>
     procedure Commit(const ADef: TMCPResourceDef);
@@ -200,8 +201,7 @@ begin
   end;
 end;
 
-procedure TMCPResourceRegistry.ScanProvider(AProvider: TObject;
-  const ARttiCtx: TRttiContext);
+procedure TMCPResourceRegistry.ScanProvider(AProvider: TObject);
 var
   RttiType: TRttiType;
   Method: TRttiMethod;
@@ -209,7 +209,7 @@ var
   Attr: TCustomAttribute;
   Def: TMCPResourceDef;
 begin
-  RttiType := ARttiCtx.GetType(AProvider.ClassType);
+  RttiType := TReflection.Context.GetType(AProvider.ClassType);
 
   for Method in RttiType.GetMethods do
   begin
