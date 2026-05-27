@@ -59,16 +59,27 @@ uses
   Dext.Json;
 
 type
+  TIndyStreamMode = (ismNormal, ismBuffering, ismChunking);
+
   /// <summary>
   ///   <see cref="IHttpResponse"/> implementation for the Indy server.
   /// </summary>
   TDextIndyHttpResponse = class(TInterfacedObject, IHttpResponse)
   private
+    FContext: TIdContext;
     FResponseInfo: TIdHTTPResponseInfo;
     FHtmx: IHtmxResponse;
     FHeaders: IStringDictionary;
+    FStreamMode: TIndyStreamMode;
+    FStreamBuffer: string;
+    procedure WriteChunkUtf8(const AText: string);
   public
-    constructor Create(AResponseInfo: TIdHTTPResponseInfo);
+    procedure BeginStreamingResponse;
+    procedure EndStreamingResponse;
+    procedure Flush;
+    function IsClientConnected: Boolean;
+
+    constructor Create(AContext: TIdContext; AResponseInfo: TIdHTTPResponseInfo);
     function GetHtmx: IHtmxResponse;
     function GetHeaders: IStringDictionary;
     function Status(AValue: Integer): IHttpResponse;
@@ -175,7 +186,17 @@ type
 implementation
 
 uses
-  System.DateUtils;
+  System.DateUtils,
+  IdIOHandler,
+  IdIOHandlerSocket,
+  IdSocketHandle;
+
+procedure BytesToIdBytes(const ASource: TBytes; out ADest: TIdBytes);
+begin
+  SetLength(ADest, Length(ASource));
+  if Length(ASource) > 0 then
+    Move(ASource[0], ADest[0], Length(ASource));
+end;
 
 { TDextIndyHttpRequest }
 
@@ -550,10 +571,13 @@ end;
 
 { TDextIndyHttpResponse }
 
-constructor TDextIndyHttpResponse.Create(AResponseInfo: TIdHTTPResponseInfo);
+constructor TDextIndyHttpResponse.Create(AContext: TIdContext; AResponseInfo: TIdHTTPResponseInfo);
 begin
   inherited Create;
+  FContext := AContext;
   FResponseInfo := AResponseInfo;
+  FStreamMode := ismNormal;
+  FStreamBuffer := '';
 end;
 
 // NEW: Add header to response
@@ -575,6 +599,100 @@ begin
       FHeaders.AddOrSetValue(FResponseInfo.CustomHeaders.Names[i], FResponseInfo.CustomHeaders.ValueFromIndex[i]);
   end;
   Result := FHeaders;
+end;
+
+procedure TDextIndyHttpResponse.BeginStreamingResponse;
+begin
+  FStreamMode := ismBuffering;
+  FStreamBuffer := '';
+end;
+
+procedure TDextIndyHttpResponse.WriteChunkUtf8(const AText: string);
+var
+  Bytes: TBytes;
+  IdChunk: TIdBytes;
+  HexLine: string;
+begin
+  Bytes := TEncoding.UTF8.GetBytes(AText);
+  HexLine := LowerCase(IntToHex(Length(Bytes), 1)) + #13#10;
+  FContext.Connection.IOHandler.Write(HexLine, IndyTextEncoding_UTF8);
+  if Length(Bytes) > 0 then
+  begin
+    BytesToIdBytes(Bytes, IdChunk);
+    FContext.Connection.IOHandler.Write(IdChunk);
+  end;
+
+  FContext.Connection.IOHandler.Write(#13#10, IndyTextEncoding_UTF8);
+
+end;
+
+procedure TDextIndyHttpResponse.Flush;
+begin
+  if FStreamMode <> ismBuffering then
+    Exit;
+
+  FResponseInfo.TransferEncoding := 'chunked';
+  FResponseInfo.CloseConnection := False;
+  FResponseInfo.ContentText := '';
+  FResponseInfo.WriteHeader;
+
+  FStreamMode := ismChunking;
+  if FStreamBuffer <> '' then
+  begin
+    WriteChunkUtf8(FStreamBuffer);
+    FStreamBuffer := '';
+  end;
+end;
+
+function TDextIndyHttpResponse.IsClientConnected: Boolean;
+var
+  IOSock: TIdIOHandlerSocket;
+  Binding: TIdSocketHandle;
+begin
+  Result := False;
+  if (FContext = nil) or (FContext.Connection = nil) then
+    Exit;
+  if not (FContext.Connection.IOHandler is TIdIOHandlerSocket) then
+  begin
+    Result := FContext.Connection.IOHandler <> nil;
+    Exit;
+  end;
+
+  IOSock := TIdIOHandlerSocket(FContext.Connection.IOHandler);
+  if IOSock.ClosedGracefully then
+    Exit;
+
+  Binding := IOSock.Binding;
+  if (Binding = nil) or not Binding.HandleAllocated then
+    Exit;
+
+  try
+    if Binding.Select(0) then
+      Exit;
+  except
+    Exit;
+  end;
+
+  Result := True;
+end;
+
+procedure TDextIndyHttpResponse.EndStreamingResponse;
+begin
+  if FStreamMode = ismChunking then
+  begin
+    try
+      FContext.Connection.IOHandler.Write('0'#13#10#13#10,
+        IndyTextEncoding_UTF8);
+    except
+      // Cliente pode ter desconectado
+    end;
+    FStreamMode := ismNormal;
+  end
+  else if FStreamMode = ismBuffering then
+  begin
+    FStreamBuffer := '';
+    FStreamMode := ismNormal;
+  end;
 end;
 
 procedure TDextIndyHttpResponse.AppendCookie(const AName, AValue: string; const AOptions: TCookieOptions);
@@ -703,34 +821,46 @@ end;
 
 procedure TDextIndyHttpResponse.Write(const AContent: string);
 begin
-  { Append instead of overwrite so consumers that build the response body
-    in multiple calls accumulate correctly. The main case is TSSEWriter:
-    WriteEvent calls Response.Write twice (once for 'event:' line, once for
-    'data:' line), and the SSE middleware loop calls WriteData repeatedly
-    for each message and WriteComment for keep-alive. With overwrite, only
-    the last Write reached the client, so Server-Sent Events streams were
-    effectively broken on the Indy backend.
-
-    Also relevant for streamed error messages and any handler that builds
-    its body in stages. Single-call handlers are unaffected because appending
-    to an empty ContentText is equivalent to assignment. }
-  FResponseInfo.ContentText := FResponseInfo.ContentText + AContent;
-  if FResponseInfo.CharSet = '' then
-    FResponseInfo.CharSet := 'utf-8';
-    
-  if FResponseInfo.ContentType = '' then
-    FResponseInfo.ContentType := 'text/plain';
+  { In streaming mode the response is delivered via chunked transfer-encoding
+    (see BeginStreamingResponse/Flush/EndStreamingResponse). ismBuffering
+    accumulates until Flush sends the headers + buffered prefix; ismChunking
+    writes each call as a chunk directly on the socket. Without this check,
+    long-running handlers (SSE in particular) would buffer indefinitely in
+    ContentText and never reach the wire because the handler never returns. }
+  case FStreamMode of
+    ismBuffering:
+      FStreamBuffer := FStreamBuffer + AContent;
+    ismChunking:
+      WriteChunkUtf8(AContent);
+  else
+    { Append instead of overwrite so handlers that build the body in multiple
+      calls accumulate correctly (e.g., TSSEWriter writes 'event:' then 'data:'
+      in separate calls). Single-call handlers are unaffected because appending
+      to an empty ContentText is equivalent to assignment. }
+    FResponseInfo.ContentText := FResponseInfo.ContentText + AContent;
+    if FResponseInfo.CharSet = '' then
+      FResponseInfo.CharSet := 'utf-8';
+    if FResponseInfo.ContentType = '' then
+      FResponseInfo.ContentType := 'text/plain';
+  end;
 end;
 
 procedure TDextIndyHttpResponse.Write(const ABuffer: TBytes);
 var
   Stream: TMemoryStream;
 begin
+  if FStreamMode in [ismBuffering, ismChunking] then
+  begin
+    if Length(ABuffer) > 0 then
+      Write(TEncoding.UTF8.GetString(ABuffer));
+    Exit;
+  end;
+
   Stream := TMemoryStream.Create;
   if Length(ABuffer) > 0 then
     Stream.WriteBuffer(ABuffer[0], Length(ABuffer));
   Stream.Position := 0;
-  
+
   FResponseInfo.ContentStream := Stream;
   FResponseInfo.FreeContentStream := True; // Indy will free the stream
 end;
@@ -738,22 +868,23 @@ end;
 procedure TDextIndyHttpResponse.Write(const AStream: TStream);
 var
   MemStream: TMemoryStream;
+  Raw: TBytes;
 begin
-  FResponseInfo.ContentStream := AStream;
-  FResponseInfo.FreeContentStream := False; // We do not own external stream unless specified, usually caller owns it or it's a TFileStream.
-  // Wait, IHttpResponse usually implies transferring ownership or copying? 
-  // In pure abstraction, Write(Stream) usually copies. But for performance we might want to just assign.
-  // Let's assume we copy for safety unless it's a memory stream we created.
-  // BUT the roadmap says "support envio eficiente", implies no copy.
-  // Dext.Web.Indy usually runs on same thread. 
-  
-  // Safe implementation for now:
-  // If we assign AStream to ContentStream, Indy will read from it. We must ensure AStream stays alive.
-  // Since we don't control AStream lifecycle here easily without taking ownership, copying is safer for general use.
-  // However, for "Stream Writing" feature, we usually want to stream LARGE files.
-  // Let's implement copy for now to be safe and consistent with buffering. 
-  // Optimization to TFileStream can be done if we detect type or add WriteFile().
-  
+  if FStreamMode in [ismBuffering, ismChunking] then
+  begin
+    MemStream := TMemoryStream.Create;
+    try
+      MemStream.CopyFrom(AStream, 0);
+      SetLength(Raw, MemStream.Size);
+      if MemStream.Size > 0 then
+        Move(MemStream.Memory^, Raw[0], MemStream.Size);
+      Write(TEncoding.UTF8.GetString(Raw));
+    finally
+      MemStream.Free;
+    end;
+    Exit;
+  end;
+
   MemStream := TMemoryStream.Create;
   MemStream.CopyFrom(AStream, 0);
   MemStream.Position := 0;
@@ -763,6 +894,13 @@ end;
 
 procedure TDextIndyHttpResponse.Json(const AJson: string);
 begin
+  if FStreamMode in [ismBuffering, ismChunking] then
+  begin
+    SetContentType('application/json; charset=utf-8');
+    Write(AJson);
+    Exit;
+  end;
+
   FResponseInfo.ContentText := AJson;
   FResponseInfo.ContentType := 'application/json';
   FResponseInfo.CharSet := 'utf-8';
@@ -788,7 +926,7 @@ begin
   inherited Create;
   FContext := AContext;
   FRequest := TDextIndyHttpRequest.Create(ARequestInfo);
-  FResponse := TDextIndyHttpResponse.Create(AResponseInfo);
+  FResponse := TDextIndyHttpResponse.Create(AContext, AResponseInfo);
   
   // Create a new scope for THIS request. 
   // All Scoped services (like DbContext) resolved from this provider 

@@ -55,6 +55,7 @@ uses
   System.RTTI,
   Dext.Collections,
   Dext.Collections.Dict,
+  Dext.Core.Reflection,
   Dext.AI.MCP.Types,
   Dext.AI.MCP.Attributes;
 
@@ -122,7 +123,7 @@ type
     /// Scans AProvider for [MCPPrompt]-annotated methods and registers each.
     /// Does NOT take ownership of AProvider.
     /// </summary>
-    procedure ScanProvider(AProvider: TObject; const ARttiCtx: TRttiContext);
+    procedure ScanProvider(AProvider: TObject);
 
     /// <summary>Internal: commits a fully configured prompt def.</summary>
     procedure Commit(const ADef: TMCPPromptDef);
@@ -216,8 +217,7 @@ begin
   end;
 end;
 
-procedure TMCPPromptRegistry.ScanProvider(AProvider: TObject;
-  const ARttiCtx: TRttiContext);
+procedure TMCPPromptRegistry.ScanProvider(AProvider: TObject);
 var
   RttiType: TRttiType;
   Method: TRttiMethod;
@@ -227,7 +227,7 @@ var
   Def: TMCPPromptDef;
   ArgDef: TMCPPromptArgDef;
 begin
-  RttiType := ARttiCtx.GetType(AProvider.ClassType);
+  RttiType := TReflection.Context.GetType(AProvider.ClassType);
 
   for Method in RttiType.GetMethods do
   begin
