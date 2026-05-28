@@ -86,6 +86,7 @@ type
     procedure DoFormDestroy(Sender: TObject);
     procedure DoOrderDataSourceDataChange(Sender: TObject; Field: TField);
     procedure DoQuantityChange(Sender: TField);
+    procedure LoadData;
   public
     procedure InjectDependencies(AViewModel: TOrderViewModel);
   end;
@@ -105,7 +106,8 @@ uses
   Dext.ActiveArchitecture.Specifications,
   Dext.Logging,
   Dext.Logging.Global,
-  Dext.Logging.Sinks.VCL;
+  Dext.Logging.Sinks.VCL,
+  Dext.Logging.Tracing;
 
 {$R *.dfm}
 
@@ -148,6 +150,8 @@ end;
 { TMainForm }
 
 procedure TMainForm.InjectDependencies(AViewModel: TOrderViewModel);
+var
+  InitSpan: TSpan;
 begin
   FViewModel := AViewModel;
 
@@ -168,37 +172,34 @@ begin
   Log.AddSink(TMemoLogSink.Create(LogsMemo, 500));
   Log.Info('Dext Logging inicializado com TMemoLogSink!');
 
-  // 2. Criação do DbContext e conexão Dext
-  FDbConnection := TFireDACConnection.Create(SqliteDemoConnection, False); // False = Não é dono da conexão, que é gerida pelo DFM/Form
-  FDbContext := TDbContext.Create(FDbConnection, TSQLiteDialect.Create);
+  // Inicializa o rastreamento da carga de dados
+  InitSpan := TTracer.BeginSpan('MainForm.LoadData', 'Startup');
+  try
+    // 2. Criação do DbContext e conexão Dext
+    FDbConnection := TFireDACConnection.Create(SqliteDemoConnection, False); // False = Não é dono da conexão, que é gerida pelo DFM/Form
+    FDbContext := TDbContext.Create(FDbConnection, TSQLiteDialect.Create);
 
-  // 2.1 Ativa o log da geração de SQL no DbContext
-  FDbContext.OnLog :=
-    procedure(ASql: string)
+    // 2.1 Ativa o log da geração de SQL no DbContext
+    FDbContext.OnLog :=
+      procedure(ASql: string)
+      begin
+        Log.Info('SQL: ' + ASql);
+      end;
+
+    // Registrar entidades no contexto
+    FDbContext.Entities<TOrders>;
+    FDbContext.Entities<TOrderDetails>;
+
+    LoadData;
+
+    InitSpan.SetStatus('Success');
+  except on E: Exception do
     begin
-      Log.Info('SQL: ' + ASql);
+      InitSpan.SetStatus('Error', E.Message);
+      raise;
     end;
-
-  // Registrar entidades no contexto
-  FDbContext.Entities<TOrders>;
-  FDbContext.Entities<TOrderDetails>;
-
-  // 3. Carregar os dados na lista
-  FOrders := FDbContext.Entities<TOrders>.ToList;
-  FOrderDetails := FDbContext.Entities<TOrderDetails>.ToList;
-
-  // 4. Configurar e popular o dataset mestre (TOrders)
-  OrderEntityDataSet.Load<TOrders>(FOrders);
-  OrderEntityDataSet.Open;
-  OrderDataSource.DataSet := OrderEntityDataSet;
-
-  // 5. Configurar e popular o dataset detalhe (TOrderDetails) mestre/detalhe
-  OrderDetailsEntityDataSet.Load<TOrderDetails>(FOrderDetails);
-  OrderDetailsEntityDataSet.MasterSource := OrderDataSource;
-  OrderDetailsEntityDataSet.MasterFields := 'OrderId';
-  OrderDetailsEntityDataSet.IndexFieldNames := 'OrderId';
-  OrderDetailsEntityDataSet.Open;
-  OrderDetailsDataSource.DataSet := OrderDetailsEntityDataSet;
+  end;
+  InitSpan.Finish;
 end;
 
 procedure TMainForm.DoFormDestroy(Sender: TObject);
@@ -255,7 +256,19 @@ end;
 procedure TMainForm.DoFilterComboChange(Sender: TObject);
 var
   Spec: ISpecification<TOrders>;
+  Span: TSpan;
+  FilterName: string;
 begin
+  case TComboBox(Sender).ItemIndex of
+    1: FilterName := 'TBrazilOrdersSpec';
+    2: FilterName := 'TExpensiveFreightSpec(50.00)';
+    3: FilterName := 'TBrazilHeavyFreightSpec(30.00)';
+  else
+    FilterName := 'Sem Filtro';
+  end;
+
+  Span := TTracer.BeginSpan('MainForm.ApplyFilter', 'UI');
+  Span.SetAttribute('specification.name', FilterName);
   try
     case TComboBox(Sender).ItemIndex of
          // Pedidos do Brasil
@@ -270,34 +283,60 @@ begin
     end;
 
     if Assigned(Spec) then
-      OrderEntityDataSet.FilterExpression := Spec.GetExpression
+    begin
+      OrderEntityDataSet.FilterExpression := Spec.GetExpression;
+      Span.SetAttribute('filter.expression', OrderEntityDataSet.Filter);
+    end
     else
+    begin
       OrderEntityDataSet.FilterExpression := nil;
+      Span.SetAttribute('filter.expression', '');
+    end;
 
     Log.Info('Especificação aplicada! Filtro Ativo: "' + OrderEntityDataSet.Filter + '"');
+    Span.SetStatus('Success');
   except on E: Exception do
     begin
       OrderEntityDataSet.FilterExpression := nil;
       Log.Error(E.ClassName + ' - ' + E.Message);
+      Span.SetStatus('Error', E.Message);
     end;
   end;
+  Span.Finish;
 end;
 
 procedure TMainForm.DoQuantityChange(Sender: TField);
 var
   Detail: TOrderDetails;
+  Span: TSpan;
 begin
   Detail := TOrderDetails(OrderDetailsEntityDataSet.GetCurrentObject);
   if Assigned(Detail) then
   begin
-    // Sincroniza a quantidade com o objeto de domínio
-    Detail.Quantity := Sender.AsInteger;
-    
-    // Roda a regra rica na própria entidade de domínio
-    Detail.CalcularDescontoProgressivo;
-    
-    // Atualiza o DataSet com o novo desconto para renderizar a Grid VCL instantaneamente
-    OrderDetailsEntityDataSetDiscount.Value := Detail.Discount.Value;
+    Span := TTracer.BeginSpan('MainForm.QuantityChange', 'UI');
+    Span.SetAttribute('order.id', Detail.OrderId.Value);
+    Span.SetAttribute('product.id', Detail.ProductId.Value);
+    Span.SetAttribute('quantity.old', Detail.Quantity.Value);
+    Span.SetAttribute('quantity.new', Sender.AsInteger);
+    try
+      // Sincroniza a quantidade com o objeto de domínio
+      Detail.Quantity := Sender.AsInteger;
+      
+      // Roda a regra rica na própria entidade de domínio
+      Detail.CalcularDescontoProgressivo;
+      
+      Span.SetAttribute('discount.value', FloatToStr(Detail.Discount.Value));
+      
+      // Atualiza o DataSet com o novo desconto para renderizar a Grid VCL instantaneamente
+      OrderDetailsEntityDataSetDiscount.Value := Detail.Discount.Value;
+      Span.SetStatus('Success');
+    except on E: Exception do
+      begin
+        Span.SetStatus('Error', E.Message);
+        raise;
+      end;
+    end;
+    Span.Finish;
   end;
 end;
 
@@ -307,6 +346,26 @@ begin
     Text := FormatFloat('0.0', Sender.AsFloat * 100.0) + ' %'
   else
     Text := '';
+end;
+
+procedure TMainForm.LoadData;
+begin
+  // 3. Carregar os dados na lista
+  FOrders := FDbContext.Entities<TOrders>.ToList;
+  FOrderDetails := FDbContext.Entities<TOrderDetails>.ToList;
+
+  // 4. Configurar e popular o dataset mestre (TOrders)
+  OrderEntityDataSet.Load<TOrders>(FOrders);
+  OrderEntityDataSet.Open;
+  OrderDataSource.DataSet := OrderEntityDataSet;
+
+  // 5. Configurar e popular o dataset detalhe (TOrderDetails) mestre/detalhe
+  OrderDetailsEntityDataSet.Load<TOrderDetails>(FOrderDetails);
+  OrderDetailsEntityDataSet.MasterSource := OrderDataSource;
+  OrderDetailsEntityDataSet.MasterFields := 'OrderId';
+  OrderDetailsEntityDataSet.IndexFieldNames := 'OrderId';
+  OrderDetailsEntityDataSet.Open;
+  OrderDetailsDataSource.DataSet := OrderDetailsEntityDataSet;
 end;
 
 end.

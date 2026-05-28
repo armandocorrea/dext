@@ -1,4 +1,4 @@
-unit Dext.Logging.Sinks.VCL;
+﻿unit Dext.Logging.Sinks.VCL;
 
 interface
 
@@ -79,6 +79,12 @@ end;
 procedure TMemoLogSink.AppendToMemo(const AText: string);
 begin
   if FMemo = nil then Exit;
+  
+  if not FMemo.HandleAllocated then
+  begin
+    FMemo.Lines.Add(AText);
+    Exit;
+  end;
   
   FMemo.Lines.BeginUpdate;
   try

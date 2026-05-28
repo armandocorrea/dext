@@ -50,7 +50,8 @@ implementation
 
 uses
   Dext.Logging,
-  Dext.Logging.Global;
+  Dext.Logging.Global,
+  Dext.Logging.Tracing;
 
 { TOrderViewModel }
 
@@ -91,6 +92,7 @@ var
   Country: string;
   OrderId: Integer;
   Weight: Double;
+  Span: TSpan;
 begin
   if not Assigned(FOrder) then
   begin
@@ -107,12 +109,31 @@ begin
 
   Log.Info('Iniciando cálculo assíncrono de frete para o Pedido #{OrderId} (Destino: {Country}, Peso: {Weight}kg)...', [OrderId, Country, FormatFloat('0.00', Weight)]);
 
+  Span := TTracer.BeginSpan('ViewModel.CalcularFreteExterno', 'UseCase');
+  Span.SetAttribute('order.id', OrderId);
+  Span.SetAttribute('order.ship_country', Country);
+  Span.SetAttribute('order.weight', FloatToStr(Weight));
+
   // Executa o consumo da API externa em uma thread de background usando TAsyncTask.Run do Dext Core.
   // Evita congelamento de tela em ERPs (Zero UI Blocking).
   TAsyncTask.Run<Double>(
     function: Double
+    var
+      SubSpan: TSpan;
     begin
-      Result := FShippingService.CalcularCotacaoFrete(Country, Weight);
+      SubSpan := TTracer.BeginSpan('ShippingService.CalcularCotacaoFrete', 'ExternalService');
+      SubSpan.SetAttribute('shipping.country', Country);
+      SubSpan.SetAttribute('shipping.weight', FloatToStr(Weight));
+      try
+        Result := FShippingService.CalcularCotacaoFrete(Country, Weight);
+        SubSpan.SetAttribute('shipping.result', FloatToStr(Result));
+      except
+        on E: Exception do
+        begin
+          SubSpan.SetStatus('Error', E.Message);
+          raise;
+        end;
+      end;
     end)
     .OnComplete(
       procedure(Res: Double)
@@ -122,6 +143,10 @@ begin
         FIsCalculating := False;
         
         Log.Info('Cálculo de frete finalizado para o Pedido #{OrderId}. Valor calculado: {Freight}', [OrderId, FormatFloat('R$ #,##0.00', Res)]);
+        
+        Span.SetAttribute('freight.value', FloatToStr(Res));
+        Span.SetStatus('Success');
+        Span.Finish;
         
         if Assigned(OnCompleteProc) then
           OnCompleteProc();
@@ -133,6 +158,9 @@ begin
         FIsCalculating := False;
         
         Log.Error('Erro ao calcular frete para o Pedido #{OrderId}: {Error}', [OrderId, E.Message]);
+        
+        Span.SetStatus('Error', E.Message);
+        Span.Finish;
         
         if Assigned(OnCompleteProc) then
           OnCompleteProc();

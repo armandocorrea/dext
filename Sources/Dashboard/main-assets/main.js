@@ -51,6 +51,9 @@ async function load() {
         // Restore active project if exists
         var savedPj = localStorage.getItem("activeProject");
         if (savedPj) selectActiveProject(savedPj, true);
+
+        // Load telemetry history (logs/spans)
+        loadHistory();
     } catch (e) { console.error(e); }
 }
 
@@ -113,12 +116,33 @@ function connectSSE() {
 }
 
 function handleSseEvent(eventName, data) {
-    if (eventName === "log") {
+    if (eventName === "log" || eventName === "span") {
         try {
-            var logObj = JSON.parse(data);
-            processLog(logObj.lvl || "Info", logObj.msg || data, logObj.ts);
+            var obj = JSON.parse(data);
+            
+            // Normalize properties (camelCase from Sidecar to snake_case for main.js)
+            if (obj.traceId !== undefined) obj.trace_id = obj.traceId;
+            if (obj.spanId !== undefined) obj.span_id = obj.spanId;
+            if (obj.parentId !== undefined) obj.parent_id = obj.parentId;
+            if (obj.dur !== undefined && obj.dur !== null) obj.duration_ms = obj.dur;
+
+            if (eventName === "log") {
+                processLog(obj.lvl || "Info", obj.msg || data, obj.ts);
+                // S24: Process Distributed Tracing if log contains trace data
+                if (obj.trace_id) {
+                    processTrace(obj);
+                }
+            } else {
+                // eventName === "span"
+                // Map span properties for trace processor
+                obj.msg = obj.name; // Use span name as message for display
+                obj.lvl = obj.lvl || "Info"; 
+                if (obj.trace_id) {
+                   processTrace(obj);
+                }
+            }
         } catch(e) {
-            processLog("Info", data);
+            if (eventName === "log") processLog("Info", data);
         }
         return;
     }
@@ -1118,6 +1142,204 @@ function findTestResult(results, fixtureName, testName) {
         if (r.fixture == fixtureName && r.test == testName) return r;
     }
     return null;
+}
+
+// ==================== Distributed Tracing (S24) ====================
+var traceStore = {}; // trace_id -> { spans: [], root: null }
+var activeTraceId = null;
+
+function processTrace(log) {
+    var tid = log.trace_id;
+    var isNew = false;
+    if (!traceStore[tid]) {
+        traceStore[tid] = { spans: [], startTime: log.ts, name: log.msg || "Trace " + tid.substring(0,8) };
+        isNew = true;
+    }
+    
+    // Add span to trace
+    traceStore[tid].spans.push(log);
+    
+    // Update list
+    renderTraceList();
+    
+    // Auto-select if first trace or already active
+    if (!activeTraceId && isNew) {
+        selectTrace(tid);
+    } else if (activeTraceId === tid) {
+        renderTraceDetail(tid);
+    }
+}
+
+function renderTraceList() {
+    var el = document.getElementById("trace-list");
+    if (!el) return;
+    
+    var h = "";
+    var sortedIds = Object.keys(traceStore).sort((a,b) => new Date(traceStore[b].startTime) - new Date(traceStore[a].startTime));
+    
+    sortedIds.forEach(tid => {
+        var t = traceStore[tid];
+        var active = tid === activeTraceId ? "active" : "";
+        var time = new Date(t.startTime).toLocaleTimeString();
+        var status = t.spans.some(s => s.lvl === "Error") ? "error" : "success";
+        
+        h += `<div class="trace-item ${active}" onclick="selectTrace('${tid}')">
+                <div class="trace-item-top">
+                    <span class="trace-item-name">${t.name}</span>
+                    <span class="trace-item-time">${time}</span>
+                </div>
+                <div class="trace-item-meta">
+                    <span><span class="trace-status ${status}"></span>${t.spans.length} Spans</span>
+                    <span style="color:var(--outline)">${tid.substring(0,8)}...</span>
+                </div>
+              </div>`;
+    });
+    el.innerHTML = h;
+}
+
+function selectTrace(tid) {
+    activeTraceId = tid;
+    renderTraceList();
+    renderTraceDetail(tid);
+}
+
+function renderTraceDetail(tid) {
+    var el = document.getElementById("trace-detail");
+    if (!el) return;
+    
+    var t = traceStore[tid];
+    if (!t) return;
+    
+    var h = `<div class="trace-detail-header">
+                <h3>${t.name}</h3>
+                <code style="font-size:11px;color:var(--on-surface-v)">${tid}</code>
+             </div>
+             <div class="trace-tree">`;
+             
+    // Build hierarchy
+    var spans = t.spans;
+    var roots = spans.filter(s => !s.parent_id || !spans.some(p => p.span_id === s.parent_id));
+    
+    if (roots.length === 0 && spans.length > 0) roots = [spans[0]]; // Fallback
+
+    roots.forEach(r => {
+        h += renderSpanNode(r, spans);
+    });
+    
+    h += `</div>`;
+    el.innerHTML = h;
+}
+
+function renderSpanNode(span, allSpans) {
+    var children = allSpans.filter(s => s.parent_id === span.span_id);
+    
+    var duration = "";
+    if (span.duration_ms !== undefined && span.duration_ms !== null) {
+        duration = span.duration_ms === 0 ? "<1ms" : span.duration_ms + "ms";
+    }
+    
+    var color = span.lvl === "Error" ? "var(--error)" : "var(--primary)";
+    var hasData = (span.data && Object.keys(span.data).length > 0) || span.error;
+    
+    var detailsHtml = "";
+    if (hasData) {
+        detailsHtml += `<div class="trace-node-details">`;
+        if (span.error) {
+            detailsHtml += `<div class="trace-detail-error">
+                                <span class="material-symbols-outlined" style="font-size:14px;color:var(--error);margin-right:5px">error</span>
+                                <strong>Error:</strong> ${span.error}
+                            </div>`;
+        }
+        
+        if (span.data) {
+            var tagsHtml = "";
+            var sqlHtml = "";
+            
+            Object.keys(span.data).forEach(k => {
+                var val = span.data[k];
+                if (val === undefined || val === null || val === "") return;
+                var valStr = String(val);
+                
+                if (k === 'sql') {
+                    var escapedSql = valStr.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                    sqlHtml = `<div class="trace-detail-sql">
+                                  <div class="trace-sql-header">
+                                      <span>SQL Query</span>
+                                      <button class="trace-copy-btn" onclick="navigator.clipboard.writeText(\`${escapedSql}\`); event.stopPropagation(); alert('SQL copied to clipboard!')">Copy</button>
+                                  </div>
+                                  <pre class="trace-sql-code"><code>${valStr}</code></pre>
+                               </div>`;
+                } else {
+                    tagsHtml += `<span class="trace-tag"><strong>${k}:</strong> ${valStr}</span>`;
+                }
+            });
+            
+            if (tagsHtml) {
+                detailsHtml += `<div class="trace-tags-container">${tagsHtml}</div>`;
+            }
+            if (sqlHtml) {
+                detailsHtml += sqlHtml;
+            }
+        }
+        detailsHtml += `</div>`;
+    }
+    
+    var contentHtml = "";
+    if (hasData) {
+        contentHtml = `
+            <details class="trace-node-details-disclosure">
+                <summary class="trace-node-content" style="border-left: 3px solid ${color}; cursor: pointer">
+                    <span class="trace-node-name">${span.msg}</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="material-symbols-outlined" style="font-size:16px;color:var(--on-surface-v)">expand_more</span>
+                        <span class="trace-node-duration">${duration}</span>
+                    </div>
+                </summary>
+                ${detailsHtml}
+            </details>
+        `;
+    } else {
+        contentHtml = `
+            <div class="trace-node-content" style="border-left: 3px solid ${color}">
+                <span class="trace-node-name">${span.msg}</span>
+                <span class="trace-node-duration">${duration}</span>
+            </div>
+        `;
+    }
+    
+    var h = `<div class="trace-node">
+                ${contentHtml}`;
+                
+    if (children.length > 0) {
+        h += `<div class="trace-node-children">`;
+        children.forEach(c => {
+            h += renderSpanNode(c, allSpans);
+        });
+        h += `</div>`;
+    }
+    
+    h += `</div>`;
+    return h;
+}
+
+function tracesClear() {
+    traceStore = {};
+    activeTraceId = null;
+    renderTraceList();
+    document.getElementById("trace-detail").innerHTML = '<div class="trace-empty-msg" data-i18n="select_trace">Select a trace to view details</div>';
+    applyI18n();
+}
+
+async function loadHistory() {
+    try {
+        const r = await fetch("/api/telemetry/history");
+        if (r.ok) {
+            const history = await r.json();
+            history.forEach(item => {
+                handleSseEvent(item.event, JSON.stringify(item.data));
+            });
+        }
+    } catch(e) { console.warn("Failed to load telemetry history:", e); }
 }
 
 // ==================== Init ====================
