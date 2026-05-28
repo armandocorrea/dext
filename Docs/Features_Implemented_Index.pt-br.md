@@ -286,6 +286,8 @@ Uma das features mais poderosas do Dext: **geração automática de APIs REST co
 - **TDbContext** — Unit of Work with **Change Tracking** automático (estados: Added, Modified, Deleted, Unchanged). **Identity Map** para unicidade de instâncias por chave primária.
 - **DbSet\<T\>** — Repository genérico. Operações: `Add`, `Update`, `Remove`, `Find`, `FirstOrDefault`, `Where`, `Include`, `ToList`.
 - **SaveChanges** — Persiste todas as mudanças rastreadas em uma transação.
+- **Fluent Connection Setup & Pooling Auto-Detection** — Construtores de conexão fluente (`UsePostgreSQL`, `UseFirebird`, etc.) com sincronização e extração automática de parâmetros via setters de propriedade, eliminando bugs de opções vazias ou pooling desconfigurado.
+- **Suporte a ConnectionDefName (FireDAC)** — Suporte nativo para definições de conexão registradas no FireDAC (`UseConnectionDef`). Resolve dinamicamente o dialeto, driver ID e status de pooling consultando o `FDManager.ConnectionDefs` global do FireDAC.
 
 ### 4.2 Query Engine (LINQ-like)
 - Query fluída com **Projeção (Select)**, **Paging** (`Skip`/`Take`), **Aggregates** (`Count`, `Sum`, `Max`, `Min`, `Average`).
@@ -363,6 +365,8 @@ Uma das features mais poderosas do Dext: **geração automática de APIs REST co
 - **Thread Safety** — Snapshot imutável da configuração no `Execute`; execução isolada via pool.
 - **Response Headers** — Acesso completo via `GetHeader` (case-insensitive) e `GetHeaders` (TNetHeaders array).
 - **THttpRequestInfo** — Integração com parsers `.http` para execução de requisições ad-hoc.
+- **Campos de Formulário Multipart com Content-Type** — Suporte para definição de tipos MIME específicos (ex: `application/json`) para campos individuais de formulário em requisições multipart via `AddFormField` e `AddMultipartField` (Issue #125).
+- **Parâmetros de Consulta Condicionais** — Suporte para adição fluente de parâmetros de consulta condicionais (`QueryParamIfNotEmpty`, `QueryParamIf` e sobrecargas com valores padrão fallback) para simplificar a construção de requisições (Issue #123).
 
 ### 5.2 Authentication Providers
 - **Bearer Token (JWT)** — Envio automático de `Authorization: Bearer <token>`.

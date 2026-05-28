@@ -528,6 +528,12 @@ begin
   if (Lifetime <> nil) and (Lifetime is THostApplicationLifetime) then
     THostApplicationLifetime(Lifetime).NotifyStopped;
     
+  // Clear the service provider reference stored in TDextJson to avoid leaking the container
+  TDextJson.SetDefaultSettings(TDextJson.GetDefaultSettings.ServiceProvider(nil));
+
+  // Clear global default provider in TDextServices
+  TDextServices.DefaultProvider := nil;
+
   // Explicitly release provider reference to ensure cleanup
   FServiceProvider := nil;
 

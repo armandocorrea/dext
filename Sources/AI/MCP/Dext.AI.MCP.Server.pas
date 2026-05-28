@@ -61,7 +61,9 @@ uses
   System.Classes,
   System.JSON,
   System.SyncObjs,
-  Dext.Collections, Dext.Collections.Dict,
+  System.DateUtils,
+  Dext.Collections,
+  Dext.Collections.Dict,
   Dext.AI.MCP.Protocol,
   Dext.AI.MCP.Types,
   Dext.AI.MCP.Tools,
@@ -211,11 +213,15 @@ type
 
 implementation
 
-{$IFDEF MSWINDOWS}
 uses
+{$IFDEF MSWINDOWS}
   Winapi.Windows,
-  System.Rtti;
 {$ENDIF}
+  System.Rtti,
+  IdStack,
+  IdIOHandler,
+  IdException,
+  Dext.Web.Indy;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -240,8 +246,7 @@ end;
 procedure WriteSSEEvent(const Response: IHttpResponse;
   const EventType, Data: string);
 begin
-  Response.Write('event: ' + EventType + #10);
-  Response.Write('data: ' + Data + #10#10);
+  Response.Write('event: ' + EventType + #10 + 'data: ' + Data + #10#10);
 end;
 
 procedure WriteSSEComment(const Response: IHttpResponse;
@@ -729,33 +734,60 @@ var
   KeepAlive: Integer;
 begin
   Session := FSessions.CreateSession;
+  try
+    ConfigureSSEResponse(Ctx.Response);
 
-  ConfigureSSEResponse(Ctx.Response);
+    { Switch the Indy response to chunked Transfer-Encoding. Without this,
+      Response.Write accumulates into FResponseInfo.ContentText and nothing
+      reaches the client until the handler returns — which for SSE is
+      "never" (the loop below runs until shutdown). The Flush after the
+      first event releases headers + the endpoint event so the client can
+      start POSTing to /message. }
+    if Ctx.Response is TDextIndyHttpResponse then
+      TDextIndyHttpResponse(Ctx.Response).BeginStreamingResponse;
 
-  WriteSSEEvent(Ctx.Response, 'endpoint',
-    '/message?sessionId=' + Session.Id);
+    WriteSSEEvent(Ctx.Response, 'endpoint',
+      '/message?sessionId=' + Session.Id);
 
-  KeepAlive := 0;
+    if Ctx.Response is TDextIndyHttpResponse then
+      TDextIndyHttpResponse(Ctx.Response).Flush;
 
-  while not FShuttingDown do
-  begin
-    while Session.HasEvents and not FShuttingDown do
+    KeepAlive := 0;
+
+    while not FShuttingDown do
     begin
-      if Session.TryDequeueEvent(EvtName, Msg) then
-        WriteSSEEvent(Ctx.Response, EvtName, Msg);
-    end;
+      try
+        while Session.HasEvents and not FShuttingDown do
+        begin
+          if Session.TryDequeueEvent(EvtName, Msg) then
+            WriteSSEEvent(Ctx.Response, EvtName, Msg);
+        end;
 
-    Inc(KeepAlive);
-    if KeepAlive >= 150 then
-    begin
-      WriteSSEComment(Ctx.Response, 'ping');
-      KeepAlive := 0;
-    end;
+        Inc(KeepAlive);
+        if KeepAlive >= 150 then
+        begin
+          if (Ctx.Response is TDextIndyHttpResponse)
+             and not TDextIndyHttpResponse(Ctx.Response).IsClientConnected then
+            Break;
 
-    Sleep(100);
+          WriteSSEComment(Ctx.Response, 'ping - ' +
+            FormatDateTime('YYYY-MM-DD HH:NN:SS.ZZZ', Now));
+          KeepAlive := 0;
+        end;
+      except
+        on EIdSocketError do
+          Break;
+        on EIdConnClosedGracefully do
+          Break;
+      end;
+
+      Sleep(100);
+    end;
+  finally
+    if Ctx.Response is TDextIndyHttpResponse then
+      TDextIndyHttpResponse(Ctx.Response).EndStreamingResponse;
+    FSessions.DestroySession(Session.Id);
   end;
-
-  FSessions.DestroySession(Session.Id);
 end;
 
 procedure TMCPServer.RouteMessage(Ctx: IHttpContext);
@@ -845,17 +877,15 @@ begin
 end;
 
 procedure TMCPServer.RegisterProvider(AProvider: TMCPToolProvider);
-var
-  Ctx: TRttiContext;
 begin
   // Register tools — the registry takes ownership of AProvider
   FRegistry.RegisterProvider(AProvider);
 
   // Scan the same provider for [MCPResource] and [MCPPrompt] methods.
-  // Resources/Prompts do not hold a persistent RTTI context, so we share
-  // the local one (valid for the duration of this call).
-  FResources.ScanProvider(AProvider, Ctx);
-  FPrompts.ScanProvider(AProvider, Ctx);
+  // Both registries use TReflection.Context (the shared, properly managed
+  // RTTI context) to avoid creating orphan pool tokens.
+  FResources.ScanProvider(AProvider);
+  FPrompts.ScanProvider(AProvider);
 end;
 
 function TMCPServer.Resource(const AUri, AName: string): IMCPResourceBuilder;

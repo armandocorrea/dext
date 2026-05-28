@@ -155,6 +155,7 @@
         <DCCReference Include="Design\Dext.EF.Design.EntitySelection.pas"/>
         <DCCReference Include="Design\Dext.EF.Design.Scaffolding.Helpers.pas"/>
         <DCCReference Include="Design\Dext.EF.Design.Scaffolding.Preview.pas"/>
+        <DCCReference Include="Design\Dext.EF.Design.DocExpert.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

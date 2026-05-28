@@ -121,10 +121,10 @@ function handleSseEvent(eventName, data) {
             var obj = JSON.parse(data);
             
             // Normalize properties (camelCase from Sidecar to snake_case for main.js)
-            if (obj.traceId) obj.trace_id = obj.traceId;
-            if (obj.spanId) obj.span_id = obj.spanId;
-            if (obj.parentId) obj.parent_id = obj.parentId;
-            if (obj.dur) obj.duration_ms = obj.dur;
+            if (obj.traceId !== undefined) obj.trace_id = obj.traceId;
+            if (obj.spanId !== undefined) obj.span_id = obj.spanId;
+            if (obj.parentId !== undefined) obj.parent_id = obj.parentId;
+            if (obj.dur !== undefined && obj.dur !== null) obj.duration_ms = obj.dur;
 
             if (eventName === "log") {
                 processLog(obj.lvl || "Info", obj.msg || data, obj.ts);
@@ -1218,7 +1218,7 @@ function renderTraceDetail(tid) {
              
     // Build hierarchy
     var spans = t.spans;
-    var roots = spans.filter(s => !s.parent_id);
+    var roots = spans.filter(s => !s.parent_id || !spans.some(p => p.span_id === s.parent_id));
     
     if (roots.length === 0 && spans.length > 0) roots = [spans[0]]; // Fallback
 
@@ -1232,14 +1232,83 @@ function renderTraceDetail(tid) {
 
 function renderSpanNode(span, allSpans) {
     var children = allSpans.filter(s => s.parent_id === span.span_id);
-    var duration = span.duration_ms ? span.duration_ms + "ms" : "";
+    
+    var duration = "";
+    if (span.duration_ms !== undefined && span.duration_ms !== null) {
+        duration = span.duration_ms === 0 ? "<1ms" : span.duration_ms + "ms";
+    }
+    
     var color = span.lvl === "Error" ? "var(--error)" : "var(--primary)";
+    var hasData = (span.data && Object.keys(span.data).length > 0) || span.error;
+    
+    var detailsHtml = "";
+    if (hasData) {
+        detailsHtml += `<div class="trace-node-details">`;
+        if (span.error) {
+            detailsHtml += `<div class="trace-detail-error">
+                                <span class="material-symbols-outlined" style="font-size:14px;color:var(--error);margin-right:5px">error</span>
+                                <strong>Error:</strong> ${span.error}
+                            </div>`;
+        }
+        
+        if (span.data) {
+            var tagsHtml = "";
+            var sqlHtml = "";
+            
+            Object.keys(span.data).forEach(k => {
+                var val = span.data[k];
+                if (val === undefined || val === null || val === "") return;
+                var valStr = String(val);
+                
+                if (k === 'sql') {
+                    var escapedSql = valStr.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                    sqlHtml = `<div class="trace-detail-sql">
+                                  <div class="trace-sql-header">
+                                      <span>SQL Query</span>
+                                      <button class="trace-copy-btn" onclick="navigator.clipboard.writeText(\`${escapedSql}\`); event.stopPropagation(); alert('SQL copied to clipboard!')">Copy</button>
+                                  </div>
+                                  <pre class="trace-sql-code"><code>${valStr}</code></pre>
+                               </div>`;
+                } else {
+                    tagsHtml += `<span class="trace-tag"><strong>${k}:</strong> ${valStr}</span>`;
+                }
+            });
+            
+            if (tagsHtml) {
+                detailsHtml += `<div class="trace-tags-container">${tagsHtml}</div>`;
+            }
+            if (sqlHtml) {
+                detailsHtml += sqlHtml;
+            }
+        }
+        detailsHtml += `</div>`;
+    }
+    
+    var contentHtml = "";
+    if (hasData) {
+        contentHtml = `
+            <details class="trace-node-details-disclosure">
+                <summary class="trace-node-content" style="border-left: 3px solid ${color}; cursor: pointer">
+                    <span class="trace-node-name">${span.msg}</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="material-symbols-outlined" style="font-size:16px;color:var(--on-surface-v)">expand_more</span>
+                        <span class="trace-node-duration">${duration}</span>
+                    </div>
+                </summary>
+                ${detailsHtml}
+            </details>
+        `;
+    } else {
+        contentHtml = `
+            <div class="trace-node-content" style="border-left: 3px solid ${color}">
+                <span class="trace-node-name">${span.msg}</span>
+                <span class="trace-node-duration">${duration}</span>
+            </div>
+        `;
+    }
     
     var h = `<div class="trace-node">
-                <div class="trace-node-content" style="border-left: 3px solid ${color}">
-                    <span class="trace-node-name">${span.msg}</span>
-                    <span class="trace-node-duration">${duration}</span>
-                </div>`;
+                ${contentHtml}`;
                 
     if (children.length > 0) {
         h += `<div class="trace-node-children">`;

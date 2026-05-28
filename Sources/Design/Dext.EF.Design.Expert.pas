@@ -35,6 +35,9 @@ procedure RegisterExpert;
 
 implementation
 
+uses
+  Dext.EF.Design.DocExpert;
+
 var
   FNotifierIndex: Integer = -1;
 
@@ -42,6 +45,7 @@ procedure RegisterExpert;
 begin
   if FNotifierIndex = -1 then
     FNotifierIndex := (BorlandIDEServices as IOTAServices).AddNotifier(TDextIDENotifier.Create);
+  RegisterDocExpert;
 end;
 
 { TDextModuleNotifier }
@@ -144,5 +148,6 @@ initialization
 finalization
   if FNotifierIndex <> -1 then
     (BorlandIDEServices as IOTAServices).RemoveNotifier(FNotifierIndex);
+  UnregisterDocExpert;
 
 end.

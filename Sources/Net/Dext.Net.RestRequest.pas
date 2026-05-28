@@ -50,9 +50,9 @@ type
   private
     FData: IRestRequestData;
     function GetData: IRestRequestData;
-    function GetFullUrl: string;
   public
     constructor Create(AClient: TRestClient; AMethod: TDextHttpMethod; const AEndpoint: string);
+    function GetFullUrl: string;
 
     // Configuração
     /// <summary>Adds a custom HTTP header to the request.</summary>
@@ -62,7 +62,18 @@ type
     /// <summary>Adds a query parameter (Query String) to the URL.</summary>
     /// <param name="AName">The parameter name.</param>
     /// <param name="AValue">The parameter value.</param>
-    function QueryParam(const AName, AValue: string): TRestRequest;
+    function QueryParam(const AName, AValue: string): TRestRequest; overload;
+    /// <summary>Adds a query parameter only when Trim(AValue) is not empty.</summary>
+    function QueryParamIfNotEmpty(const AName, AValue: string): TRestRequest;
+    /// <summary>
+    ///   Uses AValue when non-empty; otherwise uses Trim(ADefault).
+    ///   Skips the parameter when both are empty.
+    /// </summary>
+    function QueryParam(const AName, AValue, ADefault: string): TRestRequest; overload;
+    /// <summary>Adds a query parameter only when AInclude is True.</summary>
+    function QueryParamIf(const AName, AValue: string; AInclude: Boolean): TRestRequest;
+    /// <summary>Adds a query parameter only when AInclude is True.</summary>
+    function QueryParam(const AName, AValue: string; AInclude: Boolean): TRestRequest; overload;
     /// <summary>Defines the request body from a Stream.</summary>
     /// <param name="ABody">The stream containing the payload.</param>
     /// <param name="AOwns">If true, the stream will be freed after the request completes.</param>
@@ -80,7 +91,10 @@ type
     /// <param name="AJson">The raw JSON content.</param>
     function JsonBody(const AJson: string): TRestRequest;
     /// <summary>Adds a form field to a multipart/form-data payload.</summary>
-    function AddFormField(const AName, AValue: string): TRestRequest;
+    /// <param name="AName">The field name.</param>
+    /// <param name="AValue">The field value.</param>
+    /// <param name="AContentType">Optional content type of the field.</param>
+    function AddFormField(const AName, AValue: string; const AContentType: string = ''): TRestRequest;
     /// <summary>Adds a file (from disk path) to a multipart/form-data payload.</summary>
     function AddFile(const AFieldName, AFilePath: string): TRestRequest; overload;
     /// <summary>Adds a file (from disk path) with explicit content type.</summary>
@@ -159,7 +173,7 @@ type
 
     procedure SetBody(ABody: TStream; AOwns: Boolean);
     procedure SetToken(AToken: ICancellationToken);
-    procedure AddMultipartField(const AName, AValue: string);
+    procedure AddMultipartField(const AName, AValue: string; const AContentType: string = '');
     procedure AddMultipartFile(const AFieldName, AFileName: string; const AData: TBytes;
       const AContentType: string);
     function DetachBody: TStream;
@@ -191,7 +205,7 @@ type
   public
     constructor Create;
     function HasParts: Boolean;
-    procedure AddField(const AName, AValue: string);
+    procedure AddField(const AName, AValue: string; const AContentType: string = '');
     procedure AddFile(const AFieldName, AFileName: string; const AData: TBytes;
       const AContentType: string);
     function BuildBody: TStream;
@@ -227,7 +241,7 @@ type
 
     procedure SetBody(ABody: TStream; AOwns: Boolean);
     procedure SetToken(AToken: ICancellationToken);
-    procedure AddMultipartField(const AName, AValue: string);
+    procedure AddMultipartField(const AName, AValue: string; const AContentType: string = '');
     procedure AddMultipartFile(const AFieldName, AFileName: string; const AData: TBytes;
       const AContentType: string);
     function DetachBody: TStream;
@@ -264,7 +278,7 @@ begin
   Result := (FParts <> nil) and (FParts.Count > 0);
 end;
 
-procedure TMultipartFormDataBuilder.AddField(const AName, AValue: string);
+procedure TMultipartFormDataBuilder.AddField(const AName, AValue: string; const AContentType: string);
 var
   Part: TMultipartPart;
 begin
@@ -272,7 +286,7 @@ begin
   Part.Name := AName;
   Part.Value := AValue;
   Part.FileName := '';
-  Part.ContentType := '';
+  Part.ContentType := AContentType;
   Part.Data := nil;
   FParts.Add(Part);
 end;
@@ -295,7 +309,7 @@ function TMultipartFormDataBuilder.BuildBody: TStream;
 var
   Part: TMultipartPart;
   BoundaryLine: string;
-  LContentType: string;
+  PartContentType: string;
 begin
   Result := TMemoryStream.Create;
   BoundaryLine := '--' + FBoundary + #13#10;
@@ -306,20 +320,21 @@ begin
     case Part.Kind of
       mpField:
         begin
-          WriteUtf8(Result,
-            Format('Content-Disposition: form-data; name="%s"'#13#10#13#10,
-            [Part.Name]));
+          WriteUtf8(Result, Format('Content-Disposition: form-data; name="%s"'#13#10, [Part.Name]));
+          if Part.ContentType <> '' then
+            WriteUtf8(Result, 'Content-Type: ' + Part.ContentType + #13#10);
+          WriteUtf8(Result, #13#10);
           WriteUtf8(Result, Part.Value + #13#10);
         end;
       mpFile:
         begin
-          LContentType := Part.ContentType;
-          if LContentType = '' then
-            LContentType := 'application/octet-stream';
+          PartContentType := Part.ContentType;
+          if PartContentType = '' then
+            PartContentType := 'application/octet-stream';
           WriteUtf8(Result,
             Format('Content-Disposition: form-data; name="%s"; filename="%s"'#13#10,
             [Part.Name, Part.FileName]));
-          WriteUtf8(Result, 'Content-Type: ' + LContentType + #13#10#13#10);
+          WriteUtf8(Result, 'Content-Type: ' + PartContentType + #13#10#13#10);
           if Length(Part.Data) > 0 then
             Result.WriteBuffer(Part.Data[0], Length(Part.Data));
           WriteUtf8(Result, #13#10);
@@ -427,11 +442,12 @@ begin
   FToken := AToken;
 end;
 
-procedure TRestRequestData.AddMultipartField(const AName, AValue: string);
+procedure TRestRequestData.AddMultipartField(const AName, AValue: string;
+  const AContentType: string);
 begin
   if FMultipartBuilder = nil then
     FMultipartBuilder := TMultipartFormDataBuilder.Create;
-  FMultipartBuilder.AddField(AName, AValue);
+  FMultipartBuilder.AddField(AName, AValue, AContentType);
 end;
 
 procedure TRestRequestData.AddMultipartFile(const AFieldName, AFileName: string;
@@ -496,10 +512,51 @@ begin
   Result := Self;
 end;
 
+function IsBlank(const AText: string): Boolean;
+var
+  C: Char;
+begin
+  for C in AText do
+    if C > ' ' then
+      Exit(False);
+  Result := True;
+end;
+
 function TRestRequest.QueryParam(const AName, AValue: string): TRestRequest;
 begin
   GetData.GetQueryParams.AddOrSetValue(AName, AValue);
   Result := Self;
+end;
+
+function TRestRequest.QueryParamIfNotEmpty(const AName, AValue: string): TRestRequest;
+begin
+  if not IsBlank(AValue) then
+    Result := QueryParam(AName, AValue)
+  else
+    Result := Self;
+end;
+
+function TRestRequest.QueryParam(const AName, AValue, ADefault: string): TRestRequest;
+begin
+  if not IsBlank(AValue) then
+    Result := QueryParam(AName, AValue)
+  else if not IsBlank(ADefault) then
+    Result := QueryParam(AName, Trim(ADefault))
+  else
+    Result := Self;
+end;
+
+function TRestRequest.QueryParamIf(const AName, AValue: string; AInclude: Boolean): TRestRequest;
+begin
+  if AInclude then
+    Result := QueryParam(AName, AValue)
+  else
+    Result := Self;
+end;
+
+function TRestRequest.QueryParam(const AName, AValue: string; AInclude: Boolean): TRestRequest;
+begin
+  Result := QueryParamIf(AName, AValue, AInclude);
 end;
 
 function TRestRequest.Body(ABody: TStream; AOwns: Boolean): TRestRequest;
@@ -528,9 +585,9 @@ begin
   Result := Self;
 end;
 
-function TRestRequest.AddFormField(const AName, AValue: string): TRestRequest;
+function TRestRequest.AddFormField(const AName, AValue: string; const AContentType: string): TRestRequest;
 begin
-  GetData.AddMultipartField(AName, AValue);
+  GetData.AddMultipartField(AName, AValue, AContentType);
   Result := Self;
 end;
 

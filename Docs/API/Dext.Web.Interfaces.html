@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dext.Web.Interfaces - Dext Framework 1.0</title>
+    <title>Dext.Web.Interfaces - Dext Framework</title>
     
     <!-- Blocking script to avoid theme flicker --> 
     <script>
@@ -23,7 +23,7 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
-            <h3>Dext Framework 1.0</h3>
+            <h3>Dext Framework</h3>
             <small>Documentation</small>
         </div>
         <div class="search-box">
@@ -32,6 +32,13 @@
         <div class="nav-list" id="navList">
             <!-- Sidebar Content Injected Here -->
             <a href="Dext.html" class="nav-item">Dext</a>
+<a href="Dext.AI.MCP.Attributes.html" class="nav-item">Dext.AI.MCP.Attributes</a>
+<a href="Dext.AI.MCP.Prompts.html" class="nav-item">Dext.AI.MCP.Prompts</a>
+<a href="Dext.AI.MCP.Protocol.html" class="nav-item">Dext.AI.MCP.Protocol</a>
+<a href="Dext.AI.MCP.Resources.html" class="nav-item">Dext.AI.MCP.Resources</a>
+<a href="Dext.AI.MCP.Server.html" class="nav-item">Dext.AI.MCP.Server</a>
+<a href="Dext.AI.MCP.Tools.html" class="nav-item">Dext.AI.MCP.Tools</a>
+<a href="Dext.AI.MCP.Types.html" class="nav-item">Dext.AI.MCP.Types</a>
 <a href="Dext.Assertions.html" class="nav-item">Dext.Assertions</a>
 <a href="Dext.Auth.Attributes.html" class="nav-item">Dext.Auth.Attributes</a>
 <a href="Dext.Auth.BasicAuth.html" class="nav-item">Dext.Auth.BasicAuth</a>
@@ -85,12 +92,15 @@
 <a href="Dext.DI.Interfaces.html" class="nav-item">Dext.DI.Interfaces</a>
 <a href="Dext.DI.Middleware.html" class="nav-item">Dext.DI.Middleware</a>
 <a href="Dext.EF.Design.DataProvider.html" class="nav-item">Dext.EF.Design.DataProvider</a>
+<a href="Dext.EF.Design.DocExpert.html" class="nav-item">Dext.EF.Design.DocExpert</a>
 <a href="Dext.EF.Design.Editors.html" class="nav-item">Dext.EF.Design.Editors</a>
 <a href="Dext.EF.Design.EntitySelection.html" class="nav-item">Dext.EF.Design.EntitySelection</a>
 <a href="Dext.EF.Design.Expert.html" class="nav-item">Dext.EF.Design.Expert</a>
 <a href="Dext.EF.Design.Metadata.html" class="nav-item">Dext.EF.Design.Metadata</a>
 <a href="Dext.EF.Design.Preview.html" class="nav-item">Dext.EF.Design.Preview</a>
 <a href="Dext.EF.Design.Registration.html" class="nav-item">Dext.EF.Design.Registration</a>
+<a href="Dext.EF.Design.Scaffolding.Helpers.html" class="nav-item">Dext.EF.Design.Scaffolding.Helpers</a>
+<a href="Dext.EF.Design.Scaffolding.Preview.html" class="nav-item">Dext.EF.Design.Scaffolding.Preview</a>
 <a href="Dext.Entity.html" class="nav-item">Dext.Entity</a>
 <a href="Dext.Entity.Attributes.html" class="nav-item">Dext.Entity.Attributes</a>
 <a href="Dext.Entity.Cache.html" class="nav-item">Dext.Entity.Cache</a>
@@ -290,14 +300,15 @@
 <a href="Dext.Web.ModelBinding.Extensions.html" class="nav-item">Dext.Web.ModelBinding.Extensions</a>
 <a href="Dext.Web.MultiTenancy.html" class="nav-item">Dext.Web.MultiTenancy</a>
 <a href="Dext.Web.Pipeline.html" class="nav-item">Dext.Web.Pipeline</a>
-<a href="Dext.Web.ResponseHelper.html" class="nav-item">Dext.Web.ResponseHelper</a>
 <a href="Dext.Web.Results.html" class="nav-item">Dext.Web.Results</a>
 <a href="Dext.Web.Routing.html" class="nav-item">Dext.Web.Routing</a>
 <a href="Dext.Web.Routing.Attributes.html" class="nav-item">Dext.Web.Routing.Attributes</a>
 <a href="Dext.Web.RoutingMiddleware.html" class="nav-item">Dext.Web.RoutingMiddleware</a>
+<a href="Dext.Web.Sessions.Streamable.html" class="nav-item">Dext.Web.Sessions.Streamable</a>
 <a href="Dext.Web.StaticFiles.html" class="nav-item">Dext.Web.StaticFiles</a>
 <a href="Dext.Web.Versioning.html" class="nav-item">Dext.Web.Versioning</a>
 <a href="Dext.Web.View.html" class="nav-item">Dext.Web.View</a>
+<a href="Dext.Web.View.Native.html" class="nav-item">Dext.Web.View.Native</a>
 <a href="Dext.Web.View.WebStencils.html" class="nav-item">Dext.Web.View.WebStencils</a>
 <a href="Dext.Web.WebApplication.html" class="nav-item">Dext.Web.WebApplication</a>
 <a href="Dext.Web.WebBroker.html" class="nav-item">Dext.Web.WebBroker</a>
@@ -377,6 +388,16 @@ class IHttpRequest {    +GetMethod()
     +Files
     +RemoteIpAddress
 }
+class IHtmxResponse {    +Trigger()
+    +Retarget()
+    +Reswap()
+    +Redirect()
+    +Refresh()
+    +Reselect()
+    +PushUrl()
+    +ReplaceUrl()
+    +Location()
+}
 class IHttpResponse {    +GetStatusCode()
     +GetContentType()
     +Status()
@@ -388,8 +409,35 @@ class IHttpResponse {    +GetStatusCode()
     +AddHeader()
     +AppendCookie()
     +DeleteCookie()
+    +Redirect()
+    +Unauthorized()
+    +Forbidden()
+    +BadRequest()
+    +NotFound()
+    +GetHtmx()
+    +GetHeaders()
     +StatusCode
     +ContentType
+    +Htmx
+    +Headers
+}
+class IStreamableSession {    +GetId()
+    +SetState()
+    +GetState()
+    +RemoveState()
+    +SendSseEvent()
+    +HasEvents()
+    +TryDequeueEvent()
+    +Id
+}
+class IEventStreamer {    +PushEvent()
+    +PushEventTo()
+}
+class IStreamableSessionManager {    +CreateSession()
+    +GetSession()
+    +DestroySession()
+    +StartScavenger()
+    +StopScavenger()
 }
 class IHttpContext {    +GetRequest()
     +GetResponse()
@@ -399,11 +447,13 @@ class IHttpContext {    +GetRequest()
     +GetUser()
     +SetUser()
     +GetItems()
+    +GetSession()
     +Request
     +Response
     +Services
     +User
     +Items
+    +Session
 }
 class IMiddleware {    +Invoke()
 }
@@ -448,12 +498,14 @@ class IWebApplication {    +GetServices()
     +MapControllers()
     +GetApplicationBuilder()
     +GetConfiguration()
+    +GetServiceProvider()
     +BuildServices()
     +UseServerFactory()
     +Run()
     +Start()
     +SetDefaultPort()
     +Services
+    +ServiceProvider
     +Builder
     +Configuration
     +Port
@@ -604,6 +656,30 @@ IFormFileCollection <|.. TFormFileCollection
 </div>
 <hr>
 <div class="class-header">
+<h3>interface IHtmxResponse</h3><a name="IHtmxResponse"></a><div class="description">Fluent interface for manipulating HTMX-specific response headers.</div></div>
+<div class="visibility-group"><h5>PUBLIC</h5><div class="api-item">
+<div class="api-signature">function Trigger(const const: string): IHtmxResponse</div><div class="description">Triggers a client-side event (HX-Trigger).</div></div>
+<div class="api-item">
+<div class="api-signature">function Trigger(const const: string; const const: string): IHtmxResponse</div><div class="description">Triggers a client-side event with a JSON payload.</div></div>
+<div class="api-item">
+<div class="api-signature">function Retarget(const const: string): IHtmxResponse</div><div class="description">Overrides the target element (HX-Retarget).</div></div>
+<div class="api-item">
+<div class="api-signature">function Reswap(const const: string): IHtmxResponse</div><div class="description">Overrides the swap strategy (HX-Reswap).</div></div>
+<div class="api-item">
+<div class="api-signature">function Redirect(const const: string): IHtmxResponse</div><div class="description">Performs a client-side redirect (HX-Redirect).</div></div>
+<div class="api-item">
+<div class="api-signature">function Refresh: IHtmxResponse</div><div class="description">Forces a full page refresh (HX-Refresh).</div></div>
+<div class="api-item">
+<div class="api-signature">function Reselect(const const: string): IHtmxResponse</div><div class="description">Overrides the part of the response that is swapped (HX-Reselect).</div></div>
+<div class="api-item">
+<div class="api-signature">function PushUrl(const const: string): IHtmxResponse</div><div class="description">Pushes a new URL into the history stack (HX-Push-Url).</div></div>
+<div class="api-item">
+<div class="api-signature">function ReplaceUrl(const const: string): IHtmxResponse</div><div class="description">Replaces the current URL in the history stack (HX-Replace-Url).</div></div>
+<div class="api-item">
+<div class="api-signature">function Location(const const: string): IHtmxResponse</div><div class="description">Allows you to do a client-side redirect that does not reload the page (HX-Location).</div></div>
+</div>
+<hr>
+<div class="class-header">
 <h3>interface IHttpResponse</h3><a name="IHttpResponse"></a><div class="description">Abstraction of an HTTP response to be sent. Allows setting status codes, headers, cookies, and writing the response body in various formats.</div></div>
 <div class="visibility-group"><h5>PUBLIC</h5><div class="api-item">
 <div class="api-signature">function GetStatusCode: Integer</div></div>
@@ -636,9 +712,69 @@ IFormFileCollection <|.. TFormFileCollection
 <div class="api-item">
 <div class="api-signature">procedure DeleteCookie(const const: string)</div><div class="description">Marks a cookie for removal on the client side.</div></div>
 <div class="api-item">
+<div class="api-signature">procedure Redirect(const const: string; APermanent: Boolean)</div><div class="description">Performs an HTTP redirect (302 Found by default).</div></div>
+<div class="api-item">
+<div class="api-signature">procedure Unauthorized(const const: string)</div><div class="description">Sets status to 401 Unauthorized and writes an optional message.</div></div>
+<div class="api-item">
+<div class="api-signature">procedure Forbidden(const const: string)</div><div class="description">Sets status to 403 Forbidden and writes an optional message.</div></div>
+<div class="api-item">
+<div class="api-signature">procedure BadRequest(const const: string)</div><div class="description">Sets status to 400 Bad Request and writes an optional message.</div></div>
+<div class="api-item">
+<div class="api-signature">procedure NotFound(const const: string)</div><div class="description">Sets status to 404 Not Found and writes an optional message.</div></div>
+<div class="api-item">
+<div class="api-signature">function GetHtmx: IHtmxResponse</div><div class="description">Access to HTMX-specific response modifiers.</div></div>
+<div class="api-item">
+<div class="api-signature">function GetHeaders: IStringDictionary</div><div class="description">Access to the outgoing HTTP headers.</div></div>
+<div class="api-item">
 <div class="api-signature">property StatusCode: </div><div class="description">HTTP status code (e.g., 200, 404, 500).</div></div>
 <div class="api-item">
 <div class="api-signature">property ContentType: </div><div class="description">Response MIME type (e.g., application/json).</div></div>
+<div class="api-item">
+<div class="api-signature">property Htmx: </div><div class="description">HTMX extensions.</div></div>
+<div class="api-item">
+<div class="api-signature">property Headers: </div><div class="description">Dictionary of response headers.</div></div>
+</div>
+<hr>
+<div class="class-header">
+<h3>interface IStreamableSession</h3><a name="IStreamableSession"></a><div class="description">Represents an independent session bound to a client, which can be maintained across stateless POST requests and stream unidirectional Server-Sent Events.</div></div>
+<div class="visibility-group"><h5>PUBLIC</h5><div class="api-item">
+<div class="api-signature">function GetId: string</div></div>
+<div class="api-item">
+<div class="api-signature">procedure SetState(const const: string; const const: TValue)</div></div>
+<div class="api-item">
+<div class="api-signature">function GetState(const const: string): TValue</div></div>
+<div class="api-item">
+<div class="api-signature">procedure RemoveState(const const: string)</div></div>
+<div class="api-item">
+<div class="api-signature">procedure SendSseEvent(const const: string; const const: string)</div></div>
+<div class="api-item">
+<div class="api-signature">function HasEvents: Boolean</div></div>
+<div class="api-item">
+<div class="api-signature">function TryDequeueEvent(out out: string; out out: string): Boolean</div></div>
+<div class="api-item">
+<div class="api-signature">property Id: </div></div>
+</div>
+<hr>
+<div class="class-header">
+<h3>interface IEventStreamer</h3><a name="IEventStreamer"></a><div class="description">High-level abstraction for broadcasting events to active streamable sessions.</div></div>
+<div class="visibility-group"><h5>PUBLIC</h5><div class="api-item">
+<div class="api-signature">procedure PushEvent(const const: string; const const: string)</div><div class="description">Broadcasts an event to all active sessions.</div></div>
+<div class="api-item">
+<div class="api-signature">procedure PushEventTo(const const: string; const const: string; const const: string)</div><div class="description">Sends an event to a specific session.</div></div>
+</div>
+<hr>
+<div class="class-header">
+<h3>interface IStreamableSessionManager</h3><a name="IStreamableSessionManager"></a><div class="description"></summary></div></div>
+<div class="visibility-group"><h5>PUBLIC</h5><div class="api-item">
+<div class="api-signature">function CreateSession: IStreamableSession</div></div>
+<div class="api-item">
+<div class="api-signature">function GetSession(const const: string): IStreamableSession</div></div>
+<div class="api-item">
+<div class="api-signature">procedure DestroySession(const const: string)</div></div>
+<div class="api-item">
+<div class="api-signature">procedure StartScavenger(AIntervalSeconds: Integer; ATimeoutMinutes: Integer; const const: ICancellationToken)</div><div class="description">Starts the background GC scavenger. AStoppingToken: optional host ApplicationStopping token — when cancelled, the scavenger exits without waiting for the full interval.</div></div>
+<div class="api-item">
+<div class="api-signature">procedure StopScavenger</div></div>
 </div>
 <hr>
 <div class="class-header">
@@ -660,6 +796,8 @@ IFormFileCollection <|.. TFormFileCollection
 <div class="api-item">
 <div class="api-signature">function GetItems: IDictionary</div></div>
 <div class="api-item">
+<div class="api-signature">function GetSession: IStreamableSession</div></div>
+<div class="api-item">
 <div class="api-signature">property Request: </div><div class="description">Access to the incoming request data.</div></div>
 <div class="api-item">
 <div class="api-signature">property Response: </div><div class="description">Access to the outgoing response.</div></div>
@@ -669,6 +807,8 @@ IFormFileCollection <|.. TFormFileCollection
 <div class="api-signature">property User: </div><div class="description">Representation of the authenticated user (ClaimsPrincipal).</div></div>
 <div class="api-item">
 <div class="api-signature">property Items: </div><div class="description">Dictionary of useful items to share state between middlewares.</div></div>
+<div class="api-item">
+<div class="api-signature">property Session: </div><div class="description">Resolved streamable session (if enabled and matching Dext-Session-Id).</div></div>
 </div>
 <hr>
 <div class="class-header">
@@ -778,19 +918,25 @@ IFormFileCollection <|.. TFormFileCollection
 <div class="api-item">
 <div class="api-signature">function GetConfiguration: IConfiguration</div></div>
 <div class="api-item">
+<div class="api-signature">function GetServiceProvider: IServiceProvider</div></div>
+<div class="api-item">
 <div class="api-signature">function BuildServices: IServiceProvider</div></div>
 <div class="api-item">
 <div class="api-signature">procedure UseServerFactory(const const: TServerFactory)</div></div>
 <div class="api-item">
+<div class="api-signature">procedure Run</div></div>
+<div class="api-item">
 <div class="api-signature">procedure Run(Port: Integer)</div></div>
 <div class="api-item">
-<div class="api-signature">procedure Start(Port: Integer)</div></div>
-<div class="api-item">
 <div class="api-signature">procedure Start</div></div>
+<div class="api-item">
+<div class="api-signature">procedure Start(Port: Integer)</div></div>
 <div class="api-item">
 <div class="api-signature">procedure SetDefaultPort(Port: Integer)</div></div>
 <div class="api-item">
 <div class="api-signature">property Services: </div></div>
+<div class="api-item">
+<div class="api-signature">property ServiceProvider: </div></div>
 <div class="api-item">
 <div class="api-signature">property Builder: </div></div>
 <div class="api-item">

@@ -86,13 +86,13 @@ type
 
   TScavengerThread = class(TThread)
   private
-    [Weak] FManager: IStreamableSessionManager;
+    FManager: TInMemoryStreamableSessionManager;
     FStopEvent: TEvent;
     FInterval: Integer;
     FTimeout: Integer;
     FToken: ICancellationToken;
   public
-    constructor Create(AManager: IStreamableSessionManager; AStopEvent: TEvent;
+    constructor Create(AManager: TInMemoryStreamableSessionManager; AStopEvent: TEvent;
       AInterval, ATimeout: Integer; const AToken: ICancellationToken);
     procedure Execute; override;
   end;
@@ -361,7 +361,7 @@ end;
 
 { TScavengerThread }
 
-constructor TScavengerThread.Create(AManager: IStreamableSessionManager;
+constructor TScavengerThread.Create(AManager: TInMemoryStreamableSessionManager;
   AStopEvent: TEvent; AInterval, ATimeout: Integer; const AToken: ICancellationToken);
 begin
   inherited Create(True);
@@ -376,7 +376,6 @@ end;
 procedure TScavengerThread.Execute;
 var
   Elapsed, TargetMs: Cardinal;
-  Mgr: IStreamableSessionManager;
 begin
   TargetMs := Cardinal(FInterval) * 1000;
   Elapsed  := 0;
@@ -389,9 +388,8 @@ begin
     if Elapsed >= TargetMs then
     begin
       Elapsed := 0;
-      Mgr := FManager;
-      if Mgr <> nil then
-        (Mgr as TInMemoryStreamableSessionManager).CollectGarbage(FTimeout);
+      if FManager <> nil then
+        FManager.CollectGarbage(FTimeout);
     end;
   end;
 end;

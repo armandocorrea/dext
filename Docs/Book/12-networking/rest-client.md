@@ -79,6 +79,47 @@ Client.Get('/search')
   .Start;
 ```
 
+### Conditional Query Parameters
+
+When building URLs, you often need to omit optional parameters (like filters or searches) or apply default values. Dext provides three ergonomic, **zero-allocation** helpers to handle this fluently:
+
+#### `QueryParamIfNotEmpty(const AName, AValue: string)`
+Adds the query parameter only when the value is not empty and not entirely whitespace. It executes in-place to avoid heap allocations.
+
+```pascal
+Client.Request.Get('/v1/products')
+  .QueryParamIfNotEmpty('search', SearchStr) // Skipped if SearchStr is '' or '   '
+  .Start;
+```
+
+#### `QueryParam(const AName, AValue, ADefault: string)` (Overload)
+Uses `AValue` if it is not empty/blank. If `AValue` is blank, it falls back to `ADefault` (trimmed). If both are blank, it skips the parameter entirely.
+
+```pascal
+Client.Request.Get('/v1/users')
+  .QueryParam('page', PageStr, '1') // Uses '1' if PageStr is empty/blank
+  .Start;
+```
+
+#### `QueryParamIf(const AName, AValue: string; AInclude: Boolean)`
+Adds the parameter only if the boolean condition `AInclude` is `True`.
+
+```pascal
+Client.Request.Get('/v1/reports')
+  .QueryParamIf('deleted', 'true', ShowDeleted) // Added only if ShowDeleted is True
+  .Start;
+```
+
+#### `QueryParam(const AName, AValue: string; AInclude: Boolean)` (Overload)
+Alternatively, you can use the overloaded `QueryParam` with a third boolean argument for compact, RestSharp-style conditional logic. The parameter is added only if `AInclude` is `True`.
+
+```pascal
+Client.Request.Get('/v1/reports')
+  .QueryParam('deleted', 'true', ShowDeleted) // Added only if ShowDeleted is True
+  .Start;
+```
+
+
 ### Request Body
 
 For `POST` and `PUT` requests, you can provide a body:
@@ -110,6 +151,50 @@ Client.Post('/data')
 ```pascal
 Client.Post('/upload')
   .Body(LFileStream)
+  .Start;
+```
+
+#### Configuring Content-Type
+
+By default, when you submit a request with a body, the client automatically defaults to JSON (`application/json`). You can customize the `Content-Type` header using either the fluent `ContentType` method with the `TDextContentType` enum, or one of the built-in shorthand methods:
+
+```pascal
+// Using the enum
+Client.Post('/data', BodyStream)
+  .ContentType(TDextContentType.ctFormUrlEncoded)
+  .Start;
+
+// Using shorthand methods
+Client.Post('/data', BodyStream)
+  .ContentTypeForm // application/x-www-form-urlencoded
+  .Start;
+```
+
+The supported content types and their shorthand equivalents are:
+
+| Enum Value | Shorthand Method | Header Value |
+| :--- | :--- | :--- |
+| `ctJson` | `ContentTypeJson` | `application/json` |
+| `ctXml` | `ContentTypeXml` | `application/xml` |
+| `ctFormUrlEncoded` | `ContentTypeForm` | `application/x-www-form-urlencoded` |
+| `ctMultipartFormData` | `ContentTypeMultipart` | `multipart/form-data` |
+| `ctBinary` | `ContentTypeBinary` | `application/octet-stream` |
+| `ctText` | `ContentTypePlainText` | `text/plain` |
+
+#### Multipart / Form Data
+
+To send files or fields in a `multipart/form-data` request, use the form-data fluent helpers. If the receiving API requires specific MIME types for individual fields (such as `application/json` for a settings payload), you can pass an optional content-type parameter to `AddFormField`:
+
+```pascal
+Client.Request
+  .Post('/submit')
+  // Add standard form fields
+  .AddFormField('name', 'John Doe')
+  // Add a field with a specific Content-Type
+  .AddFormField('query', '{"IsTrue":true}', 'application/json')
+  // Add files
+  .AddFile('avatar', 'C:\path\to\avatar.png', 'image/png')
+  .Execute
   .Start;
 ```
 
@@ -237,13 +322,13 @@ The client supports pluggable authentication providers via `IAuthenticationProvi
 
 ```pascal
 // Bearer Token
-Client.Authenticator(TBearerAuthProvider.Create('my-jwt-token'));
+Client.Auth(TBearerAuthProvider.Create('my-jwt-token'));
 
 // Basic Auth
-Client.Authenticator(TBasicAuthProvider.Create('user', 'password'));
+Client.Auth(TBasicAuthProvider.Create('user', 'password'));
 
 // API Key
-Client.Authenticator(TApiKeyAuthProvider.Create('X-API-Key', '12345'));
+Client.Auth(TApiKeyAuthProvider.Create('X-API-Key', '12345'));
 ```
 
 ## Thread Safety

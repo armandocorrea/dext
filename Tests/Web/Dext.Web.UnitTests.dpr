@@ -47,6 +47,7 @@ begin
         TDataApiNamingTests,
         TWebHostingTests,
         TDataApiConventionTests,
+        TDataApiSerializationTests,
         THtmxResponseTests
       ]).Run;
 

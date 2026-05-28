@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {           Dext Framework                                                  }
 {           Copyright (C) 2025 Cesar Romero & Dext Contributors             }
 {***************************************************************************}
@@ -20,7 +20,8 @@ uses
   Dext.Logging.RingBuffer,
   Dext.Logging.Telemetry,
   Dext.Types.UUID,
-  System.JSON;
+  System.JSON,
+  Dext.Utils;
 
 type
   TSidecarOptions = class
@@ -80,7 +81,7 @@ implementation
 constructor TSidecarOptions.Create;
 begin
   Port := 3030;
-  Enabled := True;
+  Enabled := False;
 end;
 
 { TSidecarSink }
@@ -129,7 +130,7 @@ begin
       FBuffer.Append(',');
       
     FBuffer.Append('{');
-    FBuffer.Append('"ts":"').Append(DateToISO8601(Entry.TimeStamp)).Append('",');
+    FBuffer.Append('"ts":"').Append(DateToISO8601(Entry.TimeStamp, False)).Append('",');
     FBuffer.Append('"lvl":"').Append(GetEnumName(TypeInfo(TLogLevel), Integer(Entry.Level))).Append('",');
     
     if not Entry.TraceId.IsEmpty then
@@ -180,9 +181,9 @@ begin
       // 50 logs won't take long.
       try
         FClient.Post(FUrl, Payload);
-        WriteLn('>> [SidecarSink] Batch sent successfully');
+        SafeWriteLn('>> [SidecarSink] Batch sent successfully');
       except
-        on E: Exception do WriteLn('>> [SidecarSink] Failed: ', E.Message);
+        on E: Exception do SafeWriteLn('>> [SidecarSink] Failed: ' + E.Message);
       end;
     finally
       Payload.Free;
@@ -238,7 +239,7 @@ begin
   JO := TJSONObject.Create;
   try
     JO.AddPair('name', AEvent.Name);
-    JO.AddPair('ts', DateToISO8601(AEvent.Timestamp));
+    JO.AddPair('ts', DateToISO8601(AEvent.Timestamp, False));
     if Assigned(AEvent.Data) then
       JO.AddPair('data', AEvent.Data.Clone as TJSONObject);
     JO.AddPair('cat', AEvent.Category);
@@ -253,9 +254,9 @@ begin
     try
       try
         FClient.Post(FUrl, Payload);
-        WriteLn('>> [SidecarTelemetry] Span sent: ', AEvent.Name);
+        SafeWriteLn('>> [SidecarTelemetry] Span sent: ' + AEvent.Name);
       except
-        on E: Exception do WriteLn('>> [SidecarTelemetry] Failed: ', E.Message);
+        on E: Exception do SafeWriteLn('>> [SidecarTelemetry] Failed: ' + E.Message);
       end;
     finally
       Payload.Free;

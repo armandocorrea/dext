@@ -2549,7 +2549,7 @@ var
   VariantArray: TArray<Variant>;
   Span: TSpan;
 begin
-  Span := TTracer.BeginSpan('DbSet.Find');
+  Span := TTracer.BeginSpan('DbSet.Find', 'SQL');
   Span.SetAttribute('entity', string(PTypeInfo(TypeInfo(T)).Name));
 
   // Check if AId is a VarArray (composite key)

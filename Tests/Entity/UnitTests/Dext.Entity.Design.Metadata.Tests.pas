@@ -1,4 +1,4 @@
-﻿unit Dext.Entity.Design.Metadata.Tests;
+unit Dext.Entity.Design.Metadata.Tests;
 
 interface
 
@@ -34,7 +34,7 @@ uses
 
 function TEntityDesignMetadataTests.GetDemoMainFormFileName: string;
 const
-  DEMO_REL_PATH = 'Examples\05-UI\Desktop.EntityDataSet.Demo\MainForm.pas';
+  DEMO_REL_PATH = 'Examples\09-ActiveArchitecture\Desktop.EntityDataSet.Demo\MainForm.pas';
 var
   BaseDir: string;
   ResultPath: string;

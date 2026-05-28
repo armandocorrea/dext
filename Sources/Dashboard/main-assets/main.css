@@ -1230,6 +1230,13 @@ body {
     padding: 20px;
 }
 
+.trace-detail {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 8px;
+}
+
 .trace-tree {
     margin-top: 20px;
 }
@@ -1272,4 +1279,127 @@ body {
     height: 100%;
     color: var(--on-surface-v);
     gap: 16px;
+}
+
+/* Traces Detail Enhancements */
+.trace-node-details-disclosure {
+    width: 100%;
+}
+
+.trace-node-details-disclosure summary::-webkit-details-marker {
+    display: none;
+}
+
+.trace-node-details-disclosure summary {
+    list-style: none;
+    outline: none;
+}
+
+.trace-node-details-disclosure[open] summary span.material-symbols-outlined {
+    transform: rotate(180deg);
+}
+
+.trace-node-details {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    padding: 10px 14px;
+    background: var(--surface-c);
+    border: 1px solid var(--outline-v);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--on-surface);
+}
+
+.trace-detail-error {
+    background: rgba(231, 76, 60, 0.1);
+    border-left: 3px solid var(--error);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    color: var(--on-surface);
+}
+
+.trace-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.trace-tag {
+    background: var(--surface);
+    border: 1px solid var(--outline-v);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-family: monospace;
+}
+
+.trace-detail-sql {
+    background: var(--surface);
+    border: 1px solid var(--outline-v);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.trace-sql-header {
+    background: var(--surface-h);
+    padding: 4px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+    border-bottom: 1px solid var(--outline-v);
+}
+
+.trace-copy-btn {
+    background: var(--primary-c);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 3px;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.trace-copy-btn:hover {
+    background: var(--primary);
+    color: var(--on-primary);
+}
+
+.trace-sql-code {
+    padding: 8px 10px;
+    overflow-x: auto;
+    font-family: Consolas, Monaco, 'Andale Mono', monospace;
+    font-size: 11px;
+    color: var(--primary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Custom premium scrollbar styling */
+.trace-detail::-webkit-scrollbar,
+.trace-list::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.trace-detail::-webkit-scrollbar-track,
+.trace-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.trace-detail::-webkit-scrollbar-thumb,
+.trace-list::-webkit-scrollbar-thumb {
+    background: var(--outline-v);
+    border-radius: 3px;
+}
+
+.trace-detail::-webkit-scrollbar-thumb:hover,
+.trace-list::-webkit-scrollbar-thumb:hover {
+    background: var(--outline);
 }

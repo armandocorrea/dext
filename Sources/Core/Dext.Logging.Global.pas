@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {           Dext Framework                                                  }
 {           Copyright (C) 2025 Cesar Romero & Dext Contributors             }
 {***************************************************************************}
@@ -75,6 +75,10 @@ type
 
 implementation
 
+uses
+  System.Net.HttpClient,
+  Dext.Utils;
+
 { Log }
 
 class constructor Log.Create;
@@ -96,24 +100,55 @@ end;
 class procedure Log.Initialize;
 var
   PortStr: string;
+  EnabledStr: string;
   Port: Integer;
+  IsTestMode: Boolean;
   SidecarUrl: string;
   Options: IOptions<TSidecarOptions>;
+  Enabled: Boolean;
 begin
   if FFactory <> nil then Exit; // Already initialized
 
   FFactory := TAsyncLoggerFactory.Create;
   
-  // Default Sinks
-  FFactory.AddSink(TConsoleSink.Create);
+  // Default Sinks (Disable console sink in test mode to keep runner output clean)
+  IsTestMode := (Pos('.tests', LowerCase(ExtractFileName(ParamStr(0)))) > 0) or
+    (GetEnvironmentVariable('DEXT_PROJECT_TYPE') = 'Tests') or
+    FindCmdLineSwitch('no-wait');
+
+  if not IsTestMode then
+    FFactory.AddSink(TConsoleSink.Create);
 
   // Sidecar Discovery
   Port := 3030;
+  Enabled := False; // Disabled by default
   
   // 1. Environment Variable
   PortStr := GetEnvironmentVariable('DEXT_SIDECAR_PORT');
   if PortStr <> '' then 
     Port := StrToIntDef(PortStr, 3030);
+
+  EnabledStr := GetEnvironmentVariable('DEXT_SIDECAR_ENABLED');
+  if EnabledStr <> '' then
+    Enabled := SameText(EnabledStr, 'true')
+  else
+  begin
+    // Auto-detect if sidecar is running
+    try
+      var LClient := THTTPClient.Create;
+      try
+        LClient.ConnectionTimeout := 150;
+        LClient.ResponseTimeout := 150;
+        var LRes := LClient.Get('http://localhost:' + Port.ToString + '/');
+        if LRes.StatusCode = 200 then
+          Enabled := True;
+      finally
+        LClient.Free;
+      end;
+    except
+      // Failed to connect, keep Enabled := False
+    end;
+  end;
 
   // 2. IOptions (if available via Default Provider)
   try
@@ -123,25 +158,27 @@ begin
       if Options.Value.Port <> 0 then
         Port := Options.Value.Port;
         
-      if not Options.Value.Enabled then
-      begin
-        // Sidecar disabled via options
-        FLogger := FFactory.CreateLogger('App');
-        Exit;
-      end;
+      if EnabledStr = '' then
+        Enabled := Options.Value.Enabled;
     end;
   except
     // Provider might not be ready or Options not registered, ignore
   end;
 
-  SidecarUrl := 'http://localhost:' + Port.ToString;
-  WriteLn('>> [Log] Initializing Sidecar Sink at ', SidecarUrl);
-  FFactory.AddSink(TSidecarSink.Create(SidecarUrl));
-  TDiagnosticSource.Instance.Subscribe(TSidecarTelemetryObserver.Create(SidecarUrl));
+  if Enabled then
+  begin
+    SidecarUrl := 'http://localhost:' + Port.ToString;
+    SafeWriteLn('>> [Log] Initializing Sidecar Sink at ' + SidecarUrl);
+    FFactory.AddSink(TSidecarSink.Create(SidecarUrl));
+    TDiagnosticSource.Instance.Subscribe(TSidecarTelemetryObserver.Create(SidecarUrl));
+  end;
   
   // Create the Logger instance
   FLogger := FFactory.CreateLogger('App');
-  WriteLn('>> [Log] Logger initialized');
+  if Enabled then
+    SafeWriteLn('>> [Log] Logger initialized (Sidecar enabled)')
+  else
+    SafeWriteLn('>> [Log] Logger initialized (Sidecar disabled)');
 end;
 
 class procedure Log.AddSink(const ASink: ILogSink);

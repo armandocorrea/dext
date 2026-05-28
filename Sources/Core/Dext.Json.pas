@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -813,7 +813,12 @@ begin
         end;
 
         if not Val.IsEmpty then
-          Handler.SetValue(Instance, Val);
+        begin
+          if Handler <> nil then
+            Handler.SetValue(Instance, Val)
+          else
+            Prop.SetValue(Instance, Val);
+        end;
       end;
     end;
   except
@@ -1347,7 +1352,10 @@ begin
       end;
 
     Handler := TReflection.GetHandler(Obj.ClassInfo, Prop.Name);
-    PropValue := Handler.GetValue(Pointer(Obj));
+    if Handler <> nil then
+      PropValue := Handler.GetValue(Pointer(Obj))
+    else
+      PropValue := Prop.GetValue(Pointer(Obj));
 
     LTypeKind := PropValue.Kind;
     LTypeInfo := PropValue.TypeInfo;
@@ -1653,11 +1661,13 @@ var
   I: Integer;
   Node: IDextJsonNode;
   P: PByte;
+  ElSize: Integer;
 begin
   ElementType := GetArrayElementType(AType);
   DynArray := nil;
   Count := AJson.GetCount;
   DynArraySetLength(DynArray, AType, 1, @Count); // AJson.Count -> GetCount
+  ElSize := TReflection.GetMetadata(ElementType).RttiType.TypeSize;
 
   try
     for I := 0 to AJson.GetCount - 1 do
@@ -1714,8 +1724,8 @@ begin
 
       if not ElementValue.IsEmpty then
       begin
-        P := PByte(DynArray) + (I * ElementType.TypeData^.elSize);
-        Move(ElementValue.GetReferenceToRawData^, P^, ElementType.TypeData^.elSize);
+        P := PByte(DynArray) + (I * ElSize);
+        System.CopyArray(P, ElementValue.GetReferenceToRawData, ElementType, 1);
       end;
     end;
 

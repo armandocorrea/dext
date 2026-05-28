@@ -180,6 +180,13 @@ begin
       Next(Ctx);
     end);
 
+  // API: Health Check for Discovery
+  App.MapGet('/health',
+    procedure(Ctx: IHttpContext)
+    begin
+      Results.Ok('{"status":"Healthy"}').Execute(Ctx);
+    end);
+
   // API: Test Summary
   App.MapGet('/api/test/summary',
     procedure(Ctx: IHttpContext)
@@ -242,7 +249,7 @@ begin
           Obj.SetString('url', Item.Url);
           Obj.SetInteger('statusCode', Item.StatusCode);
           Obj.SetInt64('durationMs', Item.DurationMs);
-          Obj.SetString('timestamp', DateToISO8601(Item.Timestamp));
+          Obj.SetString('timestamp', DateToISO8601(Item.Timestamp, False));
           // Don't send full content to list to save bandwidth, maybe logic to fetch detail later?
           // For now send it, text is small.
           Obj.SetString('content', Item.Content);
@@ -282,7 +289,7 @@ begin
            SB.Append('{');
            SB.Append('"path":"').Append(EscapedPath).Append('",');
            SB.Append('"name":"').Append(EscapedName).Append('",');
-           SB.Append('"lastAccess":"').Append(DateToISO8601(Projects[I].LastAccess)).Append('"');
+           SB.Append('"lastAccess":"').Append(DateToISO8601(Projects[I].LastAccess, False)).Append('"');
            SB.Append('}');
          end;
 

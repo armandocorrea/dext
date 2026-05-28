@@ -79,6 +79,47 @@ Client.Get('/search')
   .Start;
 ```
 
+### Parâmetros de Consulta Condicionais (Conditional Query Parameters)
+
+Ao construir URLs dinâmicas, muitas vezes você precisa omitir parâmetros opcionais (como filtros ou buscas) ou aplicar valores padrão. O Dext fornece três helpers altamente ergonômicos e com **zero alocação de memória** no heap para lidar com isso de forma fluente:
+
+#### `QueryParamIfNotEmpty(const AName, AValue: string)`
+Adiciona o parâmetro de consulta apenas quando o valor não estiver vazio e não for composto unicamente por espaços em branco. Ele valida a string in-place para evitar alocações desnecessárias.
+
+```pascal
+Client.Request.Get('/v1/products')
+  .QueryParamIfNotEmpty('search', SearchStr) // Ignorado se SearchStr for '' ou '   '
+  .Start;
+```
+
+#### `QueryParam(const AName, AValue, ADefault: string)` (Sobreposição/Overload)
+Usa `AValue` se não estiver vazio/blank. Se `AValue` estiver vazio/blank, recorre ao `ADefault` (higienizado com Trim). Se ambos estiverem em branco, o parâmetro é totalmente omitido da URL.
+
+```pascal
+Client.Request.Get('/v1/users')
+  .QueryParam('page', PageStr, '1') // Usa '1' se PageStr for vazio/blank
+  .Start;
+```
+
+#### `QueryParamIf(const AName, AValue: string; AInclude: Boolean)`
+Adiciona o parâmetro apenas se a condição booleana `AInclude` for `True`.
+
+```pascal
+Client.Request.Get('/v1/reports')
+  .QueryParamIf('deleted', 'true', ShowDeleted) // Adicionado apenas se ShowDeleted for True
+  .Start;
+```
+
+#### `QueryParam(const AName, AValue: string; AInclude: Boolean)` (Sobreposição/Overload)
+Como alternativa, você pode usar a sobreposição de `QueryParam` com um terceiro argumento booleano para uma sintaxe compacta semelhante à do RestSharp (.NET). O parâmetro é adicionado apenas se `AInclude` for `True`.
+
+```pascal
+Client.Request.Get('/v1/reports')
+  .QueryParam('deleted', 'true', ShowDeleted) // Adicionado apenas se ShowDeleted for True
+  .Start;
+```
+
+
 ### Corpo da Requisição (Body)
 
 Para requisições `POST` e `PUT`, você pode fornecer um corpo:
@@ -110,6 +151,50 @@ Client.Post('/data')
 ```pascal
 Client.Post('/upload')
   .Body(LFileStream)
+  .Start;
+```
+
+#### Configurando o Content-Type
+
+Por padrão, quando você envia uma requisição com corpo, o cliente define automaticamente o Content-Type como JSON (`application/json`). Você pode personalizar o cabeçalho `Content-Type` usando o método fluente `ContentType` passando o enum `TDextContentType` ou usando um dos métodos de atalho integrados:
+
+```pascal
+// Usando o enum
+Client.Post('/data', BodyStream)
+  .ContentType(TDextContentType.ctFormUrlEncoded)
+  .Start;
+
+// Usando os métodos de atalho
+Client.Post('/data', BodyStream)
+  .ContentTypeForm // application/x-www-form-urlencoded
+  .Start;
+```
+
+Os tipos de conteúdo suportados e seus respectivos métodos de atalho são:
+
+| Valor do Enum | Método de Atalho | Valor do Cabeçalho |
+| :--- | :--- | :--- |
+| `ctJson` | `ContentTypeJson` | `application/json` |
+| `ctXml` | `ContentTypeXml` | `application/xml` |
+| `ctFormUrlEncoded` | `ContentTypeForm` | `application/x-www-form-urlencoded` |
+| `ctMultipartFormData` | `ContentTypeMultipart` | `multipart/form-data` |
+| `ctBinary` | `ContentTypeBinary` | `application/octet-stream` |
+| `ctText` | `ContentTypePlainText` | `text/plain` |
+
+#### Dados Multipart / Form Data
+
+Para enviar arquivos ou campos em uma requisição `multipart/form-data`, use os helpers fluentes de form-data. Se a API de destino exigir tipos MIME específicos para campos individuais (como `application/json` para um payload de configurações), você pode passar um parâmetro opcional de tipo de conteúdo para `AddFormField`:
+
+```pascal
+Client.Request
+  .Post('/submit')
+  // Adiciona campos de formulário padrão
+  .AddFormField('name', 'John Doe')
+  // Adiciona um campo com um Content-Type específico
+  .AddFormField('query', '{"IsTrue":true}', 'application/json')
+  // Adiciona arquivos
+  .AddFile('avatar', 'C:\path\to\avatar.png', 'image/png')
+  .Execute
   .Start;
 ```
 
@@ -237,13 +322,13 @@ O cliente suporta provedores de autenticação plugáveis via `IAuthenticationPr
 
 ```pascal
 // Bearer Token
-Client.Authenticator(TBearerAuthProvider.Create('my-jwt-token'));
+Client.Auth(TBearerAuthProvider.Create('my-jwt-token'));
 
 // Basic Auth
-Client.Authenticator(TBasicAuthProvider.Create('user', 'password'));
+Client.Auth(TBasicAuthProvider.Create('user', 'password'));
 
 // API Key
-Client.Authenticator(TApiKeyAuthProvider.Create('X-API-Key', '12345'));
+Client.Auth(TApiKeyAuthProvider.Create('X-API-Key', '12345'));
 ```
 
 ## Thread Safety
