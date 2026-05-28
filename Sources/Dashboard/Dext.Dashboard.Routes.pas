@@ -35,6 +35,19 @@ uses
   Dext.Http.Executor,
   Dext.Http.Request;
 
+type
+  /// <summary>
+  ///   Background thread that periodically flushes telemetry/metrics to disk.
+  ///   Runs every 30 seconds so file I/O never blocks HTTP handler threads.
+  /// </summary>
+  TDashboardSaveTimer = class(TThread)
+  private
+    FIntervalMs: Integer;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(IntervalMs: Integer = 30000);
+  end;
 
 
 type
@@ -74,10 +87,45 @@ var
   FSSEClients: IList<IHttpContext>;
   FLock: TObject;
   FTraceHistory: IList<string>;
+  FMetricsHistory: IList<string>;
+  FSaveTimer: TDashboardSaveTimer;
+  FServerStopping: Boolean;
 
 procedure BroadcastSSE(const EventName, Data: string); forward;
+procedure LoadTelemetryHistory; forward;
+procedure SaveTelemetryHistory; forward;
+procedure LoadMetricsHistory; forward;
+procedure SaveMetricsHistory; forward;
 
 {$R 'Dext.Dashboard.res'}
+
+{ TDashboardSaveTimer }
+
+constructor TDashboardSaveTimer.Create(IntervalMs: Integer);
+begin
+  inherited Create(False); // Start immediately
+  FIntervalMs := IntervalMs;
+  FreeOnTerminate := False;
+end;
+
+procedure TDashboardSaveTimer.Execute;
+begin
+  while not Terminated do
+  begin
+    // Wait in small chunks so Terminate is checked quickly
+    var Elapsed := 0;
+    while not Terminated and (Elapsed < FIntervalMs) do
+    begin
+      Sleep(500);
+      Inc(Elapsed, 500);
+    end;
+    if not Terminated then
+    begin
+      SaveTelemetryHistory;
+      SaveMetricsHistory;
+    end;
+  end;
+end;
 
 { TDashboardRoutes }
 
@@ -185,6 +233,16 @@ begin
     procedure(Ctx: IHttpContext)
     begin
       Results.Ok('{"status":"Healthy"}').Execute(Ctx);
+    end);
+
+  // API: Force flush telemetry to disk (for testing / on-demand persistence)
+  App.MapPost('/api/telemetry/flush',
+    procedure(Ctx: IHttpContext)
+    begin
+      // User-initiated flush: acceptable to block briefly here
+      SaveTelemetryHistory;
+      SaveMetricsHistory;
+      Results.Ok('{"status":"flushed"}').Execute(Ctx);
     end);
 
   // API: Test Summary
@@ -931,7 +989,7 @@ begin
           if Streamer <> nil then
             Streamer.PushEvent('log', AItem.ToJson);
             
-          // Persistence
+          // Append to in-memory ring buffer — disk save handled by FSaveTimer
           TMonitor.Enter(FLock);
           try
             FTraceHistory.Add('{"event":"log","data":' + AItem.ToJson + '}');
@@ -1005,7 +1063,7 @@ begin
         if Streamer <> nil then
           Streamer.PushEvent('span', Body);
 
-        // Persistence
+        // Append to in-memory ring buffer — disk save handled by FSaveTimer
         TMonitor.Enter(FLock);
         try
           FTraceHistory.Add('{"event":"span","data":' + Body + '}');
@@ -1114,7 +1172,7 @@ begin
          
          // Keep connection open
          try
-            while True do
+            while not FServerStopping do
             begin
                if (IndyCtx <> nil) and (not IndyCtx.Connection.Connected) then Break;
                Sleep(500); 
@@ -1129,8 +1187,78 @@ begin
          end;
      end);
 
-  // API: Telemetry History
+  // API: Telemetry History (returns last 200 items)
   App.MapGet('/api/telemetry/history',
+    procedure(Ctx: IHttpContext)
+    var
+      JSON: string;
+      I, StartI: Integer;
+      Snapshot: TArray<string>;
+    begin
+      // Copy under lock, then build JSON outside lock
+      TMonitor.Enter(FLock);
+      try
+        // Return last 200 items to avoid overwhelming the browser
+        StartI := FTraceHistory.Count - 200;
+        if StartI < 0 then StartI := 0;
+        SetLength(Snapshot, FTraceHistory.Count - StartI);
+        for I := StartI to FTraceHistory.Count - 1 do
+          Snapshot[I - StartI] := FTraceHistory[I];
+      finally
+        TMonitor.Exit(FLock);
+      end;
+
+      JSON := '[';
+      for I := 0 to High(Snapshot) do
+      begin
+        if I > 0 then JSON := JSON + ',';
+        JSON := JSON + Snapshot[I];
+      end;
+      JSON := JSON + ']';
+      Results.Json(JSON).Execute(Ctx);
+    end);
+
+  // API: Telemetry Metrics Ingestion (CPU, Memory, Threads, Custom metrics)
+  App.MapPost('/api/telemetry/metrics',
+    procedure(Ctx: IHttpContext)
+    var
+      Body: string;
+      SR: TStreamReader;
+      Streamer: IEventStreamer;
+    begin
+      Streamer := TDextServices.GetService<IEventStreamer>(Ctx.Services);
+
+      SR := TStreamReader.Create(Ctx.Request.Body);
+      try
+        Body := SR.ReadToEnd;
+        if Body.IsEmpty then
+        begin
+          Ctx.Response.StatusCode := 204;
+          Exit;
+        end;
+
+        if Streamer <> nil then
+          Streamer.PushEvent('metrics', Body);
+
+        BroadcastSSE('metrics', Body);
+
+        // Append to in-memory ring buffer — disk save handled by FSaveTimer
+        TMonitor.Enter(FLock);
+        try
+          FMetricsHistory.Add(Body);
+          while FMetricsHistory.Count > 120 do FMetricsHistory.RemoveAt(0);
+        finally
+          TMonitor.Exit(FLock);
+        end;
+
+        Ctx.Response.StatusCode := 202;
+      finally
+        SR.Free;
+      end;
+    end);
+
+  // API: Telemetry Metrics History
+  App.MapGet('/api/telemetry/metrics/history',
     procedure(Ctx: IHttpContext)
     var
       JSON: string;
@@ -1139,10 +1267,10 @@ begin
       TMonitor.Enter(FLock);
       try
         JSON := '[';
-        for I := 0 to FTraceHistory.Count - 1 do
+        for I := 0 to FMetricsHistory.Count - 1 do
         begin
           if I > 0 then JSON := JSON + ',';
-          JSON := JSON + FTraceHistory[I];
+          JSON := JSON + FMetricsHistory[I];
         end;
         JSON := JSON + ']';
       finally
@@ -1219,12 +1347,10 @@ begin
         IndyCtx.Connection.IOHandler.WriteLn('HTTP/1.1 200 OK');
         IndyCtx.Connection.IOHandler.WriteLn('Content-Type: text/event-stream; charset=utf-8');
         IndyCtx.Connection.IOHandler.WriteLn('Cache-Control: no-cache');
-        IndyCtx.Connection.IOHandler.WriteLn('Connection: keep-alive');
         IndyCtx.Connection.IOHandler.WriteLn('');
         IndyCtx.Connection.IOHandler.Write('event: connected'#10'data: {"sessionId":"' + SessionId + '"}'#10#10);
-
         HeartbeatTick := 0;
-        while IndyCtx.Connection.Connected do
+        while IndyCtx.Connection.Connected and (not FServerStopping) do
         begin
           if Session.TryDequeueEvent(EventName, Data) then
           begin
@@ -1337,16 +1463,165 @@ begin
   end;
 end;
 
+procedure LoadTelemetryHistory;
+var
+  Path: string;
+  Content: string;
+  Node: IDextJsonNode;
+  Arr: IDextJsonArray;
+  I: Integer;
+begin
+  Path := TPath.Combine(TPath.Combine(TPath.GetHomePath, '.dext'), 'telemetry.json');
+  if not FileExists(Path) then Exit;
+
+  try
+    Content := TFile.ReadAllText(Path, TEncoding.UTF8);
+    Node := TDextJson.Provider.Parse(Content);
+    if (Node <> nil) and (Node.GetNodeType = jntArray) then
+    begin
+      Arr := Node as IDextJsonArray;
+      FTraceHistory.Clear;
+      for I := 0 to Arr.GetCount - 1 do
+        FTraceHistory.Add(Arr.GetNode(I).ToJson);
+    end;
+  except
+    // ignore load error
+  end;
+end;
+
+procedure SaveTelemetryHistory;
+var
+  Path: string;
+  Dir: string;
+  JSON: string;
+  I: Integer;
+  Snapshot: TArray<string>;
+begin
+  Path := TPath.Combine(TPath.Combine(TPath.GetHomePath, '.dext'), 'telemetry.json');
+  Dir := TPath.GetDirectoryName(Path);
+  try
+    if not TDirectory.Exists(Dir) then
+      TDirectory.CreateDirectory(Dir);
+
+    // Copy data under lock, then write outside lock to avoid I/O blocking
+    TMonitor.Enter(FLock);
+    try
+      SetLength(Snapshot, FTraceHistory.Count);
+      for I := 0 to FTraceHistory.Count - 1 do
+        Snapshot[I] := FTraceHistory[I];
+    finally
+      TMonitor.Exit(FLock);
+    end;
+
+    JSON := '[';
+    for I := 0 to High(Snapshot) do
+    begin
+      if I > 0 then JSON := JSON + ',';
+      JSON := JSON + Snapshot[I];
+    end;
+    JSON := JSON + ']';
+
+    TFile.WriteAllText(Path, JSON, TEncoding.UTF8);
+  except
+    on E: Exception do
+      WriteLn('>> [Dashboard] Failed to save telemetry history: ' + E.Message);
+  end;
+end;
+
+procedure LoadMetricsHistory;
+var
+  Path: string;
+  Content: string;
+  Node: IDextJsonNode;
+  Arr: IDextJsonArray;
+  I: Integer;
+begin
+  Path := TPath.Combine(TPath.Combine(TPath.GetHomePath, '.dext'), 'metrics.json');
+  if not FileExists(Path) then Exit;
+
+  try
+    Content := TFile.ReadAllText(Path, TEncoding.UTF8);
+    Node := TDextJson.Provider.Parse(Content);
+    if (Node <> nil) and (Node.GetNodeType = jntArray) then
+    begin
+      Arr := Node as IDextJsonArray;
+      FMetricsHistory.Clear;
+      for I := 0 to Arr.GetCount - 1 do
+        FMetricsHistory.Add(Arr.GetNode(I).ToJson);
+    end;
+  except
+    // ignore load error
+  end;
+end;
+
+procedure SaveMetricsHistory;
+var
+  Path: string;
+  Dir: string;
+  JSON: string;
+  I: Integer;
+  Snapshot: TArray<string>;
+begin
+  Path := TPath.Combine(TPath.Combine(TPath.GetHomePath, '.dext'), 'metrics.json');
+  Dir := TPath.GetDirectoryName(Path);
+  try
+    if not TDirectory.Exists(Dir) then
+      TDirectory.CreateDirectory(Dir);
+
+    // Copy data under lock, then write outside lock to avoid I/O blocking
+    TMonitor.Enter(FLock);
+    try
+      SetLength(Snapshot, FMetricsHistory.Count);
+      for I := 0 to FMetricsHistory.Count - 1 do
+        Snapshot[I] := FMetricsHistory[I];
+    finally
+      TMonitor.Exit(FLock);
+    end;
+
+    JSON := '[';
+    for I := 0 to High(Snapshot) do
+    begin
+      if I > 0 then JSON := JSON + ',';
+      JSON := JSON + Snapshot[I];
+    end;
+    JSON := JSON + ']';
+
+    TFile.WriteAllText(Path, JSON, TEncoding.UTF8);
+  except
+    on E: Exception do
+      WriteLn('>> [Dashboard] Failed to save metrics history: ' + E.Message);
+  end;
+end;
+
 initialization
   FHttpHistory := TCollections.CreateList<THttpHistoryItem>(True);
   FSSEClients := TCollections.CreateList<IHttpContext>;
   FTraceHistory := TCollections.CreateList<string>;
+  FMetricsHistory := TCollections.CreateList<string>;
+  FServerStopping := False;
   FLock := TObject.Create;
+  LoadTelemetryHistory;
+  LoadMetricsHistory;
+  // Start background save timer (flushes to disk every 30 seconds)
+  FSaveTimer := TDashboardSaveTimer.Create(30000);
 
 finalization
+  FServerStopping := True;
+  // Stop timer cleanly before flushing
+  if Assigned(FSaveTimer) then
+  begin
+    FSaveTimer.Terminate;
+    FSaveTimer.WaitFor;
+    FSaveTimer.Free;
+    FSaveTimer := nil;
+  end;
+  // Final flush to disk
+  try SaveTelemetryHistory; except end;
+  try SaveMetricsHistory; except end;
   FLock.Free;
   FHttpHistory := nil;
   FTraceHistory := nil;
+  FMetricsHistory := nil;
+  FSSEClients := nil;
 
 end.
-

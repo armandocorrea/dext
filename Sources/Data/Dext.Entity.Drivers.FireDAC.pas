@@ -170,11 +170,23 @@ type
     property Connection: TFDConnection read FConnection;
   end;
 
+  function DextGetActiveDbConnections: Integer;
+
 implementation
 
 uses
+  System.SyncObjs,
   FireDAC.ConsoleUI.Wait,
-  Dext.Core.Reflection;
+  Dext.Core.Reflection,
+  Dext.Telemetry.Metrics;
+
+var
+  GActiveDbConnections: Integer = 0;
+
+function DextGetActiveDbConnections: Integer;
+begin
+  Result := TInterlocked.Add(GActiveDbConnections, 0);
+end;
 
 function FireDACFieldToTValue(Field: TField): TValue;
 begin
@@ -1132,10 +1144,14 @@ begin
   
   // Register AfterConnect to apply session settings (like search_path)
   FConnection.AfterConnect := DoAfterConnect;
+  
+  TInterlocked.Increment(GActiveDbConnections);
 end;
 
 destructor TFireDACConnection.Destroy;
 begin
+  TInterlocked.Decrement(GActiveDbConnections);
+  
   if FOwnsConnection then
     FConnection.Free;
   inherited;
@@ -1338,6 +1354,9 @@ begin
     DetectDialect;
   Result := FDialect;
 end;
+
+initialization
+  Dext.Telemetry.Metrics.GActiveDbConnectionsFunc := DextGetActiveDbConnections;
 
 end.
 

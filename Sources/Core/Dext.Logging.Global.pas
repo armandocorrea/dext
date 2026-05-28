@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {           Dext Framework                                                  }
 {           Copyright (C) 2025 Cesar Romero & Dext Contributors             }
 {***************************************************************************}
@@ -25,6 +25,8 @@ type
   private
     class var FLogger: ILogger;
     class var FFactory: TAsyncLoggerFactory;
+    class var FMetricsExporter: TThread;
+    class var FMetricsObserver: ITelemetryObserver;
     class function GetLogger: ILogger; static;
   public
     class constructor Create;
@@ -90,6 +92,22 @@ end;
 class destructor Log.Destroy;
 begin
   FLogger := nil;
+  
+  if FMetricsExporter <> nil then
+  begin
+    FMetricsExporter.Terminate;
+    FMetricsExporter.WaitFor;
+    FMetricsExporter.Free;
+    FMetricsExporter := nil;
+  end;
+  
+  if FMetricsObserver <> nil then
+  begin
+    if TDiagnosticSource.Instance <> nil then
+      TDiagnosticSource.Instance.Unsubscribe(FMetricsObserver);
+    FMetricsObserver := nil;
+  end;
+
   if FFactory <> nil then
   begin
     FFactory.Dispose;
@@ -171,6 +189,13 @@ begin
     SafeWriteLn('>> [Log] Initializing Sidecar Sink at ' + SidecarUrl);
     FFactory.AddSink(TSidecarSink.Create(SidecarUrl));
     TDiagnosticSource.Instance.Subscribe(TSidecarTelemetryObserver.Create(SidecarUrl));
+    
+    // Subscribe metrics aggregator observer to DiagnosticSource
+    FMetricsObserver := TMetricsTelemetryObserver.Create;
+    TDiagnosticSource.Instance.Subscribe(FMetricsObserver);
+    
+    // Launch periodic background metrics exporter
+    FMetricsExporter := TSidecarMetricsExporter.Create(SidecarUrl);
   end;
   
   // Create the Logger instance

@@ -77,3 +77,9 @@ A interface será dividida em três visualizações principais:
 
 ---
 **Meta:** Proporcionar ao desenvolvedor Delphi a mesma visibilidade de um ecossistema Cloud-Native moderno.
+
+## 5. Status da Implementação (Maio 2026)
+*   **Filtros de Aplicação (App Filters):** Implementado no Frontend e Backend. A telemetria e logs agora enviam automaticamente o parâmetro `app` derivado do executável (`ParamStr(0)`). A UI do painel do dashboard atualiza os dropdowns dinamicamente e suporta filtros interativos.
+*   **Persistência em Disco:** Traces, Logs e Métricas agora são salvos de forma assíncrona sob um timer dedicado de 30 segundos (`TDashboardSaveTimer`) em `~/.dext/telemetry.json` e `~/.dext/metrics.json` para evitar overhead de I/O em threads HTTP.
+*   **Encerramento Seguro:** Os manipuladores Server-Sent Events (SSE) agora utilizam a flag `FServerStopping` para encerrarem de forma imediata quando o Sidecar for fechado, eliminando travamentos de socket.
+

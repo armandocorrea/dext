@@ -180,6 +180,7 @@ body {
     background-position: right 8px center;
     background-size: 14px;
     padding-right: 30px;
+    color-scheme: dark;
 }
 
 .hd-select:hover {
@@ -189,6 +190,27 @@ body {
 
 .hd-select:focus {
     border-color: var(--primary);
+}
+
+.hd-select option {
+    background: #1E1B26;
+    color: #E8E3EC;
+    padding: 8px 12px;
+}
+
+.hd-select option:hover,
+.hd-select option:checked {
+    background: #3D2470;
+    color: #C4A9FF;
+}
+
+:root.light .hd-select {
+    color-scheme: light;
+}
+
+:root.light .hd-select option {
+    background: #FFFFFF;
+    color: #1C1B1F;
 }
 
 .lang-select {
@@ -602,6 +624,7 @@ body {
     outline: none;
     cursor: pointer;
     min-width: 150px;
+    color-scheme: dark;
 }
 
 .hd-select:focus {
