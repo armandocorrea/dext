@@ -1,4 +1,4 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 //
 //           Dext Framework
 //
@@ -1943,7 +1943,7 @@ var
       if S[P] = '(' then Inc(LDepth)
       else if S[P] = ')' then
       begin
-        // Outer context's closing paren (depth 0 before the ')') — stop without consuming
+        //   Outer context's closing paren (depth 0 before the ')') — stop without consuming
         if LDepth = 0 then
           Break;
         Dec(LDepth);
@@ -2427,13 +2427,8 @@ var
     LM: string;
     LExpectedList: string;
     LChar: Char;
-    LPseudoStart, LPseudoEnd: Integer;
+    LPseudoStart: Integer;
     LPseudoName: string;
-    LBlockContent: string;
-    LPrefix: string;
-    LFinalPath: string;
-    LCandidate: string;
-    LP: Integer;
 
     function MatchCommand(const ACommand: string; AConsume: Boolean; ABoundaryCheck: Boolean = True): Boolean;
     var

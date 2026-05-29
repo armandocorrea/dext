@@ -384,7 +384,11 @@ begin
   if GetProcessMemoryInfo(GetCurrentProcess, @PMC, SizeOf(PMC)) then
   begin
     AWorkingSet := PMC.WorkingSetSize;
+    {$IF CompilerVersion >= 35.0}
     APrivateBytes := PMC.PrivateUsage;
+    {$ELSE}
+    APrivateBytes := PMC.PrivateUsge;
+    {$IFEND}
     Result := True;
   end;
   {$ENDIF}

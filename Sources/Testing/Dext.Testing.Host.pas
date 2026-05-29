@@ -83,13 +83,17 @@ end;
 
 class procedure TTestHost.Execute(const Config: TTestConfigurator);
 var
-  IsUI: Boolean;
+  CommandLine: string;
+  i: Integer;
   Index: Integer;
   LogFile: string;
   LogStrings: TStringList;
   IsLogEnabled: Boolean;
   ParentProcess: string;
   P: string;
+  {$IFDEF MSWINDOWS}
+  IsUI: Boolean;
+  {$ENDIF}
   {$IFDEF DEXT_TESTINSIGHT}
   Listener: ITestListener;
   Selected: TArray<string>;
@@ -103,8 +107,9 @@ begin
   // 1. Detect parameters first
   IsLogEnabled := False;
   LogFile := '';
+  {$IFDEF MSWINDOWS}
   IsUI := False;
-  
+  {$ENDIF}
   for Index := 1 to ParamCount do
   begin
     P := ParamStr(Index);
@@ -114,14 +119,17 @@ begin
       IsLogEnabled := True;
       LogFile := ChangeFileExt(ParamStr(0), '.log');
     end;
+    {$IFDEF MSWINDOWS}
     // Detect TestInsight
-    if (CompareText(P, '/X') = 0) or (CompareText(P, '-X') = 0) or 
+    if (CompareText(P, '/X') = 0) or (CompareText(P, '-X') = 0) or
        (CompareText(P, '/TestInsight') = 0) then
     begin
       TTestRunner.SetTestInsightActive(True);
       IsUI := True;
     end;
+    {$ENDIF}
   end;
+
 
   // 2. Decide if we need UI or Console and Setup Environment
   {$IFDEF MSWINDOWS}
@@ -143,7 +151,15 @@ begin
     begin
       InitializeDextWriter(TStringsWriter.Create(LogStrings));
       SafeWriteLn('--- DEXT TEST HOST LOG STARTED: ' + DateTimeToStr(Now) + ' ---');
-      SafeWriteLn('CmdLine: ' + GetCommandLine);
+      {$IFDEF MSWINDOWS}
+      CommandLine := GetCommandLine;
+      {$ELSE}
+      // TODO : move to Dext.Utils.pas
+      CommandLine := ParamStr(0);
+      for i := 1 to ParamCount do
+        CommandLine := CommandLine + ' ' + ParamStr(i);
+      {$ENDIF}
+      SafeWriteLn('CmdLine: ' +  CommandLine);
     end;
     
     {$IFDEF MSWINDOWS}

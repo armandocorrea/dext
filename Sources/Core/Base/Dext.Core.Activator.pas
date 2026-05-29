@@ -121,7 +121,8 @@ uses
   {$IFDEF MSWINDOWS}
   Winapi.Windows,
   {$ENDIF}
-  Dext.Core.Reflection;
+  Dext.Core.Reflection,
+  Dext.Utils;
 
 function MakeTypedInterfaceValue(const AIntf: IInterface; AType: PTypeInfo): TValue;
 var
@@ -229,20 +230,20 @@ begin
         end;
         {$IFDEF DEBUG}
         if HasDIConstructors then
-          OutputDebugString(PChar(
+          DebugLog(
             '[Dext.Json] INFO: Deserializing "' + TargetClass.ClassName + '" via RTTI-only ' +
             '(no ServiceProvider configured). DI constructor detected but ignored. ' +
-            'Use JsonSettings.ServiceProvider(sp) for full DI support.'));
+            'Use JsonSettings.ServiceProvider(sp) for full DI support.');
         {$ENDIF}
         Result := TValue.From(BestMethod.Invoke(TargetClass, []).AsObject);
       end
       else
       begin
         {$IFDEF DEBUG}
-        OutputDebugString(PChar(
+        DebugLog(
           '[Dext.Json] WARNING: Cannot instantiate "' + TargetClass.ClassName + '" — ' +
           'no parameterless constructor found. ' +
-          'Use JsonSettings.ServiceProvider(sp) to enable DI-based construction.'));
+          'Use JsonSettings.ServiceProvider(sp) to enable DI-based construction.');
         {$ENDIF}
       end;
     end;
@@ -256,11 +257,11 @@ begin
       else
       begin
         {$IFDEF DEBUG}
-        OutputDebugString(PChar(
+        DebugLog(
           '[Dext.Json] WARNING: Cannot instantiate interface "' + string(AType^.Name) + '" — ' +
           'no implementation registered. ' +
           'Use TActivator.RegisterDefault<IService, TImpl> or ' +
-          'configure a ServiceProvider via JsonSettings.ServiceProvider(sp).'));
+          'configure a ServiceProvider via JsonSettings.ServiceProvider(sp).');
         {$ENDIF}
       end;
     end;

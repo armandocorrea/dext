@@ -1,4 +1,4 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{1A75A0FB-06A4-4EE9-B72B-1F4D07B11A57}</ProjectGuid>
         <MainSource>DextTool.dpr</MainSource>
@@ -136,7 +136,6 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCCReference Include="Commands\Dext.Hosting.CLI.Commands.Scaffold.pas"/>
         <DCCReference Include="Commands\Dext.Hosting.CLI.Commands.Test.pas"/>
         <DCCReference Include="Tools\Dext.Hosting.CLI.Tools.DocGen.pas"/>
-
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

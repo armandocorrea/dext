@@ -32,7 +32,6 @@ package Dext.Testing;
 
 requires
   rtl,
-  vcl,
   IndySystem,
   IndyProtocols,
   IndyCore,

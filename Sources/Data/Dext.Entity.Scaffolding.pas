@@ -891,10 +891,9 @@ var
   ClassUsedNames: IDictionary<string, Boolean>;
   NavInfoList: IList<TPair<TMetaForeignKey, string>>;
   NavInfo: TPair<TMetaForeignKey, string>;
-  Suffix, I: Integer;
+  Suffix: Integer;
   Attrs: IList<string>;
   EscapedPropName, EscapedNavName, EntityClassName: string;
-  LLookupName, LFound: Boolean; // Reusing for local logic flags
   Table: TMetaTable;
   Col: TMetaColumn;
   FK: TMetaForeignKey;

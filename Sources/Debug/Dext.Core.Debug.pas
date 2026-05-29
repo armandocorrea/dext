@@ -1,4 +1,4 @@
-{***************************************************************************}
+﻿{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -26,9 +26,11 @@ unit Dext.Core.Debug;
 interface
 
 uses
-  System.SysUtils,
+{$IFDEF MSWINDOWS}
   Winapi.Windows,
-  Winapi.Messages;
+  Winapi.Messages,
+{$ENDIF}
+  System.SysUtils;
 
 const
   DBG_STACK_LENGTH = 32;
@@ -114,6 +116,7 @@ var
 
 { PE Header Helpers }
 
+{$IFDEF MSWINDOWS}
 procedure ReadPEInfo(Module: HMODULE; out ImageBase, SizeOfImage: NativeUInt);
 var
   P: PByte;
@@ -146,6 +149,7 @@ begin
   except
   end;
 end;
+{$ENDIF}
 
 { MAP File Parser - Optimized bulk read }
 
@@ -158,7 +162,9 @@ var
   Pos, LineStart, I: Integer;
   InPublics, InLines: Boolean;
   CurrentSource: string;
+  {$IFDEF MSWINDOWS}
   ImageBase: NativeUInt;
+  {$ENDIF}
 
   function GetLine(out S: string): Boolean;
   begin
@@ -296,8 +302,13 @@ begin
       if not FileExists(MapPath) then Exit;
     end;
 
+    {$IFDEF MSWINDOWS}
     MapModuleBase := NativeUInt(GetModuleHandle(nil));
     ReadPEInfo(HMODULE(MapModuleBase), ImageBase, MapModuleSize);
+    {$ELSE}
+    MapModuleBase := 0;
+    MapModuleSize := 0;
+    {$ENDIF}
 
   // Read entire file into memory for fast parsing
   Stream := TFileStream.Create(MapPath, fmOpenRead or fmShareDenyNone);
@@ -441,6 +452,7 @@ end;
 
 { Module Resolution }
 
+{$IFDEF MSWINDOWS}
 function GetModuleFromAddress(Address: Pointer): HMODULE;
 var
   MemInfo: TMemoryBasicInformation;
@@ -467,6 +479,7 @@ begin
     Result := '???';
   end;
 end;
+{$ENDIF}
 
 { Address Resolution }
 
@@ -478,7 +491,9 @@ var
   SymName, SourceFile: string;
   SymDelta: NativeUInt;
   LineNum: Integer;
+  {$IFDEF MSWINDOWS}
   Module: HMODULE;
+  {$ENDIF}
 begin
   if TStackTrace.Options.ResolveOnlyIfLoaded and not MapLoaded then
     goto Fallback;
@@ -509,6 +524,7 @@ begin
 
 Fallback:
   // Fallback: module + offset
+  {$IFDEF MSWINDOWS}
   Module := GetModuleFromAddress(Address);
   if Module <> 0 then
   begin
@@ -517,6 +533,9 @@ Fallback:
   end
   else
     Result := Format('$%p', [Address]);
+  {$ELSE}
+  Result := Format('$%p', [Address]);
+  {$ENDIF}
 end;
 
 { Stack Capture & Formatting }
@@ -524,7 +543,7 @@ end;
 {$IFDEF MSWINDOWS}
 procedure GetCallStackOS(var Stack: TDbgInfoStack; FramesToSkip: Integer);
 begin
-  ZeroMemory(@Stack, SizeOf(Stack));
+  FillChar(Stack, SizeOf(Stack), 0);
   RtlCaptureStackBackTrace(FramesToSkip, DBG_STACK_LENGTH, @Stack[0], nil);
 end;
 {$ENDIF}
@@ -568,12 +587,12 @@ begin
   if Options.AsyncLoad then
   begin
     MapLoadTokenSource := TCancellationTokenSource.Create;
-    MapLoadTask := TAsyncTask.Run(
+    MapLoadTask := TAsyncTask.Run(TProc(
       procedure
       begin
         // Let LoadMapFile handle the parsing.
         LoadMapFile;
-      end).Start;
+      end)).Start;
   end
   else
     LoadMapFile;
@@ -585,8 +604,10 @@ begin
 end;
 
 class function TStackTrace.Capture(FramesToSkip: Integer): string;
+{$IFDEF MSWINDOWS}
 var
   Stack: TDbgInfoStack;
+{$ENDIF}
 begin
   {$IFDEF MSWINDOWS}
   GetCallStackOS(Stack, FramesToSkip);
@@ -604,7 +625,7 @@ var
 begin
   Slot := StackPoolIndex;
   StackPoolIndex := (StackPoolIndex + 1) mod STACK_POOL_SIZE;
-  ZeroMemory(@StackPool[Slot], SizeOf(TDbgInfoStack));
+  FillChar(StackPool[Slot], SizeOf(TDbgInfoStack), 0);
   {$IFDEF MSWINDOWS}
   try
     RtlCaptureStackBackTrace(1, DBG_STACK_LENGTH, @StackPool[Slot][0], nil);
@@ -648,7 +669,7 @@ end;
 
 procedure InstallExceptionCallStack;
 begin
-  ZeroMemory(@StackPool, SizeOf(StackPool));
+  FillChar(StackPool, SizeOf(StackPool), 0);
   StackPoolIndex := 0;
   System.SysUtils.Exception.GetExceptionStackInfoProc := GetExceptionStackInfo;
   System.SysUtils.Exception.GetStackInfoStringProc := GetStackInfoStringProc;

@@ -1,4 +1,4 @@
-﻿{***************************************************************************}
+{***************************************************************************}
 {                                                                           }
 {           Dext Framework                                                  }
 {                                                                           }
@@ -197,6 +197,9 @@ end;
 
 procedure DebugLog(const AMessage: string);
 begin
+  {$IFDEF MSWINDOWS}
+  OutputDebugString(PChar(AMessage));
+  {$ENDIF}
   SafeWriteLn(AMessage);
 end;
 

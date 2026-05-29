@@ -52,9 +52,11 @@
   {$DEFINE DEXT_HAS_WEAK}
 {$ENDIF}
 
-// Web Stencils support (Introduced in Delphi 12.2)
+// Web Stencils support (Introduced in Delphi 12.2 - MSWindows only)
 {$IFDEF DEXT_DELPHI12_UP}
-  {$DEFINE DEXT_ENABLE_WEB_STENCILS}
+  {$IFDEF MSWINDOWS}
+    {$DEFINE DEXT_ENABLE_WEB_STENCILS}
+  {$ENDIF}
 {$ENDIF}
 
 //---------------------------------------------------------------------------
