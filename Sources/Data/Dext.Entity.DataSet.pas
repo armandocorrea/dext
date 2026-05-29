@@ -295,6 +295,14 @@ uses
   Dext.Specifications.Types;
 
 type
+  {$IF CompilerVersion < 36.0}
+    {$IF Sizeof(LongInt) <> Sizeof(NativeInt)}
+    TNativeCount = NativeInt;
+    {$ELSE}
+    TNativeCount = Longint;
+    {$ENDIF}
+  {$IFEND}
+
   TEntityBlobStream = class(TMemoryStream)
   private
     FDataSet: TEntityDataSet;
@@ -305,7 +313,10 @@ type
   public
     constructor Create(Field: TField; DataSet: TEntityDataSet; Mode: TBlobStreamMode);
     destructor Destroy; override;
-    function Write(const Buffer; Count: Integer): Longint; override;
+    {$IF Sizeof(LongInt) <> Sizeof(NativeInt)}
+    function Write(const Buffer; Count: Longint): Longint; override;
+    {$ENDIF}
+    function Write(const Buffer; Count: TNativeCount): TNativeCount; override;
   end;
 
 function TValueBufferToValue(ABuffer: TValueBuffer; ADataType: TFieldType): TValue;
@@ -732,7 +743,15 @@ begin
   inherited Destroy;
 end;
 
-function TEntityBlobStream.Write(const Buffer; Count: Integer): Longint;
+{$IF Sizeof(LongInt) <> Sizeof(NativeInt)}
+function TEntityBlobStream.Write(const Buffer; Count: Longint): Longint;
+begin
+  Result := inherited Write(Buffer, Count);
+  FModified := True;
+end;
+{$ENDIF}
+
+function TEntityBlobStream.Write(const Buffer; Count: TNativeCount): TNativeCount;
 begin
   Result := inherited Write(Buffer, Count);
   FModified := True;

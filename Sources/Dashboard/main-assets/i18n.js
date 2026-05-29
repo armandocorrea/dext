@@ -2,6 +2,8 @@ const i18n = {
     en: {
         dashboard: "Dashboard", projects: "Projects", tests: "Tests", http: "HTTP", traces: "Traces", settings: "Settings", logs: "Logs",
         distributed_tracing: "Distributed Tracing",
+        throughput_latency: "Throughput & Latency",
+        system_health: "System Health",
         active_workspace: "Active Workspace", active_project: "Active Project", no_project: "No Project",
         select_folder: "Select Folder...", no_env: "No environments", scan_env: "Scan Environments",
         coverage: "Coverage", coverage_sub: "Code test coverage across all projects",
@@ -29,6 +31,8 @@ const i18n = {
     pt: {
         dashboard: "Painel", projects: "Projetos", tests: "Testes", http: "HTTP", traces: "Traces", settings: "Configurações", logs: "Logs",
         distributed_tracing: "Tracing Distribuído",
+        throughput_latency: "Throughput e Latência",
+        system_health: "Saúde do Sistema",
         active_workspace: "Workspace Ativo", active_project: "Projeto Ativo", no_project: "Sem Projeto",
         select_folder: "Selecionar Pasta...", no_env: "Sem ambientes", scan_env: "Escanear Ambientes",
         coverage: "Cobertura", coverage_sub: "Cobertura de testes em todos os projetos",
@@ -56,6 +60,8 @@ const i18n = {
     es: {
         dashboard: "Tablero", projects: "Proyectos", tests: "Pruebas", http: "HTTP", traces: "Traces", settings: "Ajustes", logs: "Registros",
         distributed_tracing: "Tracing Distribuido",
+        throughput_latency: "Rendimiento y Latencia",
+        system_health: "Salud del Sistema",
         active_workspace: "Espacio Activo", active_project: "Proyecto Activo", no_project: "Sin Proyecto",
         select_folder: "Seleccionar Carpeta...", no_env: "Sin entornos", scan_env: "Escanear Entornos",
         coverage: "Cobertura", coverage_sub: "Cobertura de pruebas en todos los proyectos",
@@ -82,6 +88,9 @@ const i18n = {
     },
     fr: {
         dashboard: "Tableau de Bord", projects: "Projets", tests: "Tests", http: "HTTP", settings: "Paramètres", logs: "Logs",
+        distributed_tracing: "Traçage Distribué",
+        throughput_latency: "Débit et Latence",
+        system_health: "Santé du Système",
         active_workspace: "Espace Actif", active_project: "Projet Actif", no_project: "Aucun Projet",
         select_folder: "Choisir un Dossier...", no_env: "Aucun environnement", scan_env: "Scanner les Environnements",
         coverage: "Couverture", coverage_sub: "Couverture des tests sur tous les projets",
@@ -108,6 +117,9 @@ const i18n = {
     },
     it: {
         dashboard: "Dashboard", projects: "Progetti", tests: "Test", http: "HTTP", settings: "Impostazioni", logs: "Log",
+        distributed_tracing: "Tracciamento Distribuito",
+        throughput_latency: "Throughput e Latenza",
+        system_health: "Salute del Sistema",
         active_workspace: "Workspace Attivo", active_project: "Progetto Attivo", no_project: "Nessun Progetto",
         select_folder: "Seleziona Cartella...", no_env: "Nessun ambiente", scan_env: "Scansione Ambienti",
         coverage: "Copertura", coverage_sub: "Copertura dei test in tutti i progetti",
@@ -134,6 +146,9 @@ const i18n = {
     },
     de: {
         dashboard: "Dashboard", projects: "Projekte", tests: "Tests", http: "HTTP", settings: "Einstellungen", logs: "Protokolle",
+        distributed_tracing: "Verteiltes Tracing",
+        throughput_latency: "Durchsatz & Latenz",
+        system_health: "Systemgesundheit",
         active_workspace: "Aktiver Workspace", active_project: "Aktives Projekt", no_project: "Kein Projekt",
         select_folder: "Ordner auswählen...", no_env: "Keine Umgebungen", scan_env: "Umgebungen scannen",
         coverage: "Abdeckung", coverage_sub: "Testabdeckung über alle Projekte",
@@ -160,6 +175,9 @@ const i18n = {
     },
     ja: {
         dashboard: "ダッシュボード", projects: "プロジェクト", tests: "テスト", http: "HTTP", settings: "設定", logs: "ログ",
+        distributed_tracing: "分散トレーシング",
+        throughput_latency: "スループットとレイテンシ",
+        system_health: "システム状態",
         active_workspace: "現在のワークスペース", active_project: "現在のプロジェクト", no_project: "プロジェクトなし",
         select_folder: "フォルダを選択...", no_env: "環境なし", scan_env: "環境をスキャン",
         coverage: "カバレッジ", coverage_sub: "全プロジェクトのテストカバレッジ",

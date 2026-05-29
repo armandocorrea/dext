@@ -126,7 +126,8 @@ contains
   Dext.Logging.Extensions in 'Core\Dext.Logging.Extensions.pas',
   Dext.Logging.Telemetry in 'Core\Base\Dext.Logging.Telemetry.pas',
   Dext.Logging.Tracing in 'Core\Base\Dext.Logging.Tracing.pas',
-  Dext.Threading.Sync in 'Core\Dext.Threading.Sync.pas';
+  Dext.Threading.Sync in 'Core\Dext.Threading.Sync.pas',
+  Dext.Telemetry.Metrics in 'Core\Base\Dext.Telemetry.Metrics.pas';
 
 end.
 

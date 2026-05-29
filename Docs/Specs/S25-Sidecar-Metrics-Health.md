@@ -48,3 +48,9 @@ A UI deve ser "Premium", utilizando componentes de gráfico leves e responsivos 
 
 ---
 **Meta:** Prover uma visão holística da aplicação sem necessidade de configurar agentes externos pesados.
+
+## 5. Status da Implementação (Maio 2026)
+*   **Persistência de Histórico de Métricas:** As métricas coletadas são persistidas em `~/.dext/metrics.json`.
+*   **Envio Assegurado com Nome do Executável:** O exportador de métricas (`TSidecarMetricsExporter`) injeta automaticamente a propriedade `app` em cada lote de métricas para indexação e filtragem no frontend do Dashboard.
+*   **Thread de Escrita Assíncrona:** A escrita das métricas em disco é controlada em segundo plano a cada 30 segundos por `TDashboardSaveTimer` (ou ao finalizar), evitando bloqueio nas rotas do servidor HTTP.
+

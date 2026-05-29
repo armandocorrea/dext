@@ -51,10 +51,13 @@ async function load() {
         // Restore active project if exists
         var savedPj = localStorage.getItem("activeProject");
         if (savedPj) selectActiveProject(savedPj, true);
+    } catch (e) { console.error("load() dashboard error:", e); }
 
-        // Load telemetry history (logs/spans)
-        loadHistory();
-    } catch (e) { console.error(e); }
+    // Load telemetry history independently — must not be blocked by dashboard errors
+    try { loadHistory(); } catch(e) { console.warn("loadHistory error:", e); }
+
+    // Initialize metrics charts & load metrics history
+    try { initCharts(); loadMetricsHistory(); } catch(e) { console.warn("metrics init error:", e); }
 }
 
 function envList(a) {
@@ -116,6 +119,16 @@ function connectSSE() {
 }
 
 function handleSseEvent(eventName, data) {
+    if (eventName === "metrics") {
+        try {
+            var payload = JSON.parse(data);
+            addMetricPoint(payload);
+        } catch(e) {
+            console.error("Error parsing metrics SSE event:", e);
+        }
+        return;
+    }
+
     if (eventName === "log" || eventName === "span") {
         try {
             var obj = JSON.parse(data);
@@ -125,9 +138,10 @@ function handleSseEvent(eventName, data) {
             if (obj.spanId !== undefined) obj.span_id = obj.spanId;
             if (obj.parentId !== undefined) obj.parent_id = obj.parentId;
             if (obj.dur !== undefined && obj.dur !== null) obj.duration_ms = obj.dur;
+            obj.app = obj.app || "App";
 
             if (eventName === "log") {
-                processLog(obj.lvl || "Info", obj.msg || data, obj.ts);
+                processLog(obj.lvl || "Info", obj.msg || data, obj.ts, obj.app);
                 // S24: Process Distributed Tracing if log contains trace data
                 if (obj.trace_id) {
                     processTrace(obj);
@@ -142,7 +156,7 @@ function handleSseEvent(eventName, data) {
                 }
             }
         } catch(e) {
-            if (eventName === "log") processLog("Info", data);
+            if (eventName === "log") processLog("Info", data, null, "App");
         }
         return;
     }
@@ -176,25 +190,15 @@ function handleSseEvent(eventName, data) {
 
 
 
-function processLog(level, message, timestamp) {
-    var logs1 = document.getElementById("logs");
-    var logs2 = document.getElementById("logs-full");
-    var t = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-    var x = level.toLowerCase().indexOf("error") >= 0 ? "log-e" : level.toLowerCase().indexOf("warn") >= 0 ? "log-w" : "log-i";
+function processLog(level, message, timestamp, app) {
+    app = app || "App";
+    var logItem = { level: level, message: message, timestamp: timestamp || new Date().toISOString(), app: app };
+    logStore.push(logItem);
+    if (logStore.length > 1000) logStore.shift();
 
-    var html = "<div class=\"log\"><span class=\"log-t\">[" + t + "]</span><span class=\"" + x + "\">" + message + "</span></div>";
-
-    if (logs1) {
-        logs1.innerHTML += html;
-        if (logs1.children.length > 100) logs1.removeChild(logs1.firstChild);
-        logs1.scrollTop = logs1.scrollHeight;
+    if (!loadingHistory) {
+        scheduleRenderLogs();
     }
-    if (logs2) {
-        logs2.innerHTML += html;
-        if (logs2.children.length > 500) logs2.removeChild(logs2.firstChild);
-        logs2.scrollTop = logs2.scrollHeight;
-    }
-
 
     // --- Test Runner Progress Parsing (For SignalR/Log Mode) ---
     // If we are in SSE mode, this parsing is redundant but harmless as logs from SSE are synthetic here.
@@ -280,7 +284,13 @@ document.querySelectorAll(".ni").forEach(function (x) {
 });
 
 // ==================== Theme Toggle ====================
-function toggleTheme() { var r = document.documentElement; var isLight = r.classList.toggle("light"); localStorage.setItem("dext-theme", isLight ? "light" : "dark"); document.getElementById("theme-icon").textContent = isLight ? "light_mode" : "dark_mode"; }
+function toggleTheme() { 
+    var r = document.documentElement; 
+    var isLight = r.classList.toggle("light"); 
+    localStorage.setItem("dext-theme", isLight ? "light" : "dark"); 
+    document.getElementById("theme-icon").textContent = isLight ? "light_mode" : "dark_mode"; 
+    updateChartsTheme();
+}
 (function () { var t = localStorage.getItem("dext-theme"); if (t == "light") { document.documentElement.classList.add("light"); document.getElementById("theme-icon").textContent = "light_mode"; } })();
 
 // ==================== HTTP Client Functions ====================
@@ -1147,6 +1157,31 @@ function findTestResult(results, fixtureName, testName) {
 // ==================== Distributed Tracing (S24) ====================
 var traceStore = {}; // trace_id -> { spans: [], root: null }
 var activeTraceId = null;
+var logStore = [];
+var activeLogAppFilter = "";
+var activeLogSearchFilter = "";
+var activeTraceAppFilter = "";
+
+// Debounce timers: prevent DOM thrashing when many spans arrive rapidly
+var renderTraceDebounce = null;
+var renderLogsDebounce = null;
+var RENDER_DEBOUNCE_MS = 250;
+
+function scheduleRenderTraces() {
+    clearTimeout(renderTraceDebounce);
+    renderTraceDebounce = setTimeout(function() {
+        updateAppFilters();
+        renderTraceList();
+    }, RENDER_DEBOUNCE_MS);
+}
+
+function scheduleRenderLogs() {
+    clearTimeout(renderLogsDebounce);
+    renderLogsDebounce = setTimeout(function() {
+        updateAppFilters();
+        renderLogs();
+    }, RENDER_DEBOUNCE_MS);
+}
 
 function processTrace(log) {
     var tid = log.trace_id;
@@ -1159,20 +1194,34 @@ function processTrace(log) {
     // Add span to trace
     traceStore[tid].spans.push(log);
     
-    // Update list
-    renderTraceList();
-    
-    // Auto-select if first trace or already active
-    if (!activeTraceId && isNew) {
-        selectTrace(tid);
-    } else if (activeTraceId === tid) {
-        renderTraceDetail(tid);
+    if (!loadingHistory) {
+        // Limit traceStore to 500 unique traces (only during live streaming, not bulk history)
+        var traceKeys = Object.keys(traceStore);
+        if (traceKeys.length > 500) {
+            var oldest = traceKeys.sort(function(a,b) {
+                return new Date(traceStore[a].startTime) - new Date(traceStore[b].startTime);
+            })[0];
+            if (oldest !== activeTraceId) delete traceStore[oldest];
+        }
+        
+        // Schedule deferred render (debounced to avoid DOM thrashing)
+        scheduleRenderTraces();
+        
+        // Auto-select if first trace or already active
+        if (!activeTraceId && isNew) {
+            setTimeout(function() { if (!activeTraceId) selectTrace(tid); }, RENDER_DEBOUNCE_MS + 50);
+        } else if (activeTraceId === tid) {
+            clearTimeout(window._traceDetailDebounce);
+            window._traceDetailDebounce = setTimeout(function() { renderTraceDetail(tid); }, RENDER_DEBOUNCE_MS);
+        }
     }
 }
 
 function renderTraceList() {
     var el = document.getElementById("trace-list");
     if (!el) return;
+    
+    var filterText = document.getElementById("trace-filter").value.toLowerCase();
     
     var h = "";
     var sortedIds = Object.keys(traceStore).sort((a,b) => new Date(traceStore[b].startTime) - new Date(traceStore[a].startTime));
@@ -1183,6 +1232,13 @@ function renderTraceList() {
         var time = new Date(t.startTime).toLocaleTimeString();
         var status = t.spans.some(s => s.lvl === "Error") ? "error" : "success";
         
+        // App filtering
+        var appName = t.spans[0] ? (t.spans[0].app || "App") : "App";
+        if (activeTraceAppFilter && appName !== activeTraceAppFilter) return;
+
+        // Search text filtering
+        if (filterText && t.name.toLowerCase().indexOf(filterText) < 0 && tid.toLowerCase().indexOf(filterText) < 0) return;
+        
         h += `<div class="trace-item ${active}" onclick="selectTrace('${tid}')">
                 <div class="trace-item-top">
                     <span class="trace-item-name">${t.name}</span>
@@ -1190,6 +1246,7 @@ function renderTraceList() {
                 </div>
                 <div class="trace-item-meta">
                     <span><span class="trace-status ${status}"></span>${t.spans.length} Spans</span>
+                    <span style="font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--outline-v); color: var(--on-surface-v); margin-left: 6px;">${appName}</span>
                     <span style="color:var(--outline)">${tid.substring(0,8)}...</span>
                 </div>
               </div>`;
@@ -1201,6 +1258,112 @@ function selectTrace(tid) {
     activeTraceId = tid;
     renderTraceList();
     renderTraceDetail(tid);
+}
+
+function tracesFilter() {
+    renderTraceList();
+}
+
+function tracesFilterByApp(app) {
+    activeTraceAppFilter = app;
+    renderTraceList();
+}
+
+function logsFilterByApp(app) {
+    activeLogAppFilter = app;
+    renderLogs();
+}
+
+function logsFilter() {
+    activeLogSearchFilter = document.getElementById("log-filter").value.toLowerCase();
+    renderLogs();
+}
+
+function logsClear() {
+    logStore = [];
+    renderLogs();
+    updateAppFilters();
+}
+
+function renderLogs() {
+    var logs1 = document.getElementById("logs");
+    var logs2 = document.getElementById("logs-full");
+    if (!logs1 && !logs2) return;
+
+    var html1 = "";
+    var html2 = "";
+
+    var filtered = logStore.filter(function(item) {
+        var matchesApp = !activeLogAppFilter || item.app === activeLogAppFilter;
+        var matchesSearch = !activeLogSearchFilter || item.message.toLowerCase().indexOf(activeLogSearchFilter) >= 0;
+        return matchesApp && matchesSearch;
+    });
+
+    // Render logs1 (last 100)
+    var list1 = filtered.slice(-100);
+    list1.forEach(function(item) {
+        var t = new Date(item.timestamp).toLocaleTimeString();
+        var x = item.level.toLowerCase().indexOf("error") >= 0 ? "log-e" : item.level.toLowerCase().indexOf("warn") >= 0 ? "log-w" : "log-i";
+        html1 += "<div class=\"log\"><span class=\"log-t\">[" + t + "]</span> <span style=\"font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--outline-v); color: var(--on-surface-v); margin-right: 6px;\">" + item.app + "</span><span class=\"" + x + "\">" + item.message + "</span></div>";
+    });
+
+    // Render logs2 (last 500)
+    var list2 = filtered.slice(-500);
+    list2.forEach(function(item) {
+        var t = new Date(item.timestamp).toLocaleTimeString();
+        var x = item.level.toLowerCase().indexOf("error") >= 0 ? "log-e" : item.level.toLowerCase().indexOf("warn") >= 0 ? "log-w" : "log-i";
+        html2 += "<div class=\"log\"><span class=\"log-t\">[" + t + "]</span> <span style=\"font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--outline-v); color: var(--on-surface-v); margin-right: 6px;\">" + item.app + "</span><span class=\"" + x + "\">" + item.message + "</span></div>";
+    });
+
+    if (logs1) {
+        logs1.innerHTML = html1 || '<div class="log"><span class="log-t">[--:--:--]</span> No logs matching filters.</div>';
+        logs1.scrollTop = logs1.scrollHeight;
+    }
+    if (logs2) {
+        logs2.innerHTML = html2 || '<div class="log"><span class="log-t">[--:--:--]</span> No logs matching filters.</div>';
+        logs2.scrollTop = logs2.scrollHeight;
+    }
+}
+
+function updateAppFilters() {
+    var uniqueApps = new Set();
+    
+    // Extract apps from logStore
+    logStore.forEach(function(item) {
+        if (item.app) uniqueApps.add(item.app);
+    });
+
+    // Extract apps from traceStore
+    Object.keys(traceStore).forEach(function(tid) {
+        var t = traceStore[tid];
+        if (t.spans && t.spans[0] && t.spans[0].app) {
+            uniqueApps.add(t.spans[0].app);
+        }
+    });
+
+    // Update log-app-filter dropdown
+    var logSelect = document.getElementById("log-app-filter");
+    if (logSelect) {
+        var currentLogVal = logSelect.value;
+        var logHtml = '<option value="">All Applications</option>';
+        uniqueApps.forEach(function(app) {
+            logHtml += '<option value="' + app + '">' + app + '</option>';
+        });
+        logSelect.innerHTML = logHtml;
+        logSelect.value = currentLogVal;
+    }
+
+    // Update trace-app-filter dropdown
+    var traceSelect = document.getElementById("trace-app-filter");
+    if (traceSelect) {
+        var currentTraceVal = traceSelect.value;
+        var traceHtml = '<option value="">All Applications</option>';
+        uniqueApps.forEach(function(app) {
+            traceHtml += '<option value="' + app + '">' + app + '</option>';
+        });
+        traceSelect.innerHTML = traceHtml;
+        traceSelect.value = currentTraceVal;
+    }
 }
 
 function renderTraceDetail(tid) {
@@ -1238,78 +1401,45 @@ function renderSpanNode(span, allSpans) {
         duration = span.duration_ms === 0 ? "<1ms" : span.duration_ms + "ms";
     }
     
-    var color = span.lvl === "Error" ? "var(--error)" : "var(--primary)";
-    var hasData = (span.data && Object.keys(span.data).length > 0) || span.error;
-    
-    var detailsHtml = "";
-    if (hasData) {
-        detailsHtml += `<div class="trace-node-details">`;
-        if (span.error) {
-            detailsHtml += `<div class="trace-detail-error">
-                                <span class="material-symbols-outlined" style="font-size:14px;color:var(--error);margin-right:5px">error</span>
-                                <strong>Error:</strong> ${span.error}
-                            </div>`;
+    var category = "SYS";
+    if (span.data) {
+        if (span.data['db.statement'] || span.data['sql']) {
+            category = "SQL";
+        } else if (span.data['http.url'] || span.data['http.method']) {
+            category = "HTTP";
+        } else if (span.category) {
+            category = span.category;
         }
-        
-        if (span.data) {
-            var tagsHtml = "";
-            var sqlHtml = "";
-            
-            Object.keys(span.data).forEach(k => {
-                var val = span.data[k];
-                if (val === undefined || val === null || val === "") return;
-                var valStr = String(val);
-                
-                if (k === 'sql') {
-                    var escapedSql = valStr.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
-                    sqlHtml = `<div class="trace-detail-sql">
-                                  <div class="trace-sql-header">
-                                      <span>SQL Query</span>
-                                      <button class="trace-copy-btn" onclick="navigator.clipboard.writeText(\`${escapedSql}\`); event.stopPropagation(); alert('SQL copied to clipboard!')">Copy</button>
-                                  </div>
-                                  <pre class="trace-sql-code"><code>${valStr}</code></pre>
-                               </div>`;
-                } else {
-                    tagsHtml += `<span class="trace-tag"><strong>${k}:</strong> ${valStr}</span>`;
-                }
-            });
-            
-            if (tagsHtml) {
-                detailsHtml += `<div class="trace-tags-container">${tagsHtml}</div>`;
-            }
-            if (sqlHtml) {
-                detailsHtml += sqlHtml;
-            }
-        }
-        detailsHtml += `</div>`;
     }
     
-    var contentHtml = "";
-    if (hasData) {
-        contentHtml = `
-            <details class="trace-node-details-disclosure">
-                <summary class="trace-node-content" style="border-left: 3px solid ${color}; cursor: pointer">
-                    <span class="trace-node-name">${span.msg}</span>
-                    <div style="display:flex;align-items:center;gap:8px">
-                        <span class="material-symbols-outlined" style="font-size:16px;color:var(--on-surface-v)">expand_more</span>
-                        <span class="trace-node-duration">${duration}</span>
-                    </div>
-                </summary>
-                ${detailsHtml}
-            </details>
-        `;
-    } else {
-        contentHtml = `
-            <div class="trace-node-content" style="border-left: 3px solid ${color}">
-                <span class="trace-node-name">${span.msg}</span>
-                <span class="trace-node-duration">${duration}</span>
-            </div>
-        `;
+    var color = "var(--primary)";
+    if (span.lvl === "Error") {
+        color = "var(--error)";
+    } else if (category === "SQL") {
+        color = "#29b6f6";
+    } else if (category === "HTTP") {
+        color = "#2ecc71";
+    } else if (category === "APP") {
+        color = "var(--warn)";
     }
+    
+    // Stringify span for click handler safely
+    var escapedSpanStr = JSON.stringify(span)
+                            .replace(/\\/g, '\\\\')
+                            .replace(/'/g, "\\'")
+                            .replace(/"/g, '&quot;');
+    
+    var contentHtml = `
+        <div class="trace-node-content" style="border-left: 3px solid ${color}; cursor: pointer" onclick="openInspector('${escapedSpanStr}')">
+            <span class="trace-tag cat-${category.toLowerCase()}" style="margin-right:8px;font-size:9px;padding:1px 5px;border-radius:4px;border:1px solid">${category}</span>
+            <span class="trace-node-name">${span.msg}</span>
+            <span class="trace-node-duration">${duration}</span>
+        </div>
+    `;
     
     var h = `<div class="trace-node">
                 ${contentHtml}`;
-                
+                 
     if (children.length > 0) {
         h += `<div class="trace-node-children">`;
         children.forEach(c => {
@@ -1325,25 +1455,483 @@ function renderSpanNode(span, allSpans) {
 function tracesClear() {
     traceStore = {};
     activeTraceId = null;
+    updateAppFilters();
     renderTraceList();
     document.getElementById("trace-detail").innerHTML = '<div class="trace-empty-msg" data-i18n="select_trace">Select a trace to view details</div>';
     applyI18n();
 }
 
+var loadingHistory = false;
 async function loadHistory() {
     try {
+        loadingHistory = true;
         const r = await fetch("/api/telemetry/history");
         if (r.ok) {
             const history = await r.json();
-            history.forEach(item => {
+            console.log("[loadHistory] Loaded " + history.length + " items from sidecar");
+            history.forEach(function(item) {
                 handleSseEvent(item.event, JSON.stringify(item.data));
             });
         }
     } catch(e) { console.warn("Failed to load telemetry history:", e); }
+    finally {
+        loadingHistory = false;
+        updateAppFilters();
+        renderLogs();
+        renderTraceList();
+        // Auto-select the most recent trace if none selected
+        if (!activeTraceId) {
+            var traceKeys = Object.keys(traceStore);
+            if (traceKeys.length > 0) {
+                var newest = traceKeys.sort(function(a,b) {
+                    return new Date(traceStore[b].startTime) - new Date(traceStore[a].startTime);
+                })[0];
+                selectTrace(newest);
+            }
+        }
+    }
 }
 
 // ==================== Init ====================
 load();
 // hub(); // SignalR Disabled - forcing SSE
 // connectSSE(); // Now managed by DextSSE in index.html
+
+// ==================== Metrics & Charts (S25) ====================
+var throughputChart = null;
+var systemChart = null;
+var maxChartPoints = 60;
+
+function getMetricVal(metrics, name, key = 'value', defaultVal = 0) {
+    if (!metrics) return defaultVal;
+    var item = metrics.find(m => m.name === name);
+    if (!item) return defaultVal;
+    return item[key] !== undefined ? item[key] : defaultVal;
+}
+
+function initCharts() {
+    var ctxT = document.getElementById('chart-throughput');
+    var ctxS = document.getElementById('chart-system');
+    if (!ctxT || !ctxS) return;
+
+    var isLight = document.documentElement.classList.contains('light');
+    var gridColor = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
+    var textColor = isLight ? '#5f6368' : '#e8eaed';
+
+    Chart.defaults.color = textColor;
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    throughputChart = new Chart(ctxT, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'HTTP RPS',
+                    data: [],
+                    borderColor: '#6200ee',
+                    backgroundColor: 'rgba(98, 0, 238, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'SQL QPS',
+                    data: [],
+                    borderColor: '#03dac6',
+                    backgroundColor: 'rgba(3, 218, 198, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'HTTP Errors',
+                    data: [],
+                    borderColor: '#cf6679',
+                    backgroundColor: 'rgba(207, 102, 121, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Avg Latency (ms)',
+                    data: [],
+                    borderColor: '#ffb74d',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { boxWidth: 10, boxHeight: 10 }
+                },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { color: gridColor },
+                    title: { display: true, text: 'RPS / QPS' },
+                    min: 0
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Latency (ms)' },
+                    min: 0
+                }
+            }
+        }
+    });
+
+    systemChart = new Chart(ctxS, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'CPU Usage (%)',
+                    data: [],
+                    borderColor: '#29b6f6',
+                    backgroundColor: 'rgba(41, 182, 246, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Memory (MB)',
+                    data: [],
+                    borderColor: '#ab47bc',
+                    backgroundColor: 'rgba(171, 71, 188, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'DB Connections',
+                    data: [],
+                    borderColor: '#66bb6a',
+                    backgroundColor: 'rgba(102, 187, 106, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Threads',
+                    data: [],
+                    borderColor: '#ffa726',
+                    backgroundColor: 'rgba(255, 167, 38, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { boxWidth: 10, boxHeight: 10 }
+                },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { color: gridColor },
+                    title: { display: true, text: '% / Count' },
+                    min: 0
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'Memory (MB)' },
+                    min: 0
+                }
+            }
+        }
+    });
+}
+
+function updateChartsTheme() {
+    if (!throughputChart || !systemChart) return;
+    var isLight = document.documentElement.classList.contains('light');
+    var gridColor = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
+    var textColor = isLight ? '#5f6368' : '#e8eaed';
+
+    [throughputChart, systemChart].forEach(chart => {
+        chart.options.scales.x.grid.color = gridColor;
+        chart.options.scales.y.grid.color = gridColor;
+        chart.options.scales.x.ticks.color = textColor;
+        chart.options.scales.y.ticks.color = textColor;
+        if (chart.options.scales.y1) {
+            chart.options.scales.y1.ticks.color = textColor;
+        }
+        chart.update();
+    });
+}
+
+function addMetricPoint(payload) {
+    if (!throughputChart || !systemChart) return;
+
+    var time = new Date(payload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    // Throughput data
+    var httpRequests = getMetricVal(payload.metrics, 'http.requests', 'value', 0);
+    var sqlQueries = getMetricVal(payload.metrics, 'sql.queries', 'value', 0);
+    var httpErrors = getMetricVal(payload.metrics, 'http.errors', 'value', 0);
+    var avgLatency = getMetricVal(payload.metrics, 'http.latency', 'avg', 0);
+
+    var httpRps = parseFloat((httpRequests / 5.0).toFixed(2));
+    var sqlQps = parseFloat((sqlQueries / 5.0).toFixed(2));
+    var httpErrorsRps = parseFloat((httpErrors / 5.0).toFixed(2));
+    avgLatency = parseFloat(avgLatency.toFixed(1));
+
+    // System data
+    var cpu = payload.system ? parseFloat((payload.system.cpu || 0).toFixed(1)) : 0;
+    var memory = payload.system ? parseFloat(((payload.system.memory_working_set || 0) / (1024 * 1024)).toFixed(1)) : 0;
+    var dbConn = payload.system ? (payload.system.db_connections || 0) : 0;
+    var threads = payload.system ? (payload.system.threads || 0) : 0;
+
+    function pushData(chart, label, dataList) {
+        chart.data.labels.push(label);
+        if (chart.data.labels.length > maxChartPoints) {
+            chart.data.labels.shift();
+        }
+        
+        for (var i = 0; i < dataList.length; i++) {
+            chart.data.datasets[i].data.push(dataList[i]);
+            if (chart.data.datasets[i].data.length > maxChartPoints) {
+                chart.data.datasets[i].data.shift();
+            }
+        }
+        chart.update('none');
+    }
+
+    pushData(throughputChart, time, [httpRps, sqlQps, httpErrorsRps, avgLatency]);
+    pushData(systemChart, time, [cpu, memory, dbConn, threads]);
+}
+
+async function loadMetricsHistory() {
+    try {
+        var r = await fetch('/api/telemetry/metrics/history');
+        if (r.ok) {
+            var history = await r.json();
+            if (Array.isArray(history)) {
+                history.forEach(payload => {
+                    if (payload && payload.timestamp) {
+                        addMetricPointToDataOnly(payload);
+                    }
+                });
+                if (throughputChart) throughputChart.update();
+                if (systemChart) systemChart.update();
+            }
+        }
+    } catch(e) {
+        console.warn("Failed to load metrics history:", e);
+    }
+}
+
+function addMetricPointToDataOnly(payload) {
+    if (!throughputChart || !systemChart) return;
+
+    var time = new Date(payload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    // Throughput data
+    var httpRequests = getMetricVal(payload.metrics, 'http.requests', 'value', 0);
+    var sqlQueries = getMetricVal(payload.metrics, 'sql.queries', 'value', 0);
+    var httpErrors = getMetricVal(payload.metrics, 'http.errors', 'value', 0);
+    var avgLatency = getMetricVal(payload.metrics, 'http.latency', 'avg', 0);
+
+    var httpRps = parseFloat((httpRequests / 5.0).toFixed(2));
+    var sqlQps = parseFloat((sqlQueries / 5.0).toFixed(2));
+    var httpErrorsRps = parseFloat((httpErrors / 5.0).toFixed(2));
+    avgLatency = parseFloat(avgLatency.toFixed(1));
+
+    // System data
+    var cpu = payload.system ? parseFloat((payload.system.cpu || 0).toFixed(1)) : 0;
+    var memory = payload.system ? parseFloat(((payload.system.memory_working_set || 0) / (1024 * 1024)).toFixed(1)) : 0;
+    var dbConn = payload.system ? (payload.system.db_connections || 0) : 0;
+    var threads = payload.system ? (payload.system.threads || 0) : 0;
+
+    function pushDataOnly(chart, label, dataList) {
+        chart.data.labels.push(label);
+        if (chart.data.labels.length > maxChartPoints) {
+            chart.data.labels.shift();
+        }
+        for (var i = 0; i < dataList.length; i++) {
+            chart.data.datasets[i].data.push(dataList[i]);
+            if (chart.data.datasets[i].data.length > maxChartPoints) {
+                chart.data.datasets[i].data.shift();
+            }
+        }
+    }
+
+    pushDataOnly(throughputChart, time, [httpRps, sqlQps, httpErrorsRps, avgLatency]);
+    pushDataOnly(systemChart, time, [cpu, memory, dbConn, threads]);
+}
+
+function openInspector(spanStr) {
+    try {
+        var span = JSON.parse(spanStr);
+        console.log("Opening inspector for span:", span);
+
+        var drawer = document.getElementById("inspector-drawer");
+        if (!drawer) return;
+
+        // Reset display sections
+        document.getElementById("drawer-error-section").style.display = "none";
+        document.getElementById("drawer-sql-section").style.display = "none";
+        document.getElementById("drawer-http-section").style.display = "none";
+
+        // Fill overview metadata
+        var duration = "";
+        if (span.duration_ms !== undefined && span.duration_ms !== null) {
+            duration = span.duration_ms === 0 ? "<1ms" : span.duration_ms + "ms";
+        }
+        document.getElementById("drawer-meta-name").textContent = span.msg || "-";
+        document.getElementById("drawer-meta-duration").textContent = duration || "-";
+        
+        var category = "SYS";
+        if (span.data) {
+            if (span.data['db.statement'] || span.data['sql']) {
+                category = "SQL";
+            } else if (span.data['http.url'] || span.data['http.method']) {
+                category = "HTTP";
+            } else if (span.category) {
+                category = span.category;
+            }
+        }
+        
+        var catEl = document.getElementById("drawer-meta-category");
+        catEl.textContent = category;
+        catEl.className = "trace-tag cat-" + category.toLowerCase();
+
+        var statusEl = document.getElementById("drawer-meta-status");
+        if (span.lvl === "Error") {
+            statusEl.textContent = "Failed";
+            statusEl.style.color = "var(--error)";
+            
+            // Show error section
+            document.getElementById("drawer-error-section").style.display = "block";
+            document.getElementById("drawer-error-text").textContent = span.data && span.data.error ? span.data.error : "Unknown error occurred";
+        } else {
+            statusEl.textContent = "Success";
+            statusEl.style.color = "var(--success)";
+        }
+
+        // Category specific details
+        if (category === "SQL") {
+            document.getElementById("drawer-sql-section").style.display = "block";
+            var sqlText = span.data ? (span.data.sql || span.data['db.statement'] || "") : "";
+            document.getElementById("drawer-sql-text").textContent = sqlText;
+            
+            var sqlParams = span.data ? (span.data.params || span.data['db.params'] || span.data['db.param'] || span.data['dh.param'] || "{}") : "{}";
+            // If it's a string representing JSON, try to pretty print it
+            try {
+                if (typeof sqlParams === 'string') {
+                    var parsed = JSON.parse(sqlParams);
+                    document.getElementById("drawer-sql-params").textContent = JSON.stringify(parsed, null, 2);
+                } else {
+                    document.getElementById("drawer-sql-params").textContent = JSON.stringify(sqlParams, null, 2);
+                }
+            } catch(e) {
+                document.getElementById("drawer-sql-params").textContent = sqlParams;
+            }
+
+            // Copy SQL button
+            document.getElementById("drawer-copy-sql").onclick = function(e) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(sqlText);
+                alert("SQL copied to clipboard!");
+            };
+        } else if (category === "HTTP") {
+            document.getElementById("drawer-http-section").style.display = "block";
+            var url = span.data ? (span.data.url || span.data['http.url'] || "") : "";
+            var method = span.data ? (span.data.method || span.data['http.method'] || "GET") : "GET";
+            var statusCode = span.data ? (span.data.statusCode || span.data['http.status_code'] || "-") : "-";
+
+            document.getElementById("drawer-http-url").textContent = url;
+            
+            var methodEl = document.getElementById("drawer-http-method");
+            methodEl.textContent = method;
+            methodEl.className = "trace-tag cat-http";
+
+            var statusHttpEl = document.getElementById("drawer-http-status");
+            statusHttpEl.textContent = statusCode;
+            if (parseInt(statusCode) >= 400) {
+                statusHttpEl.style.borderColor = "var(--error)";
+                statusHttpEl.style.color = "var(--error)";
+            } else {
+                statusHttpEl.style.borderColor = "#2ecc71";
+                statusHttpEl.style.color = "#2ecc71";
+            }
+
+            // Copy as cURL button
+            document.getElementById("drawer-copy-curl").onclick = function(e) {
+                e.stopPropagation();
+                var curl = `curl -X ${method} "${url}"`;
+                navigator.clipboard.writeText(curl);
+                alert("cURL command copied to clipboard!");
+            };
+        }
+
+        // Generic Attributes & Metadata
+        var tagsContainer = document.getElementById("drawer-generic-tags");
+        tagsContainer.innerHTML = "";
+        if (span.data) {
+            Object.keys(span.data).forEach(k => {
+                // Skip sql, params, url, method, statusCode, error since they have custom visual blocks
+                if (['sql', 'db.statement', 'params', 'db.params', 'url', 'http.url', 'method', 'http.method', 'statusCode', 'http.status_code', 'error'].includes(k)) return;
+                
+                var val = span.data[k];
+                if (val === undefined || val === null || val === "") return;
+                
+                var spanTag = document.createElement("span");
+                spanTag.className = "trace-tag";
+                spanTag.innerHTML = `<strong>${k}:</strong> ${val}`;
+                tagsContainer.appendChild(spanTag);
+            });
+        }
+
+        // Open the drawer
+        drawer.classList.add("open");
+    } catch(e) {
+        console.error("Failed to open inspector:", e);
+    }
+}
+
+function closeInspector() {
+    var drawer = document.getElementById("inspector-drawer");
+    if (drawer) {
+        drawer.classList.remove("open");
+    }
+}
+
 

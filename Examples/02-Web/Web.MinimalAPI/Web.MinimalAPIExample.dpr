@@ -23,7 +23,8 @@ uses
   Dext.WebHost,
   Dext.DI.Interfaces,
   Dext.Web.Interfaces,
-  Dext.Web.Results;
+  Dext.Web.Results,
+  Dext.Web;
 
 type
   // Simple service interface for DI demonstration
@@ -70,6 +71,8 @@ begin
     Builder.Configure(
       procedure(App: IApplicationBuilder)
       begin
+        App.UseMiddleware(TRequestLoggingMiddleware);
+
         // GET /hello - Uses DI to resolve service
         App.MapGet('/hello',
           procedure(Context: IHttpContext)

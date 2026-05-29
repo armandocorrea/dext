@@ -76,6 +76,14 @@ type
     procedure OnEvent(const AEvent: TTelemetryEvent);
   end;
 
+  /// <summary>
+  ///   Observer that aggregates telemetry events into system metrics.
+  /// </summary>
+  TMetricsTelemetryObserver = class(TInterfacedObject, ITelemetryObserver)
+  public
+    procedure OnEvent(const AEvent: TTelemetryEvent);
+  end;
+
 
 
   /// <summary>
@@ -112,6 +120,40 @@ type
   end;
 
 implementation
+
+uses
+  Dext.Telemetry.Metrics;
+
+{ TMetricsTelemetryObserver }
+
+procedure TMetricsTelemetryObserver.OnEvent(const AEvent: TTelemetryEvent);
+var
+  StatusCodeStr: string;
+begin
+  if AEvent.Category = 'HTTP' then
+  begin
+    TMetrics.Increment('http.requests');
+    TMetrics.Histogram('http.latency', AEvent.DurationMs);
+    
+    if AEvent.Data <> nil then
+    begin
+      StatusCodeStr := AEvent.Data.GetValue<string>('StatusCode');
+      if StatusCodeStr = '' then
+        StatusCodeStr := AEvent.Data.GetValue<string>('status');
+      
+      if StatusCodeStr.StartsWith('4') or StatusCodeStr.StartsWith('5') then
+        TMetrics.Increment('http.errors');
+    end;
+  end
+  else if AEvent.Category = 'SQL' then
+  begin
+    TMetrics.Increment('sql.queries');
+    TMetrics.Histogram('sql.latency', AEvent.DurationMs);
+    
+    if AEvent.DurationMs > 100 then
+      TMetrics.Increment('sql.slow_queries');
+  end;
+end;
 
 { TDiagnosticSource }
 

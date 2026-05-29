@@ -34,7 +34,9 @@ type
 implementation
 
 uses
+  {$IFDEF MSWINDOWS}
   Winapi.Windows,
+  {$ENDIF}
   System.IOUtils,
   System.Types,
   System.TypInfo,

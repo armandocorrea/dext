@@ -110,6 +110,7 @@ uses
   System.SysUtils,
   Dext.Utils,
   Dext.DI.Core,
+  Dext.Logging.Global,
   Dext.Hosting.BackgroundService,
   Dext.Web.Core,
   Dext.Web.Indy.Server,
@@ -199,6 +200,16 @@ begin
     begin
       // Return the same instance as IAppStateObserver (Singleton)
       Result := Provider.GetService(TServiceType.FromInterface(IAppStateObserver));
+    end
+  );
+  
+  // Register default fallback ILogger (uses global Log.Logger)
+  FServices.AddSingleton(
+    TServiceType.FromInterface(TypeInfo(ILogger)),
+    TClass(nil),
+    function(Provider: IServiceProvider): TObject
+    begin
+      Result := Log.Logger as TObject;
     end
   );
   
