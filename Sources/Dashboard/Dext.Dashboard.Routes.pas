@@ -1,4 +1,4 @@
-unit Dext.Dashboard.Routes;
+﻿unit Dext.Dashboard.Routes;
 
 interface
 
@@ -663,7 +663,7 @@ begin
                 
                 // If it starts with Test or ends with Tests, treat it as a test project
                 var Name := TPath.GetFileNameWithoutExtension(Path);
-                 if ContainsText(Name, 'Test') then
+                 if Name.Contains('Test') then
                 begin
                   TestObj := TDextJson.Provider.CreateObject;
                   TestObj.SetString('name', Name);

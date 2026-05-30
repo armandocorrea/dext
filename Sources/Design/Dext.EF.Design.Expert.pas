@@ -196,6 +196,8 @@ var
   Client: THTTPClient;
   Source: TStringStream;
   Module: IOTAModule;
+  GroupDir: string;
+  PPath: string;
 begin
   if not IsSidecarRunning then Exit;
 
@@ -212,13 +214,20 @@ begin
 
   if Group <> nil then
   begin
+    GroupDir := ExtractFilePath(Group.FileName);
     JArr := TJSONArray.Create;
     try
       for I := 0 to Group.ProjectCount - 1 do
       begin
         Proj := Group.Projects[I];
         if Proj <> nil then
-          JArr.Add(Proj.FileName);
+        begin
+          PPath := Proj.FileName;
+          if not TPath.IsPathRooted(PPath) then
+            PPath := TPath.Combine(GroupDir, PPath);
+          PPath := TPath.GetFullPath(PPath);
+          JArr.Add(PPath);
+        end;
       end;
 
       Client := THTTPClient.Create;

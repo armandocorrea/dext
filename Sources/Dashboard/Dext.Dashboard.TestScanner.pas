@@ -99,7 +99,7 @@ var
   ParsingFile: string;
   Ast: TSyntaxNode;
   
-  // Quick and dirty parser for 'in' clause in .dpr uses
+  // Quick and dirty parser for 'in' clause in .dpr uses and DCCReference/Compile in .dproj XML
   procedure FindUnits(const ADprSource: string);
   var
     Lines: TArray<string>;
@@ -109,7 +109,7 @@ var
     Lines := ADprSource.Split([#13, #10], TStringSplitOptions.ExcludeEmpty);
     for Line in Lines do
     begin
-      // Format: UnitName in 'Path\To\Unit.pas'
+      // Format 1: Delphi DPR uses - UnitName in 'Path\To\Unit.pas'
       if Line.Contains(' in ''') then
       begin
          P1 := Line.IndexOf('''');
@@ -122,6 +122,24 @@ var
              
            if FileExists(UnitPath) then
              UnitFiles.Add(UnitPath);
+         end;
+      end
+      // Format 2: Delphi DPROJ XML - <DCCReference Include="Path\To\Unit.pas"
+      else if Line.Contains('DCCReference Include="') or Line.Contains('Compile Include="') then
+      begin
+         P1 := Line.IndexOf('Include="');
+         if P1 >= 0 then
+         begin
+           P2 := Line.IndexOf('"', P1 + 9);
+           if P2 > P1 then
+           begin
+             UnitPath := Line.Substring(P1 + 9, P2 - P1 - 9);
+             if not TPath.IsPathRooted(UnitPath) then
+               UnitPath := TPath.Combine(BasePath, UnitPath);
+               
+             if FileExists(UnitPath) then
+               UnitFiles.Add(UnitPath);
+           end;
          end;
       end;
     end;
