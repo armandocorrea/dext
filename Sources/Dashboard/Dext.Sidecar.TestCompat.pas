@@ -1,4 +1,4 @@
-unit Dext.Sidecar.TestInsight;
+unit Dext.Sidecar.TestCompat;
 
 interface
 
@@ -17,9 +17,9 @@ uses
 
 type
   /// <summary>
-  ///   TTestInsightCompatServer hosts the REST endpoint compatible with TestInsight client.
+  ///   TTestCompatServer hosts the REST endpoint compatible with TestInsight client.
   /// </summary>
-  TTestInsightCompatServer = class
+  TTestCompatServer = class
   private
     FHost: IWebHost;
     FPort: Integer;
@@ -45,11 +45,13 @@ implementation
 
 uses
   Dext.Dashboard.Routes,
-  Dext.Utils;
+  Dext.Utils,
+  Dext.Json,
+  Dext.Json.Types;
 
-{ TTestInsightCompatServer }
+{ TTestCompatServer }
 
-constructor TTestInsightCompatServer.Create(APort: Integer);
+constructor TTestCompatServer.Create(APort: Integer);
 begin
   inherited Create;
   FPort := APort;
@@ -58,13 +60,13 @@ begin
     FLock := TCriticalSection.Create;
 end;
 
-destructor TTestInsightCompatServer.Destroy;
+destructor TTestCompatServer.Destroy;
 begin
   Stop;
   inherited;
 end;
 
-class procedure TTestInsightCompatServer.SetSelectedTests(const ATests: TArray<string>);
+class procedure TTestCompatServer.SetSelectedTests(const ATests: TArray<string>);
 begin
   FLock.Enter;
   try
@@ -74,7 +76,7 @@ begin
   end;
 end;
 
-class function TTestInsightCompatServer.GetSelectedTests: TArray<string>;
+class function TTestCompatServer.GetSelectedTests: TArray<string>;
 begin
   FLock.Enter;
   try
@@ -84,7 +86,7 @@ begin
   end;
 end;
 
-procedure TTestInsightCompatServer.Start;
+procedure TTestCompatServer.Start;
 begin
   if FRunning then Exit;
   FRunning := True;
@@ -100,6 +102,9 @@ begin
             SR: TStreamReader;
             Body: string;
             Streamer: IEventStreamer;
+            SelTests: TArray<string>;
+            JArr: IDextJsonArray;
+            TestName: string;
           begin
             Path := Ctx.Request.Path;
             Streamer := TDextServices.GetService<IEventStreamer>(Ctx.Services);
@@ -116,9 +121,12 @@ begin
             // 2. GET /tests or /api/tests
             if Path.Contains('/tests') then
             begin
-              // Return selected tests
               Ctx.Response.SetContentType('application/json; charset=utf-8');
-              Ctx.Response.Write('[]');
+              SelTests := GetSelectedTests;
+              JArr := TDextJson.Provider.CreateArray;
+              for TestName in SelTests do
+                JArr.Add(TestName);
+              Ctx.Response.Write(JArr.ToJson);
               Exit;
             end;
 
@@ -167,7 +175,7 @@ begin
   end;
 end;
 
-procedure TTestInsightCompatServer.Stop;
+procedure TTestCompatServer.Stop;
 begin
   if not FRunning then Exit;
   if FHost <> nil then
@@ -182,10 +190,10 @@ begin
 end;
 
 initialization
-  TTestInsightCompatServer.FActiveSessionId := 'Auto-Session';
-  TTestInsightCompatServer.FSelectedTests := [];
+  TTestCompatServer.FActiveSessionId := 'Auto-Session';
+  TTestCompatServer.FSelectedTests := [];
 
 finalization
-  TTestInsightCompatServer.FLock.Free;
+  TTestCompatServer.FLock.Free;
 
 end.

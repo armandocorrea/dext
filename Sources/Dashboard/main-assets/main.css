@@ -1556,4 +1556,127 @@ body {
     background: rgba(255, 183, 77, 0.15);
     color: var(--warn);
     border-color: rgba(255, 183, 77, 0.3);
+}
+
+/* --- Spec S26 Premium Test Explorer Styles --- */
+.test-tree-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--outline-v);
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.test-tree-item:hover {
+    background: var(--surface-h);
+}
+
+.test-tree-item.selected {
+    background: var(--surface-h);
+    border-left: 3px solid var(--primary);
+}
+
+/* Tree Nesting Spacing */
+.test-project-node {
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--surface);
+    padding-left: 12px;
+}
+
+.test-unit-node {
+    font-weight: 600;
+    color: var(--on-surface);
+    padding-left: 24px;
+}
+
+.test-fixture-node {
+    font-weight: 500;
+    color: var(--on-surface-v);
+    padding-left: 36px;
+}
+
+.test-method-node {
+    padding-left: 48px;
+    font-size: 0.9em;
+}
+
+/* Custom Checkbox for Test Selection */
+.test-tree-checkbox {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+/* Assertion Diff Styles */
+.diff-container {
+    display: flex;
+    gap: 12px;
+    height: calc(100vh - 310px);
+}
+
+.diff-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-v);
+    border: 1px solid var(--outline-v);
+    border-radius: 8px;
+    padding: 12px;
+    overflow: hidden;
+}
+
+.diff-side pre {
+    flex: 1;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--on-surface);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Test Tab contents styling */
+.test-tab-content {
+    height: calc(100vh - 280px);
+    overflow-y: auto;
+}
+
+/* Status specific styling for tree nodes */
+.test-status-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.test-status-badge.pass {
+    background: rgba(46, 204, 113, 0.15);
+    color: var(--success);
+}
+
+.test-status-badge.fail {
+    background: rgba(231, 76, 60, 0.15);
+    color: var(--error);
+}
+
+.test-status-badge.run {
+    background: rgba(157, 123, 247, 0.15);
+    color: var(--primary);
+}
+
+.test-status-badge.skip {
+    background: rgba(241, 196, 15, 0.15);
+    color: var(--warn);
 }

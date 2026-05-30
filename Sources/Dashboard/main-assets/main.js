@@ -46,7 +46,8 @@ async function load() {
         envList(cfg.environments || []); act(t("data_loaded"), t("just_now"), t("done"));
 
         applyI18n(); // Initial translation
-        document.getElementById("lang-label").textContent = currentLang.toUpperCase();
+        var langLabel = document.getElementById("lang-label");
+        if (langLabel) langLabel.textContent = currentLang.toUpperCase();
 
         // Restore active project if exists
         var savedPj = localStorage.getItem("activeProject");
@@ -180,6 +181,30 @@ function handleSseEvent(eventName, data) {
 
         trState.open = false;
         updateTestProgress(true);
+        renderTestTree();
+
+    } else if (eventName === "workspace_sync") {
+        try {
+            var res = JSON.parse(data);
+            window.lastWorkspaceScan = res;
+
+            // Render Results
+            renderScanList("scan-dproj", res.projects, "folder");
+            renderScanList("scan-tests", res.tests, "science");
+            renderScanList("scan-http", res.httpFiles, "http");
+            renderScanList("scan-docs", res.docs, "description");
+
+            // Populate Dropdowns
+            populateSelect("header-pj-select", res.projects, "activeProject");
+            // NOTE: tests-pj-select is handled exclusively by updateTestProjectsDropdown
+            populateSelect("http-file-select", res.httpFiles, "activeHttpFile");
+
+            // Clear stale test suite on new workspace sync, then rediscover all projects
+            testSuite = {};
+            updateTestProjectsDropdown(res);
+        } catch(e) {
+            console.error("Error processing workspace sync SSE event:", e);
+        }
     }
 
     // Update Test Tree (New Feature)
@@ -605,184 +630,581 @@ function httpRestoreHistory(idx) {
 }
 
 // ==================== Test Tab Logic ====================
-var testSuite = {};
+window.discoveredTests = {}; // Maps ProjectPath -> ProjectDetails
+window.activeTestSessions = JSON.parse(localStorage.getItem("dext-test-sessions") || "{}");
+var testSuite = {}; // Maps ProjectPath -> { Name, Fixtures -> { Name, Tests -> { Name, Status, Logs, Duration, ErrorMessage } } }
 var currentTestDetail = null;
+var testsActiveGroupBy = "hierarchy";
+var testsSelectedPaths = new Set(); // Stores checked paths: "project|unit|fixture|method"
 
-// Debug logging for parser
+// Hook to automatically populate test projects dropdown when workspace is scanned
+function updateTestProjectsDropdown(scanData) {
+    var select = document.getElementById("tests-pj-select");
+    if (!select) return;
+    
+    // Clear and add placeholder
+    select.innerHTML = '<option value="">Select Test Project...</option>';
+    
+    if (scanData && scanData.tests) {
+        scanData.tests.forEach(function(pj) {
+            var opt = document.createElement("option");
+            opt.value = pj.path;
+            opt.textContent = pj.name;
+            select.appendChild(opt);
+        });
+        
+        // Auto discover all discovered test projects on first scan
+        scanData.tests.forEach(function(pj) {
+            discoverTestProject(pj.path);
+        });
+    }
+}
+
+// Discover tests in a specific project via AST
+async function discoverTestProject(projectPath) {
+    if (!projectPath) return;
+    try {
+        var r = await fetch("/api/tests/discover?project=" + encodeURIComponent(projectPath));
+        if (r.ok) {
+            var data = await r.json();
+            window.discoveredTests[projectPath] = data;
+            
+            // Build/Merge into global testSuite
+            var pjName = data.project || "Unknown Project";
+            testSuite[projectPath] = {
+                name: pjName,
+                path: projectPath,
+                fixtures: {}
+            };
+            
+            if (data.fixtures) {
+                data.fixtures.forEach(function(fix) {
+                    var fName = fix.name;
+                    testSuite[projectPath].fixtures[fName] = {
+                        name: fName,
+                        unit: fix.unit,
+                        line: fix.line,
+                        tests: {}
+                    };
+                    
+                    if (fix.tests) {
+                        fix.tests.forEach(function(t) {
+                            var tName = t.name;
+                            testSuite[projectPath].fixtures[fName].tests[tName] = {
+                                name: tName,
+                                line: t.line,
+                                status: "none",
+                                logs: "",
+                                duration: null,
+                                errorMessage: ""
+                            };
+                        });
+                    }
+                });
+            }
+            
+            renderTestTree();
+            updateSessionSelectorUI();
+        }
+    } catch(e) {
+        console.error("Error discovering test project:", projectPath, e);
+    }
+}
+
 function updateTestState(evt, data) {
-    var fixtureName = "", testName = "", status = "", msg = "";
-
-    // Handle structured events (S23)
-    if (typeof evt === 'string' && data && typeof data === 'object') {
-        if (evt === 'run_start') {
-            testSuite = {}; renderTestTree(); return;
+    if (evt === 'run_start') {
+        // Reset status for all tests in discovered suites
+        for (var p in testSuite) {
+            for (var f in testSuite[p].fixtures) {
+                for (var t in testSuite[p].fixtures[f].tests) {
+                    testSuite[p].fixtures[f].tests[t].status = "none";
+                    testSuite[p].fixtures[f].tests[t].logs = "";
+                    testSuite[p].fixtures[f].tests[t].duration = null;
+                    testSuite[p].fixtures[f].tests[t].errorMessage = "";
+                }
+            }
         }
-        fixtureName = data.fixture || "";
-        testName = data.test || "";
-        msg = data.message || "";
-        if (evt === 'test_start') status = 'running';
-        else if (evt === 'test_complete') {
-            status = data.status ? data.status.toLowerCase() : 'none';
-        }
-    } 
-    // Handle legacy log strings (SignalR fallback)
-    else if (typeof evt === 'string') {
-        var log = evt;
-        if (log.indexOf("Run Started") >= 0) {
-            testSuite = {}; renderTestTree(); return;
-        }
-        if (log.indexOf("Started Test:") >= 0) {
-            var parts = log.split(":")[1].trim().split(".");
-            if (parts.length >= 2) { fixtureName = parts[0]; testName = parts.slice(1).join("."); status = "running"; }
-        } else if (log.indexOf("Passed Test:") >= 0) {
-            var parts = log.split(":")[1].trim().split(" ")[0].split(".");
-            if (parts.length >= 2) { fixtureName = parts[0]; testName = parts.slice(1).join("."); status = "passed"; }
-        } else if (log.indexOf("Failed Test:") >= 0) {
-            var parts = log.split(":")[1].trim().split(" ")[0].split(".");
-            if (parts.length >= 2) { fixtureName = parts[0]; testName = parts.slice(1).join("."); status = "failed"; }
-        } else if (log.indexOf("Skipped Test:") >= 0) {
-            var parts = log.split(":")[1].trim().split(" ")[0].split(".");
-            if (parts.length >= 2) { fixtureName = parts[0]; testName = parts.slice(1).join("."); status = "skipped"; }
-        }
-        msg = log;
+        trState = { total: data.total || data.totalTests || 0, current: 0, passed: 0, failed: 0, open: true };
+        updateTestProgress();
+        renderTestTree();
+        return;
     }
 
-
-    if (fixtureName && testName) {
-        // console.log("Parsed:", fixtureName, testName, status);
-        if (!testSuite[fixtureName]) testSuite[fixtureName] = { status: "none", tests: {} };
-        if (!testSuite[fixtureName].tests[testName]) testSuite[fixtureName].tests[testName] = { status: "none", logs: "" };
-
-        testSuite[fixtureName].tests[testName].status = status;
-        testSuite[fixtureName].tests[testName].logs += (msg || (status + " test")) + "\n";
-
-
-        if (status == "failed") testSuite[fixtureName].status = "failed";
-
+    if (evt === 'run_complete') {
+        trState.open = false;
+        updateTestProgress(true);
         renderTestTree();
+        return;
+    }
 
-        if (currentTestDetail && currentTestDetail.fixture == fixtureName && currentTestDetail.test == testName) {
-            showTestDetail(fixtureName, testName);
+    if (evt === 'test_start') {
+        var fixName = data.fixture || "";
+        var tName = data.test || "";
+        for (var p in testSuite) {
+            if (testSuite[p].fixtures[fixName] && testSuite[p].fixtures[fixName].tests[tName]) {
+                testSuite[p].fixtures[fixName].tests[tName].status = "running";
+                renderTestTree();
+                break;
+            }
         }
-    } else {
-        if (msg.indexOf("Test:") >= 0 && msg.indexOf("Run Completed") < 0) {
-            console.warn("Failed to parse test msg:", msg);
+        return;
+    }
+
+    if (evt === 'test_complete') {
+        var fixName = data.fixture || "";
+        var tName = data.test || "";
+        var status = data.status || "Passed";
+        var dur = data.duration || 0;
+        var err = data.errorMessage || data.exceptionmessage || "";
+        var stack = data.stackTrace || data.status || ""; // TestInsight maps stack to status field
+
+        trState.current++;
+        if (status === "Passed") trState.passed++; else trState.failed++;
+        updateTestProgress();
+
+        for (var p in testSuite) {
+            var pj = testSuite[p];
+            if (pj.fixtures[fixName] && pj.fixtures[fixName].tests[tName]) {
+                var test = pj.fixtures[fixName].tests[tName];
+                test.status = status.toLowerCase();
+                test.duration = dur;
+                test.errorMessage = err;
+                test.logs = (test.logs || "") + (err ? `Error: ${err}\n` : "") + (stack ? `Stack Trace:\n${stack}\n` : "") + `Duration: ${dur}ms\n`;
+                
+                renderTestTree();
+                
+                if (currentTestDetail && currentTestDetail.fixture === fixName && currentTestDetail.test === tName) {
+                    showTestDetail(p, fixName, tName);
+                }
+                break;
+            }
         }
     }
 }
 
+function testsChangeGroupBy(groupBy) {
+    testsActiveGroupBy = groupBy;
+    renderTestTree();
+}
+
 function renderTestTree() {
     var c = document.getElementById("test-tree");
-    if (!c) return; // Tab might not be loaded yet
+    if (!c) return;
 
     var h = "";
-    var fKeys = Object.keys(testSuite).sort();
+    var totalTestsCount = 0;
 
-    if (fKeys.length === 0) return;
+    // Filter query
+    var filterText = (document.getElementById("test-filter")?.value || "").toLowerCase();
 
-    for (var i = 0; i < fKeys.length; i++) {
-        var fName = fKeys[i];
-        var fixture = testSuite[fName];
-        var fStatusClass = fixture.status == "failed" ? "st-fail" : "st-none";
-
-        h += `<div class="test-tree-item test-fixture"><i class="test-status-icon ${fStatusClass}">folder</i>${fName}</div>`;
-
-        var tKeys = Object.keys(fixture.tests).sort();
-        for (var j = 0; j < tKeys.length; j++) {
-            var tName = tKeys[j];
-            var test = fixture.tests[tName];
-            var icon = "radio_button_unchecked";
-            var stClass = "st-none";
-
-            if (test.status == "passed") { icon = "check_circle"; stClass = "st-pass"; }
-            else if (test.status == "failed") { icon = "cancel"; stClass = "st-fail"; }
-            else if (test.status == "skipped") { icon = "remove_circle"; stClass = "st-skip"; }
-            else if (test.status == "running") { icon = "hourglass_empty"; stClass = "st-none"; }
-
-            var selected = (currentTestDetail && currentTestDetail.fixture == fName && currentTestDetail.test == tName) ? "selected" : "";
-
-            h += `<div class="test-tree-item test-method ${selected}" onclick="showTestDetail('${fName}', '${tName}')">
-                    <i class="test-status-icon ${stClass}">${icon}</i>${tName}
-                  </div>`;
+    if (testsActiveGroupBy === "hierarchy") {
+        // Group by: Project > Unit > Fixture > Method
+        for (var p in testSuite) {
+            var pj = testSuite[p];
+            h += `<div class="test-tree-item test-project-node"><span class="ms material-symbols-outlined" style="margin-right:8px;font-size:18px">folder_zip</span>${pj.name}</div>`;
+            
+            for (var f in pj.fixtures) {
+                var fix = pj.fixtures[f];
+                if (filterText && !f.toLowerCase().includes(filterText) && !fix.unit.toLowerCase().includes(filterText)) continue;
+                
+                h += `<div class="test-tree-item test-fixture-node"><span class="ms material-symbols-outlined" style="margin-right:8px;font-size:18px">folder</span>${fix.unit}.${f}</div>`;
+                
+                for (var t in fix.tests) {
+                    var test = fix.tests[t];
+                    if (filterText && !t.toLowerCase().includes(filterText)) continue;
+                    totalTestsCount++;
+                    
+                    var path = `${p}|${fix.unit}|${f}|${t}`;
+                    var checked = testsSelectedPaths.has(path) ? "checked" : "";
+                    
+                    var icon = "radio_button_unchecked";
+                    var stClass = "st-none";
+                    var badge = "";
+                    
+                    if (test.status === "passed") { icon = "check_circle"; stClass = "st-pass"; badge = '<span class="test-status-badge pass">Pass</span>'; }
+                    else if (test.status === "failed") { icon = "cancel"; stClass = "st-fail"; badge = '<span class="test-status-badge fail">Fail</span>'; }
+                    else if (test.status === "skipped") { icon = "remove_circle"; stClass = "st-skip"; badge = '<span class="test-status-badge skip">Skip</span>'; }
+                    else if (test.status === "running") { icon = "hourglass_empty"; stClass = "st-none"; badge = '<span class="test-status-badge run">Running</span>'; }
+                    
+                    var selected = (currentTestDetail && currentTestDetail.fixture === f && currentTestDetail.test === t) ? "selected" : "";
+                    
+                    h += `<div class="test-tree-item test-method-node ${selected}" onclick="handleTestNodeClick(event, '${p}', '${f}', '${t}')">
+                            <input type="checkbox" class="test-tree-checkbox" ${checked} onchange="toggleTestSelection('${path}', this.checked)">
+                            <i class="test-status-icon ${stClass}">${icon}</i>
+                            <span style="flex:1">${t}</span>
+                            ${badge}
+                          </div>`;
+                }
+            }
         }
+    } else if (testsActiveGroupBy === "outcome") {
+        // Group by: Passed, Failed, Skipped, Not Run
+        var groups = { passed: [], failed: [], skipped: [], none: [], running: [] };
+        for (var p in testSuite) {
+            for (var f in testSuite[p].fixtures) {
+                for (var t in testSuite[p].fixtures[f].tests) {
+                    var test = testSuite[p].fixtures[f].tests[t];
+                    test.projPath = p;
+                    test.fixture = f;
+                    groups[test.status].push(test);
+                }
+            }
+        }
+        
+        var renderOutcomeGroup = function(title, list, icon, color) {
+            if (list.length === 0) return "";
+            var res = `<div class="test-tree-item test-project-node" style="color:${color}"><span class="ms material-symbols-outlined" style="margin-right:8px;font-size:18px">${icon}</span>${title} (${list.length})</div>`;
+            list.forEach(function(test) {
+                totalTestsCount++;
+                var path = `${test.projPath}|${testSuite[test.projPath].fixtures[test.fixture].unit}|${test.fixture}|${test.name}`;
+                var checked = testsSelectedPaths.has(path) ? "checked" : "";
+                var selected = (currentTestDetail && currentTestDetail.fixture === test.fixture && currentTestDetail.test === test.name) ? "selected" : "";
+                res += `<div class="test-tree-item test-method-node ${selected}" style="padding-left:24px" onclick="handleTestNodeClick(event, '${test.projPath}', '${test.fixture}', '${test.name}')">
+                            <input type="checkbox" class="test-tree-checkbox" ${checked} onchange="toggleTestSelection('${path}', this.checked)">
+                            <span style="flex:1">${test.fixture}.${test.name}</span>
+                        </div>`;
+            });
+            return res;
+        };
+        
+        h += renderOutcomeGroup("Failed", groups.failed, "cancel", "#e74c3c");
+        h += renderOutcomeGroup("Running", groups.running, "hourglass_empty", "var(--primary)");
+        h += renderOutcomeGroup("Passed", groups.passed, "check_circle", "#2ecc71");
+        h += renderOutcomeGroup("Skipped", groups.skipped, "remove_circle", "#f1c40f");
+        h += renderOutcomeGroup("Not Run", groups.none, "radio_button_unchecked", "var(--on-surface-v)");
+    } else {
+        // Fallback simple view
+        h += `<div style="padding:20px;color:var(--on-surface-v);text-align:center">Grouping mode "${testsActiveGroupBy}" populated in background. Select Hierarchy or Outcome.</div>`;
     }
+
+    if (totalTestsCount === 0 && Object.keys(testSuite).length === 0) {
+        c.innerHTML = `<div style="padding:20px;color:var(--on-surface-v);text-align:center">
+                            <span data-i18n="no_tests">No tests discovered.</span><br>
+                            <span style="font-size:11px">Make sure you have test projects (*.dpr / *.dproj) in your active workspace.</span>
+                        </div>`;
+        return;
+    }
+
     c.innerHTML = h;
 
     // Update Summaries
     var tot = document.getElementById("tests-total");
-    if (tot) tot.textContent = trState.total + " Tests";
+    if (tot) tot.textContent = totalTestsCount + " Tests";
     var pass = document.getElementById("tests-passed");
     if (pass) pass.textContent = trState.passed + " Pass";
     var fail = document.getElementById("tests-failed");
     if (fail) fail.textContent = trState.failed + " Fail";
 }
 
-function showTestDetail(fixtureName, testName) {
-    console.log("showTestDetail clicked:", fixtureName, testName);
-    currentTestDetail = { fixture: fixtureName, test: testName };
+function toggleTestSelection(path, checked) {
+    if (checked) testsSelectedPaths.add(path);
+    else testsSelectedPaths.delete(path);
+}
 
-    var fixtureDocs = testSuite[fixtureName];
-    if (!fixtureDocs) {
-        console.error("Fixture not found in testSuite:", fixtureName, Object.keys(testSuite));
-        return;
+function handleTestNodeClick(event, projPath, fixture, test) {
+    if (event.target.classList.contains("test-tree-checkbox")) return;
+    showTestDetail(projPath, fixture, test);
+}
+
+function testDetailTab(tab) {
+    document.querySelectorAll("#test-detail-tabs .http-tab").forEach(function(t) { t.classList.remove("on"); });
+    document.querySelector(`#test-detail-tabs .http-tab[data-tab="${tab}"]`).classList.add("on");
+    document.querySelectorAll(".test-tab-content").forEach(function(c) { c.style.display = "none"; });
+    document.getElementById(`tab-${tab}`).style.display = "block";
+}
+
+function showTestDetail(projPath, fixtureName, testName) {
+    currentTestDetail = { projPath: projPath, fixture: fixtureName, test: testName };
+    var pj = testSuite[projPath];
+    if (!pj) return;
+    var fix = pj.fixtures[fixtureName];
+    if (!fix) return;
+    var test = fix.tests[testName];
+    if (!test) return;
+
+    document.getElementById("test-detail-tabs").style.display = "flex";
+    document.getElementById("test-detail-title").textContent = `${pj.name} > ${fix.unit}.${fixtureName} > ${testName}`;
+    document.getElementById("test-detail-duration").textContent = test.duration ? test.duration + "ms" : "--";
+    
+    // Core Test Logs
+    document.getElementById("test-detail-logs").textContent = test.logs || "No logs captured during execution.";
+
+    // S26 Assertion Diff Panel
+    var diffTabBtn = document.getElementById("btn-test-diff");
+    if (test.status === "failed" && test.errorMessage) {
+        var msg = test.errorMessage;
+        // Standard Delphi/DUnitX equality parse: "Expected: <banana> actual: <maçã>"
+        var expectedMatch = msg.match(/Expected:\s*<(.*?)>/i);
+        var actualMatch = msg.match(/actual:\s*<(.*?)>/i);
+        
+        // Alternative standard assert format: "expected: 'banana' but was: 'maçã'"
+        if (!expectedMatch) {
+            expectedMatch = msg.match(/expected:\s*'(.*?)'/i);
+            actualMatch = msg.match(/but was:\s*'(.*?)'/i);
+        }
+
+        if (expectedMatch && actualMatch) {
+            diffTabBtn.style.display = "inline-block";
+            document.getElementById("diff-expected").textContent = expectedMatch[1];
+            document.getElementById("diff-actual").textContent = actualMatch[1];
+        } else {
+            // General string fallback if no clear match but failed
+            diffTabBtn.style.display = "inline-block";
+            document.getElementById("diff-expected").textContent = "Trigger Failure Details:\n" + msg;
+            document.getElementById("diff-actual").textContent = "N/A";
+        }
+    } else {
+        diffTabBtn.style.display = "none";
+        testDetailTab("test-logs"); // Fallback to logs
     }
 
-    var t = fixtureDocs.tests[testName];
-    if (!t) {
-        console.error("Test not found in fixture:", testName, Object.keys(fixtureDocs.tests));
-        return;
+    // --- S24 Test-to-Log Link Correlation (The Obsidian Link) ---
+    if (window.logStore && window.logStore.length > 0) {
+        // Filter global logStore for logs generated during this test execution
+        // Since we don't have SpanId matching everywhere yet, we search for logs containing test name or fixture name
+        var filteredLogs = window.logStore.filter(function(log) {
+            var text = (log.message || "").toLowerCase();
+            return text.includes(testName.toLowerCase()) || text.includes(fixtureName.toLowerCase());
+        });
+
+        if (filteredLogs.length > 0) {
+            var logText = "--- TELEMETRY TEST-TO-LOG LINK (CORRELATED LOGS) ---\n";
+            filteredLogs.forEach(function(l) {
+                logText += `[${l.timestamp.split('T')[1].substring(0,8)}] [${l.level}] ${l.message}\n`;
+            });
+            document.getElementById("test-detail-logs").textContent += "\n\n" + logText;
+        }
     }
 
-    document.getElementById("test-detail-title").textContent = fixtureName + "." + testName;
-    document.getElementById("test-detail-logs").textContent = t.logs || "No logs captured.";
+    // --- Delphi Code Coverage Premium Integration ---
+    var covTabBtn = document.getElementById("btn-test-coverage");
+    var unitName = (fix.unit || "").toLowerCase();
+    
+    if (window.coverageUnitsMap && window.coverageUnitsMap[unitName]) {
+        var covInfo = window.coverageUnitsMap[unitName];
+        covTabBtn.style.display = "inline-block";
+        
+        // Update stats header inside coverage panel
+        document.getElementById("coverage-percentage-label").textContent = covInfo.percent.toFixed(1) + "%";
+        document.getElementById("coverage-percentage-fill").style.width = covInfo.percent + "%";
+        
+        // Fetch original unit file via the workspace or direct /api/fs/read
+        // We look for a file named "UnitName.pas" in activeWorkspace or projects assets
+        var possiblePasPath = "";
+        if (activeWorkspace) {
+            possiblePasPath = activeWorkspace + "\\" + fix.unit + ".pas";
+        }
+
+        // Set loader/status first
+        var codePre = document.getElementById("coverage-source-code");
+        codePre.innerHTML = "Loading source file for highlighting...";
+        
+        // Fetch source content asynchronously
+        var loadSource = async function() {
+            try {
+                // If possiblePasPath isn't perfect, we can also search for files, or let the user choose, but /api/fs/read with workspace fallback works great
+                var r = await fetch("/api/fs/read?path=" + encodeURIComponent(possiblePasPath));
+                if (!r.ok && activeWorkspace) {
+                    // Try recursive or absolute search in workspace if simple path fails
+                    // Dext usually scans directories. We can look up in lastWorkspaceScan if needed, but simple read is standard first step
+                }
+                
+                if (r.ok) {
+                    var srcText = await r.text();
+                    var lines = srcText.split(/\r?\n/);
+                    var outputHtml = "";
+                    
+                    // Create lines map for quick O(1) lookup
+                    var linesMap = {};
+                    covInfo.lines.forEach(function(l) {
+                        linesMap[l.number] = l.covered;
+                    });
+                    
+                    for (var lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                        var lineNum = lineIdx + 1;
+                        var rawText = lines[lineIdx];
+                        // Simple escaping to prevent HTML breaking code display
+                        var escText = rawText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        
+                        var lineStyle = "";
+                        var badgeHtml = "";
+                        if (linesMap[lineNum] !== undefined) {
+                            var isCovered = linesMap[lineNum];
+                            lineStyle = isCovered ? "background-color: rgba(46, 204, 113, 0.15); border-left: 3px solid #2ecc71;" : "background-color: rgba(231, 76, 60, 0.15); border-left: 3px solid #e74c3c;";
+                            badgeHtml = `<span style="font-size: 8px; font-weight: bold; margin-left: 8px; opacity: 0.7; color: ${isCovered ? '#2ecc71' : '#e74c3c'};">${isCovered ? 'COVERED' : 'UNCOVERED'}</span>`;
+                        }
+                        
+                        outputHtml += `<div style="display: flex; align-items: center; min-height: 20px; padding: 1px 6px; ${lineStyle}">` +
+                                      `<span style="width: 45px; text-align: right; margin-right: 15px; color: var(--on-surface-v); user-select: none; font-size: 11px;">${lineNum}</span>` +
+                                      `<pre style="margin: 0; font-family: monospace; font-size: 12px; white-space: pre;">${escText}</pre>` +
+                                      badgeHtml +
+                                      `</div>`;
+                    }
+                    codePre.innerHTML = outputHtml;
+                } else {
+                    codePre.innerHTML = `<span style="color: var(--error)">Could not locate unit source file at:<br>${possiblePasPath}</span>`;
+                }
+            } catch(ex) {
+                codePre.innerHTML = `<span style="color: var(--error)">Failed to load unit source: ${ex.message}</span>`;
+            }
+        };
+        loadSource();
+    } else {
+        covTabBtn.style.display = "none";
+    }
+
     renderTestTree();
 }
 
+
 async function testsRunAll() {
-    // Auto-select first test project if none selected
-    if (!window.currentTestProjectPath) {
-        var scan = window.lastWorkspaceScan || {};
-        if (scan.tests && scan.tests.length > 0) {
-            var first = scan.tests[0];
-            var p = (typeof first === 'string') ? "" : (first.path || "");
-            if (p) {
-                await discoverTestProject(p);
+    var projectsToRun = Object.keys(testSuite);
+    if (projectsToRun.length === 0) {
+        alert("No test projects discovered. Please select a workspace with tests first.");
+        return;
+    }
+    
+    // Clear selections and select all
+    testsSelectedPaths.clear();
+    for (var p in testSuite) {
+        for (var f in testSuite[p].fixtures) {
+            for (var t in testSuite[p].fixtures[f].tests) {
+                testsSelectedPaths.add(`${p}|${testSuite[p].fixtures[f].unit}|${f}|${t}`);
             }
         }
     }
 
-    if (!window.currentTestProjectPath) {
-        alert("No project selected. Please go to Projects tab and click on a test project.");
+    testsRunSelected();
+}
+
+async function testsRunSelected(runCoverage) {
+    if (testsSelectedPaths.size === 0) {
+        alert("Please select at whom to run tests using checkboxes first.");
         return;
     }
 
-    // Show running state
-    var tree = document.getElementById("test-tree");
-    tree.innerHTML = '<div style="padding:20px"><span class="loader"></span> Running Tests...<br><span style="font-size:12px;color:var(--secondary)">This may take a moment.</span></div>';
+    var projects = new Set();
+    var tests = [];
+    
+    testsSelectedPaths.forEach(function(path) {
+        var parts = path.split("|"); // projPath|unit|fixture|test
+        projects.add(parts[0]);
+        tests.push(`${parts[1]}.${parts[2]}.${parts[3]}`); // Format: Unit.Fixture.Method
+    });
 
-    var projectPath = window.currentTestProjectPath;
-    // Ensure dropdown is in sync
-    var sel = document.getElementById("tests-pj-select");
-    if (sel && projectPath) sel.value = projectPath;
+    var tree = document.getElementById("test-tree");
+    var modeText = runCoverage ? "with Cobertura" : "in Parallel Workers";
+    tree.innerHTML = `<div style="padding:20px"><span class="loader"></span> Executing Selected Tests ${modeText}...<br><span style="font-size:11px;color:var(--on-surface-v)">Check Live Logs or SSE Stream below for real-time trace outputs.</span></div>`;
 
     try {
         var r = await fetch("/api/tests/run", {
             method: "POST",
-            body: JSON.stringify({ project: window.currentTestProjectPath })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                projects: Array.from(projects),
+                tests: tests,
+                coverage: !!runCoverage
+            })
         });
 
-        if (r.ok) {
-            var results = await r.json();
-            // Re-render tree with results
-            if (window.lastDiscoveryData) {
-                renderTestDiscovery(window.lastDiscoveryData, results);
-            }
+        if (!r.ok) {
+            tree.innerHTML = `<div style="padding:20px;color:var(--error)">Execution failed: ${await r.text()}</div>`;
         } else {
-            tree.innerHTML = '<div style="padding:20px;color:var(--error)">Run Failed: ' + (await r.text()) + '</div>';
+            var runResult = await r.json();
+            // Surface any per-project errors (e.g. executable not found)
+            var errors = [];
+            if (runResult.results) {
+                runResult.results.forEach(function(res) {
+                    if (res.error) errors.push(res.error);
+                });
+            }
+            if (errors.length > 0) {
+                tree.innerHTML = `<div style="padding:20px;color:var(--error)"><b>Runner errors:</b><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul><span style="font-size:11px;color:var(--on-surface-v)">Make sure you built the test project(s) before running.</span></div>`;
+            } else if (runCoverage) {
+                // Fetch coverage detail shortly after run completes
+                setTimeout(fetchAndRenderCoverageDetails, 3000);
+            }
+            // On success the test results will arrive via SSE events (run_start / test_complete / run_complete)
         }
-    } catch (e) {
-        tree.innerHTML = '<div style="padding:20px;color:var(--error)">Error: ' + e.message + '</div>';
+    } catch(e) {
+        tree.innerHTML = `<div style="padding:20px;color:var(--error)">Execution error: ${e.message}</div>`;
     }
+}
+
+async function fetchAndRenderCoverageDetails() {
+    try {
+        var r = await fetch("/api/tests/coverage-detail");
+        if (r.ok) {
+            var data = await r.json();
+            if (data.available && data.xml) {
+                window.coverageXmlData = data.xml;
+                // Parse XML manually using DOMParser
+                var parser = new DOMParser();
+                var xmlDoc = parser.parseFromString(data.xml, "text/xml");
+                var units = xmlDoc.getElementsByTagName("sourcefile");
+                
+                window.coverageUnitsMap = {};
+                for (var i = 0; i < units.length; i++) {
+                    var unit = units[i];
+                    var name = unit.getAttribute("name") || "";
+                    var pct = parseFloat(unit.getAttribute("percent") || "0");
+                    
+                    var linesList = [];
+                    var lines = unit.getElementsByTagName("line");
+                    for (var j = 0; j < lines.length; j++) {
+                        var line = lines[j];
+                        linesList.push({
+                            number: parseInt(line.getAttribute("number")),
+                            covered: line.getAttribute("covered") === "true"
+                        });
+                    }
+                    window.coverageUnitsMap[name.toLowerCase()] = { percent: pct, lines: linesList };
+                }
+                
+                console.log("Premium Coverage data parsed successfully!", window.coverageUnitsMap);
+            }
+        }
+    } catch(e) {
+        console.error("Error fetching detailed coverage summary:", e);
+    }
+}
+
+// User-defined custom test sessions
+function testsSaveSession() {
+    var name = prompt("Enter a name for this custom Test Session:");
+    if (!name) return;
+    
+    window.activeTestSessions[name] = Array.from(testsSelectedPaths);
+    localStorage.setItem("dext-test-sessions", JSON.stringify(window.activeTestSessions));
+    updateSessionSelectorUI();
+    alert(`Test Session "${name}" saved successfully!`);
+}
+
+function testsLoadSession(name) {
+    if (!name || !window.activeTestSessions[name]) return;
+    
+    testsSelectedPaths = new Set(window.activeTestSessions[name]);
+    renderTestTree();
+}
+
+function updateSessionSelectorUI() {
+    var select = document.getElementById("tests-session-select");
+    if (!select) return;
+    
+    var keys = Object.keys(window.activeTestSessions);
+    if (keys.length === 0) {
+        select.style.display = "none";
+        return;
+    }
+    
+    select.style.display = "inline-block";
+    select.innerHTML = '<option value="">-- Custom Sessions --</option>';
+    keys.forEach(function(k) {
+        var opt = document.createElement("option");
+        opt.value = k;
+        opt.textContent = k;
+        select.appendChild(opt);
+    });
 }
 
 function testsRunFailed() {
@@ -955,8 +1377,12 @@ async function refreshWorkspace() {
 
         // Populate Dropdowns
         populateSelect("header-pj-select", res.projects, "activeProject");
-        populateSelect("tests-pj-select", res.tests, "activeTestProject");
+        // NOTE: tests-pj-select is handled exclusively by updateTestProjectsDropdown
         populateSelect("http-file-select", res.httpFiles, "activeHttpFile");
+
+        // Clear stale test suite before rediscovery, then populate test dropdown & discover all
+        testSuite = {};
+        updateTestProjectsDropdown(res);
 
     } catch (e) {
         ids.forEach(id => document.getElementById(id).innerHTML = '<span class="st-fail">Error scanning</span>');
@@ -1066,93 +1492,7 @@ function renderScanList(elId, items, icon) {
     el.innerHTML = h;
 }
 
-async function discoverTestProject(path) {
-    console.log("Discovering tests for:", path);
-    if (!path) return;
-
-    window.currentTestProjectPath = path;
-
-    // Switch to Tests tab
-    var tab = document.querySelector(".nav-item[onclick*='Tests']");
-    if (tab) tab.click();
-
-    document.getElementById("test-tree").innerHTML = '<div style="padding:20px"><span class="loader"></span> Loading test metrics...</div>';
-
-    try {
-        var r = await fetch("/api/tests/discover?project=" + encodeURIComponent(path));
-        if (r.ok) {
-            window.lastDiscoveryData = await r.json();
-            renderTestDiscovery(window.lastDiscoveryData);
-        } else {
-            document.getElementById("test-tree").innerHTML = '<div style="padding:20px;color:var(--error)">Failed to load tests: ' + (await r.text()) + '</div>';
-        }
-    } catch (e) {
-        document.getElementById("test-tree").innerHTML = '<div style="padding:20px;color:var(--error)">Error: ' + e.message + '</div>';
-    }
-}
-
-function renderTestDiscovery(data, results) {
-    var h = `<div style="padding:10px;font-weight:bold;border-bottom:1px solid var(--outline-v);display:flex;justify-content:space-between;align-items:center">
-                <div style="overflow:hidden;text-overflow:ellipsis">
-                    <span>${data.project}</span><br>
-                    <span style="font-size:10px;color:var(--on-surface-v)">${data.path}</span>
-                </div>
-                <button class="btn btn-sm" onclick="testsRunAll()">Run All</button>
-             </div>`;
-
-    if (!data.fixtures || data.fixtures.length == 0) {
-        h += '<div style="padding:20px">No [TestFixture] found in this project.</div>';
-    } else {
-        data.fixtures.forEach(f => {
-            // Ensure fixture exists in testSuite to avoid crash on click
-            if (!testSuite[f.name]) testSuite[f.name] = { status: "none", tests: {} };
-
-            h += `<div class="test-tree-item" style="font-weight:600;background:var(--surface-h)">
-                    <span class="material-symbols-outlined" style="font-size:16px;margin-right:5px;color:var(--secondary)">folder</span>${f.name}
-                  </div>`;
-            f.tests.forEach(t => {
-                // Ensure test exists in testSuite
-                if (!testSuite[f.name].tests[t.name]) testSuite[f.name].tests[t.name] = { status: "none", logs: "" };
-
-                var statusIcon = "science";
-                var statusColor = "var(--on-surface-v)";
-                var title = "";
-
-                // Map results if available
-                if (results) {
-                    // Find result for this test
-                    // Simplified matching by name for now
-                    var res = findTestResult(results, f.name, t.name);
-                    if (res) {
-                        if (res.status == "Passed") { statusIcon = "check_circle"; statusColor = "var(--success)"; }
-                        else if (res.status == "Failed") { statusIcon = "cancel"; statusColor = "var(--error)"; title = res.message; }
-                        else { statusIcon = "help"; statusColor = "var(--warning)"; }
-                    }
-                }
-
-                h += `<div class="test-tree-item" style="padding-left:35px;font-size:13px;cursor:pointer" onclick="showTestDetail('${f.name}', '${t.name}')" title="${title}">
-                        <span class="material-symbols-outlined" style="font-size:14px;margin-right:5px;color:${statusColor}">${statusIcon}</span>${t.name}
-                      </div>`;
-            });
-        });
-    }
-
-    document.getElementById("test-tree").innerHTML = h;
-
-    // Update summary if results provided
-    if (results) {
-        // ... simple stats update can go here or in testsRunAll
-    }
-}
-
-function findTestResult(results, fixtureName, testName) {
-    if (!results || !results.results) return null;
-    for (var i = 0; i < results.results.length; i++) {
-        var r = results.results[i];
-        if (r.fixture == fixtureName && r.test == testName) return r;
-    }
-    return null;
-}
+// Legacy test functions replaced by S26 Premium Explorer Logic in Test Tab Logic
 
 // ==================== Distributed Tracing (S24) ====================
 var traceStore = {}; // trace_id -> { spans: [], root: null }
