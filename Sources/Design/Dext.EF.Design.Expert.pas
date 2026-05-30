@@ -114,7 +114,7 @@ begin
       // Timeout quickly
       Client.ConnectionTimeout := 500;
       Client.ResponseTimeout := 500;
-      Resp := Client.Get('http://localhost:8080/health');
+      Resp := Client.Get('http://localhost:3030/health');
       Result := (Resp <> nil) and (Resp.StatusCode = 200);
     except
       // Silent fail (not running)
@@ -161,7 +161,7 @@ begin
   Client := THTTPClient.Create;
   try
     try
-      Client.Post('http://localhost:8080/api/telemetry/flush', TStream(nil));
+      Client.Post('http://localhost:3030/api/telemetry/flush', TStream(nil));
     except
     end;
   finally
@@ -183,69 +183,67 @@ class procedure TDextSidecarSupervisor.OpenDashboard;
 begin
   if not IsSidecarRunning then
     StartSidecar;
-  ShellExecute(0, 'open', 'http://localhost:8080', nil, nil, SW_SHOWNORMAL);
+  ShellExecute(0, 'open', 'http://localhost:3030', nil, nil, SW_SHOWNORMAL);
 end;
 
 class procedure TDextSidecarSupervisor.SyncActiveProjects;
-var
-  ModuleServices: IOTAModuleServices;
-  Group: IOTAProjectGroup;
-  I: Integer;
-  Proj: IOTAProject;
-  JArr: TJSONArray;
-  Client: THTTPClient;
-  Source: TStringStream;
-  Module: IOTAModule;
-  GroupDir: string;
-  PPath: string;
 begin
-  if not IsSidecarRunning then Exit;
+  TThread.CreateAnonymousThread(procedure
+    var
+      ModuleServices: IOTAModuleServices;
+      Group: IOTAProjectGroup;
+      I: Integer;
+      Proj: IOTAProject;
+      JArr: TJSONArray;
+      Client: THTTPClient;
+      Source: TStringStream;
+      GroupDir: string;
+      PPath: string;
+    begin
+      if not IsSidecarRunning then Exit;
 
-  ModuleServices := BorlandIDEServices as IOTAModuleServices;
-  if ModuleServices = nil then Exit;
+      ModuleServices := BorlandIDEServices as IOTAModuleServices;
+      if ModuleServices = nil then Exit;
 
-  Group := nil;
-  for I := 0 to ModuleServices.ModuleCount - 1 do
-  begin
-    Module := ModuleServices.Modules[I];
-    if (Module <> nil) and Supports(Module, IOTAProjectGroup, Group) then
-      Break;
-  end;
-
-  if Group <> nil then
-  begin
-    GroupDir := ExtractFilePath(Group.FileName);
-    JArr := TJSONArray.Create;
-    try
-      for I := 0 to Group.ProjectCount - 1 do
+      Group := ModuleServices.MainProjectGroup;
+      if Group <> nil then
       begin
-        Proj := Group.Projects[I];
-        if Proj <> nil then
-        begin
-          PPath := Proj.FileName;
-          if not TPath.IsPathRooted(PPath) then
-            PPath := TPath.Combine(GroupDir, PPath);
-          PPath := TPath.GetFullPath(PPath);
-          JArr.Add(PPath);
-        end;
-      end;
-
-      Client := THTTPClient.Create;
-      try
-        Client.ContentType := 'application/json';
-        Source := TStringStream.Create(JArr.ToJSON, TEncoding.UTF8);
+        GroupDir := ExtractFilePath(Group.FileName);
+        JArr := TJSONArray.Create;
         try
-          Client.Post('http://localhost:8080/api/ide/projects', Source, nil);
+          for I := 0 to Group.ProjectCount - 1 do
+          begin
+            Proj := Group.Projects[I];
+            if Proj <> nil then
+            begin
+              PPath := Proj.FileName;
+              if not TPath.IsPathRooted(PPath) then
+                PPath := TPath.Combine(GroupDir, PPath);
+              PPath := TPath.GetFullPath(PPath);
+              JArr.Add(PPath);
+            end;
+          end;
+
+          Client := THTTPClient.Create;
+          Source := nil;
+          try
+            Client.ContentType := 'application/json';
+            Source := TStringStream.Create(JArr.ToJSON, TEncoding.UTF8);
+            try
+              Client.Post('http://localhost:3030/api/ide/projects', Source, nil);
+            except
+              // Silent fail for background offline/timeouts
+            end;
+          finally
+            if Source <> nil then
+              Source.Free;
+            Client.Free;
+          end;
         finally
-          Source.Free;
+          JArr.Free;
         end;
-      finally
-        Client.Free;
       end;
-    finally
-      JArr.Free;
-    end;
-  end;
+    end).Start;
 end;
 
 class procedure TDextSidecarSupervisor.OnMenuClick(Sender: TObject);

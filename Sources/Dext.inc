@@ -123,6 +123,6 @@
 
 // Define TESTINSIGHT to enable TestInsight IDE integration.
 // Note: Requires TestInsight.Client.pas to be in the Delphi Library Path.
-{.$DEFINE DEXT_TESTINSIGHT}
+{$DEFINE DEXT_TESTINSIGHT}
 
 {$ENDIF}
