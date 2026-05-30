@@ -1,5 +1,7 @@
 unit Dext.EF.Design.Expert;
 
+{$I Dext.inc}
+
 interface
 
 uses
@@ -47,9 +49,12 @@ uses
   Vcl.Forms,
   Vcl.Dialogs;
 
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
 var
   FNotifierIndex: Integer = -1;
+{$ENDIF}
 
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
 type
   TDextSidecarSupervisor = class
   private
@@ -57,6 +62,7 @@ type
     class var FMainMenu: TMenuItem;
     class function FindDextExe: string;
   public
+    class procedure LogToIDE(const AMessage: string);
     class function IsSidecarRunning: Boolean;
     class procedure StartSidecar;
     class procedure StopSidecar;
@@ -67,8 +73,20 @@ type
     class procedure RemoveMenus;
     class procedure OnMenuClick(Sender: TObject);
   end;
+{$ENDIF DEXT_ENABLE_SIDECAR_EXPERT}
 
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
 { TDextSidecarSupervisor }
+
+class procedure TDextSidecarSupervisor.LogToIDE(const AMessage: string);
+var
+  MsgServices: IOTAMessageServices;
+begin
+  if Assigned(BorlandIDEServices) and Supports(BorlandIDEServices, IOTAMessageServices, MsgServices) then
+  begin
+    MsgServices.AddTitleMessage('[Dext] ' + AMessage);
+  end;
+end;
 
 class function TDextSidecarSupervisor.FindDextExe: string;
 var
@@ -131,9 +149,16 @@ var
   PI: TProcessInformation;
   CmdLine: string;
 begin
-  if IsSidecarRunning then Exit;
+  LogToIDE('Checking if Sidecar is already running...');
+  if IsSidecarRunning then
+  begin
+    LogToIDE('Sidecar is already running. Syncing active projects.');
+    SyncActiveProjects;
+    Exit;
+  end;
 
   DextExe := FindDextExe;
+  LogToIDE('Attempting to launch Sidecar process at ' + DextExe);
   FillChar(SI, SizeOf(SI), 0);
   SI.cb := SizeOf(SI);
   SI.dwFlags := STARTF_USESHOWWINDOW;
@@ -146,18 +171,23 @@ begin
   begin
     CloseHandle(PI.hProcess);
     CloseHandle(PI.hThread);
+    LogToIDE('Sidecar process launched successfully in background. Sleeping 500ms to boot...');
     // Give it a moment to boot
     TThread.Sleep(500);
     SyncActiveProjects;
   end
   else
+  begin
+    LogToIDE('Failed to execute Dext Sidecar process at ' + DextExe);
     MessageDlg('Failed to execute Dext Sidecar process at ' + DextExe, mtError, [mbOK], 0);
+  end;
 end;
 
 class procedure TDextSidecarSupervisor.StopSidecar;
 var
   Client: THTTPClient;
 begin
+  LogToIDE('Stopping Sidecar supervisor...');
   Client := THTTPClient.Create;
   try
     try
@@ -169,8 +199,10 @@ begin
   end;
 
   // Kill process
+  LogToIDE('Sending taskkill to terminate dext.exe processes...');
   ShellExecute(0, 'open', 'taskkill', '/f /im dext.exe', nil, SW_HIDE);
   TThread.Sleep(200);
+  LogToIDE('Sidecar stopped.');
 end;
 
 class procedure TDextSidecarSupervisor.RestartSidecar;
@@ -188,6 +220,7 @@ end;
 
 class procedure TDextSidecarSupervisor.SyncActiveProjects;
 begin
+  LogToIDE('Starting active projects synchronization in background thread...');
   TThread.CreateAnonymousThread(procedure
     var
       ModuleServices: IOTAModuleServices;
@@ -200,7 +233,11 @@ begin
       GroupDir: string;
       PPath: string;
     begin
-      if not IsSidecarRunning then Exit;
+      if not IsSidecarRunning then
+      begin
+        LogToIDE('Cannot sync projects: Sidecar is not running.');
+        Exit;
+      end;
 
       ModuleServices := BorlandIDEServices as IOTAModuleServices;
       if ModuleServices = nil then Exit;
@@ -209,6 +246,7 @@ begin
       if Group <> nil then
       begin
         GroupDir := ExtractFilePath(Group.FileName);
+        LogToIDE('Syncing Project Group: ' + Group.FileName);
         JArr := TJSONArray.Create;
         try
           for I := 0 to Group.ProjectCount - 1 do
@@ -220,10 +258,12 @@ begin
               if not TPath.IsPathRooted(PPath) then
                 PPath := TPath.Combine(GroupDir, PPath);
               PPath := TPath.GetFullPath(PPath);
+              LogToIDE('  Sync Project Path: ' + PPath);
               JArr.Add(PPath);
             end;
           end;
 
+          LogToIDE(Format('Sending %d projects to Sidecar at http://localhost:3030/api/ide/projects...', [Group.ProjectCount]));
           Client := THTTPClient.Create;
           Source := nil;
           try
@@ -231,8 +271,10 @@ begin
             Source := TStringStream.Create(JArr.ToJSON, TEncoding.UTF8);
             try
               Client.Post('http://localhost:3030/api/ide/projects', Source, nil);
+              LogToIDE('Projects successfully synchronized with Sidecar!');
             except
-              // Silent fail for background offline/timeouts
+              on E: Exception do
+                LogToIDE('Failed to sync projects: ' + E.Message);
             end;
           finally
             if Source <> nil then
@@ -242,7 +284,9 @@ begin
         finally
           JArr.Free;
         end;
-      end;
+      end
+      else
+        LogToIDE('No active main project group found in IDE.');
     end).Start;
 end;
 
@@ -342,18 +386,25 @@ begin
   FMenuAdded := False;
 end;
 
+{$ENDIF DEXT_ENABLE_SIDECAR_EXPERT}
+
 procedure RegisterExpert;
 begin
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
   if FNotifierIndex = -1 then
     FNotifierIndex := (BorlandIDEServices as IOTAServices).AddNotifier(TDextIDENotifier.Create);
+{$ENDIF}
   RegisterDocExpert;
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
   TDextSidecarSupervisor.SetupMenus;
+  TDextSidecarSupervisor.LogToIDE('Dext Design Time Expert Loaded.');
   // Try to start Sidecar on IDE launch
   TThread.CreateAnonymousThread(procedure
     begin
       TThread.Sleep(1000);
       TDextSidecarSupervisor.StartSidecar;
     end).Start;
+{$ENDIF}
 end;
 
 { TDextModuleNotifier }
@@ -449,18 +500,24 @@ begin
   begin
     // Add module notifier if needed
   end;
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
   if NotifyCode = ofnActiveProjectChanged then
   begin
     TDextSidecarSupervisor.SyncActiveProjects;
   end;
+{$ENDIF}
 end;
 
 initialization
 
 finalization
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
   if FNotifierIndex <> -1 then
     (BorlandIDEServices as IOTAServices).RemoveNotifier(FNotifierIndex);
+{$ENDIF}
   UnregisterDocExpert;
+{$IFDEF DEXT_ENABLE_SIDECAR_EXPERT}
   TDextSidecarSupervisor.RemoveMenus;
+{$ENDIF}
 
 end.
