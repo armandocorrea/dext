@@ -359,30 +359,37 @@ Content-Type: application/json
         <div id="page-tests" class="page">
             <div class="http-toolbar">
                 <button class="btn btn-primary" onclick="testsRunAll()"><span
-                        class="ms material-symbols-outlined">play_arrow</span><span data-i18n="run_all">Run
-                        All</span></button>
+                        class="ms material-symbols-outlined">playlist_play</span><span data-i18n="run_all">Run All</span></button>
+                <button class="btn btn-primary" style="margin-left:6px" onclick="testsRunSelected()"><span
+                        class="ms material-symbols-outlined">play_arrow</span><span data-i18n="run_selected">Run Selected</span></button>
+                <button class="btn btn-primary" style="margin-left:6px; background:#8e44ad" onclick="testsRunSelected(true)"><span
+                        class="ms material-symbols-outlined">verified</span><span data-i18n="run_coverage">Run with Coverage</span></button>
                 <div class="http-sep"></div>
                 <button class="btn btn-t" onclick="testsRunFailed()"><span
-                        class="ms material-symbols-outlined">replay</span><span data-i18n="rerun_failed">Rerun
-                        Failed</span></button>
+                        class="ms material-symbols-outlined">replay</span><span data-i18n="rerun_failed">Rerun Failed</span></button>
                 <div class="http-sep"></div>
-                <select id="tests-pj-select" class="hd-select" onchange="discoverTestProject(this.value)">
-                    <option value="" data-i18n="select_test_project">Select Test Project...</option>
+                <select id="tests-group-by" class="hd-select" onchange="testsChangeGroupBy(this.value)">
+                    <option value="hierarchy" data-i18n="group_hierarchy">Group by: Hierarchy</option>
+                    <option value="outcome" data-i18n="group_outcome">Group by: Outcome</option>
+                    <option value="duration" data-i18n="group_duration">Group by: Duration</option>
+                    <option value="category" data-i18n="group_category">Group by: Category</option>
                 </select>
                 <div class="http-sep"></div>
-                <div
-                    style="flex:1;display:flex;align-items:center;background:var(--surface-v);border-radius:4px;padding:0 8px;border:1px solid var(--outline-v)">
-                    <span class="ms material-symbols-outlined"
-                        style="font-size:18px;color:var(--on-surface-v)">filter_list</span>
-                    <input type="text" id="test-filter" data-i18n="filter_tests"
-                        placeholder="Filter fixtures or tests..."
+                <button class="btn btn-t" onclick="testsSaveSession()"><span class="ms material-symbols-outlined">save</span><span data-i18n="save_session">Save Session</span></button>
+                <select id="tests-session-select" class="hd-select" onchange="testsLoadSession(this.value)" style="display:none">
+                    <option value="">-- Active Sessions --</option>
+                </select>
+                <div class="http-sep"></div>
+                <div style="flex:1;display:flex;align-items:center;background:var(--surface-v);border-radius:4px;padding:0 8px;border:1px solid var(--outline-v)">
+                    <span class="ms material-symbols-outlined" style="font-size:18px;color:var(--on-surface-v)">filter_list</span>
+                    <input type="text" id="test-filter" data-i18n="filter_tests" placeholder="Filter fixtures or tests..."
                         style="background:transparent;border:none;color:var(--on-surface);padding:8px;width:100%;outline:none;"
                         oninput="testsFilter()">
                 </div>
             </div>
             <div class="http-layout">
                 <!-- Test Tree Panel -->
-                <div class="http-editor-panel">
+                <div class="http-editor-panel" style="flex: 1.2;">
                     <div class="http-editor-header">
                         <span class="http-editor-title" data-i18n="test_suite">Test Suite</span>
                         <div class="http-requests-chips">
@@ -391,26 +398,61 @@ Content-Type: application/json
                             <span class="ch" style="background:#e74c3c20;color:#e74c3c" id="tests-failed">0 Fail</span>
                         </div>
                     </div>
-                    <div id="test-tree" class="test-tree">
+                    <div id="test-tree" class="test-tree" style="overflow-y: auto; max-height: calc(100vh - 220px);">
                         <div style="padding:20px;color:var(--on-surface-v);text-align:center">
-                            <span data-i18n="no_tests">No tests discovered.</span><br><span data-i18n="click_run">Click
-                                "Run All" to start.</span>
+                            <span data-i18n="no_tests">No tests discovered.</span><br><span data-i18n="click_run">Click "Run All" to start.</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Test Details Panel -->
-                <div class="http-response-panel">
+                <!-- Test Details & Analytics Panel -->
+                <div class="http-response-panel" style="flex: 1.5;">
                     <div class="http-response-header">
-                        <span class="http-response-title" id="test-detail-title" data-i18n="select_test">Select a
-                            test</span>
+                        <span class="http-response-title" id="test-detail-title" data-i18n="select_test">Select a test</span>
                         <div class="http-response-meta">
                             <span class="http-time" id="test-detail-duration"></span>
                         </div>
                     </div>
+                    <div class="http-response-tabs" id="test-detail-tabs" style="display:none">
+                        <button class="http-tab on" data-tab="test-logs" onclick="testDetailTab('test-logs')" data-i18n="logs_traces">Logs & Traces</button>
+                        <button class="http-tab" data-tab="test-diff" id="btn-test-diff" onclick="testDetailTab('test-diff')" style="display:none" data-i18n="assertion_diff">Assertion Diff</button>
+                        <button class="http-tab" data-tab="test-coverage" id="btn-test-coverage" onclick="testDetailTab('test-coverage')" style="display:none" data-i18n="code_coverage">Code Coverage</button>
+                    </div>
                     <div class="http-response-content">
-                        <pre id="test-detail-logs" class="http-body" data-i18n="select_test_detail"
-                            style="white-space:pre-wrap;font-family:monospace;padding:10px;color:var(--on-surface-v)">Select a test to view execution details.</pre>
+                        <!-- Tab: Logs & Traces -->
+                        <div id="tab-test-logs" class="test-tab-content">
+                            <pre id="test-detail-logs" class="http-body" data-i18n="select_test_detail"
+                                style="white-space:pre-wrap;font-family:monospace;padding:10px;color:var(--on-surface-v)">Select a test to view execution details.</pre>
+                        </div>
+                        <!-- Tab: Assertion Diff Viewer -->
+                        <div id="tab-test-diff" class="test-tab-content" style="display:none; padding:12px;">
+                            <div class="diff-viewer-header" style="margin-bottom:8px;font-size:11px;color:var(--on-surface-v)">
+                                Visually comparing EXPECTED vs ACTUAL values:
+                            </div>
+                            <div class="diff-container" style="display:flex; gap:12px; height: 100%;">
+                                <div class="diff-side" style="flex:1; background:var(--surface-v); padding:8px; border-radius:4px; border:1px solid var(--outline-v);">
+                                    <div style="font-size:10px; font-weight:600; text-transform:uppercase; color:#e74c3c; margin-bottom:4px">Expected</div>
+                                    <pre id="diff-expected" style="margin:0; font-family:monospace; white-space:pre-wrap; font-size:12px; color:var(--on-surface)"></pre>
+                                </div>
+                                <div class="diff-side" style="flex:1; background:var(--surface-v); padding:8px; border-radius:4px; border:1px solid var(--outline-v);">
+                                    <div style="font-size:10px; font-weight:600; text-transform:uppercase; color:#2ecc71; margin-bottom:4px">Actual</div>
+                                    <pre id="diff-actual" style="margin:0; font-family:monospace; white-space:pre-wrap; font-size:12px; color:var(--on-surface)"></pre>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Tab: Code Coverage Source View -->
+                        <div id="tab-test-coverage" class="test-tab-content" style="display:none; padding:12px; max-height: calc(100vh - 260px); overflow-y: auto;">
+                            <div class="coverage-bar-container" style="margin-bottom:12px; padding:10px; background:var(--surface-v); border-radius:4px; border:1px solid var(--outline-v);">
+                                <div style="display:flex; justify-content:space-between; font-weight:600; margin-bottom:4px">
+                                    <span>Unit Coverage:</span>
+                                    <span id="coverage-percentage-label">84%</span>
+                                </div>
+                                <div style="height:8px; background:var(--outline-v); border-radius:4px; overflow:hidden;">
+                                    <div id="coverage-percentage-fill" style="height:100%; width:84%; background:#2ecc71;"></div>
+                                </div>
+                            </div>
+                            <pre id="coverage-source-code" style="margin:0; font-family:monospace; font-size:12px; color:var(--on-surface); line-height:1.5; white-space:pre-wrap;"></pre>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -565,7 +607,7 @@ Content-Type: application/json
 
           this._source.addEventListener('connected', e => console.log('[DextSSE] connected:', e.data));
           
-          ["run_start", "test_start", "test_complete", "run_complete", "log", "span", "metrics"].forEach(evt => {
+          ["run_start", "test_start", "test_complete", "run_complete", "log", "span", "metrics", "workspace_sync"].forEach(evt => {
              this._source.addEventListener(evt, e => this._onEvent(evt, e.data));
           });
 

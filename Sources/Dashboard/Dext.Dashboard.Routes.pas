@@ -83,7 +83,8 @@ implementation
 uses
   Dext.Web.Indy, // Access to TDextIndyHttpContext
   IdContext,     // Access to TIdContext
-  IdGlobal;      // Access to ToBytes/IndyTextEncoding_UTF8
+  IdGlobal,      // Access to ToBytes/IndyTextEncoding_UTF8
+  Dext.Sidecar.TestCompat;
 
 var
   FSSEClients: IList<IHttpContext>;
@@ -291,6 +292,31 @@ begin
        Res := Results.Ok('{"available": false}');
        Res.Execute(Ctx);
     end);
+
+  // API: Detailed Code Coverage XML/HTML Lines Parser
+  App.MapGet('/api/tests/coverage-detail',
+    procedure(Ctx: IHttpContext)
+    var
+      ReportDir, SummaryFile: string;
+      XMLContent: string;
+      JObj: IDextJsonObject;
+    begin
+       ReportDir := TPath.GetFullPath('TestOutput\report');
+       SummaryFile := TPath.Combine(ReportDir, 'CodeCoverage_Summary.xml');
+       
+       if FileExists(SummaryFile) then
+       begin
+          XMLContent := TFile.ReadAllText(SummaryFile, TEncoding.UTF8);
+          // Return raw summary to allow javascript parser to extract lines and units
+          JObj := TDextJson.Provider.CreateObject;
+          JObj.SetString('available', 'true');
+          JObj.SetString('xml', XMLContent);
+          Results.Json(JObj.ToJson).Execute(Ctx);
+          Exit;
+       end;
+       
+       Results.Ok('{"available": false}').Execute(Ctx);
+    end);
     
   // API: HTTP Client - History
   App.MapGet('/api/http/history',
@@ -497,10 +523,9 @@ begin
               Files := TDirectory.GetFiles(ScanPath, '*.http', TSearchOption.soAllDirectories);
               for F in Files do HttpFiles.Add(TPath.GetFileName(F));
               
-              // Scan for Test Projects (.dpr) instead of units (.pas)
-              // Convention: Starts with "Test" or ends with "Tests"
-              TestFiles := TDirectory.GetFiles(ScanPath, 'Test*.dpr', TSearchOption.soAllDirectories);
-              TestFiles := TestFiles + TDirectory.GetFiles(ScanPath, '*Tests.dpr', TSearchOption.soAllDirectories);
+              // Scan for Test Projects (.dproj or .dpr) containing "test" case-insensitive
+              TestFiles := TDirectory.GetFiles(ScanPath, '*test*.dproj', TSearchOption.soAllDirectories);
+              TestFiles := TestFiles + TDirectory.GetFiles(ScanPath, '*test*.dpr', TSearchOption.soAllDirectories);
               
               for F in TestFiles do 
               begin
@@ -593,11 +618,176 @@ begin
          finally
             ProjectInfo.Free;
          end;
-       except
-         on E: Exception do Results.StatusCode(500, E.Message).Execute(Ctx);
-       end;
+        except
+          on E: Exception do Results.StatusCode(500, E.Message).Execute(Ctx);
+        end;
+     end);
+
+  // API: Sync Projects from IDE Expert
+  App.MapPost('/api/ide/projects',
+    procedure(Ctx: IHttpContext)
+    var
+      SR: TStreamReader;
+      Body: string;
+      Node: IDextJsonNode;
+      JArr: IDextJsonArray;
+      I: Integer;
+      Path: string;
+      ProjObj, TestsObj: IDextJsonArray;
+      TestObj: IDextJsonObject;
+      ResJson: IDextJsonObject;
+    begin
+      SR := TStreamReader.Create(Ctx.Request.Body);
+      try
+        Body := SR.ReadToEnd;
+        if Body.IsEmpty then
+        begin
+          Results.BadRequest('Payload required').Execute(Ctx);
+          Exit;
+        end;
+
+        try
+          Node := TDextJson.Provider.Parse(Body);
+          if (Node <> nil) and (Node.GetNodeType = jntArray) then
+          begin
+            JArr := Node as IDextJsonArray;
+            ProjObj := TDextJson.Provider.CreateArray;
+            TestsObj := TDextJson.Provider.CreateArray;
+
+            for I := 0 to JArr.GetCount - 1 do
+            begin
+              Path := JArr.GetString(I);
+              if FileExists(Path) then
+              begin
+                ProjObj.Add(TPath.GetFileNameWithoutExtension(Path));
+                
+                // If it starts with Test or ends with Tests, treat it as a test project
+                var Name := TPath.GetFileNameWithoutExtension(Path);
+                 if ContainsText(Name, 'Test') then
+                begin
+                  TestObj := TDextJson.Provider.CreateObject;
+                  TestObj.SetString('name', Name);
+                  TestObj.SetString('path', Path);
+                  TestsObj.Add(TestObj);
+                end;
+              end;
+            end;
+
+            ResJson := TDextJson.Provider.CreateObject;
+            ResJson.SetArray('projects', ProjObj);
+            ResJson.SetArray('tests', TestsObj);
+            ResJson.SetArray('httpFiles', TDextJson.Provider.CreateArray);
+            ResJson.SetArray('docs', TDextJson.Provider.CreateArray);
+
+            // Broadcast workspace update via SSE so Dashboard refreshes instantly!
+            TDashboardRoutes.BroadcastSSE('workspace_sync', ResJson.ToJson);
+
+            Results.Ok('{"status":"synced"}').Execute(Ctx);
+          end
+          else
+            Results.BadRequest('Expected JSON Array').Execute(Ctx);
+        except
+          on E: Exception do Results.BadRequest(E.Message).Execute(Ctx);
+        end;
+      finally
+        SR.Free;
+      end;
     end);
-    
+
+  // API: Run Tests in Projects (Multi-Project)
+  App.MapPost('/api/tests/run',
+    procedure(Ctx: IHttpContext)
+    var
+      SR: TStreamReader;
+      Body: string;
+      Node: IDextJsonNode;
+      Json, ResJson: IDextJsonObject;
+      ProjArr, TestsArr: IDextJsonArray;
+      I: Integer;
+      ProjectPath: string;
+      SelectedTests: TArray<string>;
+      SelectedTestsList: TStringList;
+      RunnerResult: IDextJsonObject;
+      CombinedResult: IDextJsonArray;
+      SuccessCount, FailCount: Integer;
+    begin
+      SR := TStreamReader.Create(Ctx.Request.Body);
+      try
+        Body := SR.ReadToEnd;
+        if Body.IsEmpty then
+        begin
+          Results.BadRequest('Payload required').Execute(Ctx);
+          Exit;
+        end;
+
+        try
+          Node := TDextJson.Provider.Parse(Body);
+          if (Node <> nil) and (Node.GetNodeType = jntObject) then
+          begin
+            Json := Node as IDextJsonObject;
+            
+            // 1. Gather selected tests
+            SelectedTestsList := TStringList.Create;
+            try
+              if Json.Contains('tests') then
+              begin
+                TestsArr := Json.GetArray('tests');
+                for I := 0 to TestsArr.GetCount - 1 do
+                  SelectedTestsList.Add(TestsArr.GetString(I));
+              end;
+              SelectedTests := SelectedTestsList.ToStringArray;
+            finally
+              SelectedTestsList.Free;
+            end;
+            
+            // Set global active selection for TestInsight server compatibility
+            TTestCompatServer.SetSelectedTests(SelectedTests);
+            
+            CombinedResult := TDextJson.Provider.CreateArray;
+            SuccessCount := 0;
+            FailCount := 0;
+            
+            var UseCoverage := False;
+            if Json.Contains('coverage') then
+              UseCoverage := Json.GetBoolean('coverage');
+
+            // 2. Iterate and execute projects
+            if Json.Contains('projects') then
+            begin
+              ProjArr := Json.GetArray('projects');
+              for I := 0 to ProjArr.GetCount - 1 do
+              begin
+                ProjectPath := ProjArr.GetString(I);
+                if FileExists(ProjectPath) then
+                begin
+                  // Trigger run via TTestRunner with coverage parameter
+                  RunnerResult := TTestRunner.RunProject(ProjectPath, UseCoverage);
+                  CombinedResult.Add(RunnerResult);
+                  if RunnerResult.Contains('error') then
+                    Inc(FailCount)
+                  else
+                    Inc(SuccessCount);
+                end;
+              end;
+            end;
+            
+            ResJson := TDextJson.Provider.CreateObject;
+            ResJson.SetArray('results', CombinedResult);
+            ResJson.SetInteger('successCount', SuccessCount);
+            ResJson.SetInteger('failCount', FailCount);
+            
+            Results.Json(ResJson.ToJson).Execute(Ctx);
+          end
+          else
+            Results.BadRequest('Invalid JSON object').Execute(Ctx);
+        except
+          on E: Exception do Results.BadRequest('Invalid JSON: ' + E.Message).Execute(Ctx);
+        end;
+      finally
+        SR.Free;
+      end;
+    end);
+     
   // API: Get Config
   App.MapGet('/api/config',
     procedure(Ctx: IHttpContext)

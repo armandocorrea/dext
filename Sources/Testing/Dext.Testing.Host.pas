@@ -84,7 +84,6 @@ end;
 class procedure TTestHost.Execute(const Config: TTestConfigurator);
 var
   CommandLine: string;
-  i: Integer;
   Index: Integer;
   LogFile: string;
   LogStrings: TStringList;
